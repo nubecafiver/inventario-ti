@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>InventarioTech — APP CAFIVER</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -327,6 +328,39 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
 .alerta-fuera{position:fixed;top:70px;right:20px;background:#ea4335;color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:300;box-shadow:0 4px 16px rgba(234,67,53,.4);display:flex;align-items:center;gap:8px;animation:slideIn .3s ease;}
 @keyframes slideIn{from{transform:translateX(120%);}to{transform:translateX(0);}}
 
+
+/* ESCÁNER QR */
+#scanner-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:600;display:none;flex-direction:column;align-items:center;justify-content:center;}
+#scanner-overlay.open{display:flex;}
+.scanner-box{position:relative;width:280px;height:280px;border-radius:16px;overflow:hidden;box-shadow:0 0 0 4px #1a73e8,0 0 0 6px rgba(26,115,232,.3);}
+#scanner-video{width:100%;height:100%;object-fit:cover;}
+#scanner-canvas{display:none;}
+.scanner-corners{position:absolute;inset:0;pointer-events:none;}
+.scanner-line{position:absolute;left:10px;right:10px;height:2px;background:linear-gradient(90deg,transparent,#1a73e8,transparent);animation:scanLine 2s linear infinite;}
+@keyframes scanLine{0%{top:10px;}100%{top:calc(100% - 12px);}}
+.scanner-guide{position:absolute;inset:0;}
+.scanner-guide::before,.scanner-guide::after{content:'';position:absolute;width:24px;height:24px;border-color:#fff;border-style:solid;}
+.scanner-guide::before{top:8px;left:8px;border-width:3px 0 0 3px;border-radius:4px 0 0 0;}
+.scanner-guide::after{top:8px;right:8px;border-width:3px 3px 0 0;border-radius:0 4px 0 0;}
+.scanner-guide-b::before,.scanner-guide-b::after{content:'';position:absolute;width:24px;height:24px;border-color:#fff;border-style:solid;}
+.scanner-guide-b::before{bottom:8px;left:8px;border-width:0 0 3px 3px;border-radius:0 0 0 4px;}
+.scanner-guide-b::after{bottom:8px;right:8px;border-width:0 3px 3px 0;border-radius:0 0 4px 0;}
+.scanner-info{color:#fff;text-align:center;margin-top:20px;}
+.scanner-info h3{font-size:16px;font-weight:700;margin-bottom:6px;}
+.scanner-info p{font-size:13px;color:rgba(255,255,255,.7);line-height:1.5;}
+.scanner-status{margin-top:12px;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(255,255,255,.15);color:#fff;min-width:200px;text-align:center;}
+.scanner-status.detecting{background:rgba(26,115,232,.4);color:#fff;}
+.scanner-status.success{background:rgba(52,168,83,.5);color:#fff;}
+.scanner-status.error{background:rgba(234,67,53,.4);color:#fff;}
+.scanner-close{margin-top:20px;padding:10px 28px;border-radius:10px;border:2px solid rgba(255,255,255,.4);background:transparent;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s;}
+.scanner-close:hover{background:rgba(255,255,255,.15);}
+.scan-success-popup{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:700;display:flex;align-items:center;justify-content:center;}
+.scan-success-card{background:#fff;border-radius:20px;padding:24px;width:320px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.3);}
+.scan-success-icon{font-size:48px;margin-bottom:12px;}
+.scan-success-card h3{font-size:18px;font-weight:700;margin-bottom:6px;}
+.scan-success-card p{font-size:13px;color:#9aa0a6;line-height:1.5;margin-bottom:16px;}
+.scan-geo-status{padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;margin-bottom:12px;}
+
 </style>
 </head>
 <body>
@@ -382,6 +416,7 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
         <span id="cur-nm"></span>
         <span style="font-size:10px;color:#9aa0a6;">🔐</span>
       </div>
+      <button class="btn btn-sm" onclick="openScanner()" style="background:#1c1e21;color:#fff;border-color:#1c1e21;" title="Escanear QR">📷 Escanear</button>
       <button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Equipo</button>
       <button class="btn btn-sm" onclick="exportCSV()">⬇ CSV</button>
       <button class="btn btn-sm" onclick="doLogout()">Salir</button>
@@ -1586,6 +1621,192 @@ function setUbicacionBase(equipoId){
   );
 }
 
+
+// ═══════════════════════════════════
+// ESCÁNER QR CON CÁMARA
+// ═══════════════════════════════════
+var scannerStream = null;
+var scannerInterval = null;
+var scannerActive = false;
+var lastScannedId = null;
+
+function openScanner(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    toast('❌ Tu navegador no soporta acceso a la cámara');
+    return;
+  }
+  document.getElementById('scanner-overlay').classList.add('open');
+  setStatus('Iniciando cámara...','detecting');
+  scannerActive = true;
+
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:'environment', width:{ideal:1280}, height:{ideal:720}}
+  })
+  .then(function(stream){
+    scannerStream = stream;
+    var video = document.getElementById('scanner-video');
+    video.srcObject = stream;
+    video.play();
+    video.onloadedmetadata = function(){
+      setStatus('Apunta al código QR del equipo','detecting');
+      startScanLoop();
+    };
+  })
+  .catch(function(err){
+    setStatus('❌ No se pudo acceder a la cámara','error');
+    console.error('Camera error:', err);
+  });
+}
+
+function closeScanner(){
+  scannerActive = false;
+  if(scannerInterval){ clearInterval(scannerInterval); scannerInterval=null; }
+  if(scannerStream){
+    scannerStream.getTracks().forEach(function(t){t.stop();});
+    scannerStream = null;
+  }
+  document.getElementById('scanner-overlay').classList.remove('open');
+}
+
+function setStatus(msg, cls){
+  var el = document.getElementById('scanner-status');
+  if(!el) return;
+  el.textContent = msg;
+  el.className = 'scanner-status ' + (cls||'');
+}
+
+function startScanLoop(){
+  var video = document.getElementById('scanner-video');
+  var canvas = document.getElementById('scanner-canvas');
+  var ctx = canvas.getContext('2d');
+
+  scannerInterval = setInterval(function(){
+    if(!scannerActive) return;
+    if(video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    try {
+      var code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert'
+      });
+
+      if(code){
+        var data = code.data;
+        // Extraer ID del equipo del QR (puede ser URL o ID directo)
+        var eqId = null;
+        if(data.includes('#EQ')){
+          eqId = data.split('#')[1].trim();
+        } else if(data.startsWith('EQ')){
+          eqId = data.trim();
+        }
+
+        if(eqId && eqId !== lastScannedId){
+          lastScannedId = eqId;
+          setStatus('✅ QR detectado: '+eqId,'success');
+          // Vibrar si el dispositivo lo soporta
+          if(navigator.vibrate) navigator.vibrate([100,50,100]);
+          setTimeout(function(){
+            procesarEscaneo(eqId);
+          }, 300);
+        }
+      }
+    } catch(e){ /* ignorar errores de jsQR */ }
+  }, 200); // escanear 5 veces por segundo
+}
+
+function procesarEscaneo(eqId){
+  closeScanner();
+  lastScannedId = null;
+
+  var equipo = equipos.find(function(e){return e.id===eqId;});
+  if(!equipo){
+    toast('❌ Equipo '+eqId+' no encontrado en el inventario');
+    return;
+  }
+
+  // Mostrar popup de éxito
+  document.getElementById('scan-success-title').textContent = equipo.nombre||equipo.modelo;
+  document.getElementById('scan-success-desc').textContent = equipo.id+' · '+equipo.marca+' '+equipo.modelo+' | '+equipo.plaza+' · '+equipo.area;
+  document.getElementById('scan-ver-btn').onclick = function(){
+    closeScanSuccess();
+    openPanel(eqId);
+  };
+  document.getElementById('scan-success-popup').classList.remove('hidden');
+
+  // Registrar geolocalización automáticamente
+  var geoEl = document.getElementById('scan-geo-status');
+  geoEl.style.display='block';
+  geoEl.textContent='📍 Registrando ubicación...';
+  geoEl.style.background='#e8f0fe';
+  geoEl.style.color='#1a73e8';
+
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      function(pos){
+        var lat = pos.coords.latitude;
+        var lng = pos.coords.longitude;
+        var acc = Math.round(pos.coords.accuracy);
+
+        var fueraLugar = false;
+        if(equipo.geo_lat && equipo.geo_lng){
+          var dist = calcDistancia(lat, lng, parseFloat(equipo.geo_lat), parseFloat(equipo.geo_lng));
+          fueraLugar = dist > 0.5;
+        }
+
+        var scan = {
+          id:'SC'+Date.now().toString(36).toUpperCase(),
+          equipo_id:eqId,
+          equipo_nombre:(equipo.nombre||equipo.modelo)+' ('+equipo.plaza+')',
+          lat:lat, lng:lng, accuracy:acc,
+          maps_url:'https://maps.google.com/?q='+lat+','+lng,
+          fuera_lugar:fueraLugar,
+          usuario:curUser?curUser.name:'Anónimo',
+          usuario_email:curUser?curUser.email:'',
+          ts:nowStr(),
+          fecha:new Date().toISOString().slice(0,10)
+        };
+
+        db.collection('escaneos').doc(scan.id).set(scan);
+
+        if(!equipo.geo_lat){
+          equipo.geo_lat=String(lat); equipo.geo_lng=String(lng);
+          fbSave(equipo);
+        }
+
+        if(fueraLugar){
+          geoEl.textContent='🚨 Equipo fuera de su ubicación registrada';
+          geoEl.style.background='#fce8e6';
+          geoEl.style.color='#c62828';
+          mostrarAlertaFuera(equipo, lat, lng);
+        } else {
+          geoEl.textContent='✅ Ubicación registrada correctamente (±'+acc+'m)';
+          geoEl.style.background='#e6f4ea';
+          geoEl.style.color='#2e7d32';
+        }
+      },
+      function(err){
+        geoEl.textContent='⚠️ No se pudo obtener ubicación GPS';
+        geoEl.style.background='#fff8e1';
+        geoEl.style.color='#f57f17';
+      },
+      {enableHighAccuracy:true, timeout:10000, maximumAge:0}
+    );
+  } else {
+    geoEl.textContent='⚠️ Geolocalización no disponible';
+    geoEl.style.background='#fff8e1';
+    geoEl.style.color='#f57f17';
+  }
+}
+
+function closeScanSuccess(){
+  document.getElementById('scan-success-popup').classList.add('hidden');
+  lastScannedId = null;
+}
+
 // EXPORT CSV
 function exportCSV(){
   var h=['ID','Área','Plaza','Tipo','Marca','Modelo','Nombre','Responsable','Puesto','Depto','Ubicación','Usuario','Serie','Procesador','RAM','HDD Marca','HDD Serie','SSD Marca','SSD Serie','IP','MAC Eth','MAC WiFi','SO','Licencia Win','AF','Fecha Compra','Garantía','Proveedor','Precio','Factura','Estado','Observaciones'];
@@ -1640,5 +1861,39 @@ auth.onAuthStateChanged(function(user){
   }
 });
 </script>
+
+<!-- ESCÁNER QR -->
+<div id="scanner-overlay">
+  <div class="scanner-box">
+    <video id="scanner-video" playsinline autoplay muted></video>
+    <canvas id="scanner-canvas"></canvas>
+    <div class="scanner-corners">
+      <div class="scanner-line"></div>
+      <div class="scanner-guide"></div>
+      <div class="scanner-guide-b"></div>
+    </div>
+  </div>
+  <div class="scanner-info">
+    <h3>📷 Escanear equipo</h3>
+    <p>Apunta la cámara al código QR<br>pegado en el equipo</p>
+  </div>
+  <div class="scanner-status" id="scanner-status">Iniciando cámara...</div>
+  <button class="scanner-close" onclick="closeScanner()">✕ Cancelar</button>
+</div>
+
+<!-- POPUP ÉXITO ESCANEO -->
+<div class="scan-success-popup hidden" id="scan-success-popup">
+  <div class="scan-success-card">
+    <div class="scan-success-icon">✅</div>
+    <h3 id="scan-success-title">Equipo identificado</h3>
+    <p id="scan-success-desc"></p>
+    <div class="scan-geo-status" id="scan-geo-status" style="display:none;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" style="flex:1;justify-content:center;" onclick="closeScanSuccess()">Cerrar</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center;" id="scan-ver-btn">Ver detalle</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
