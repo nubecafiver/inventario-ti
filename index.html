@@ -304,6 +304,29 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
   @page{size:letter;margin:1cm;}
 }
 
+
+/* GEOLOCALIZACIÓN */
+.geo-scan-card{background:#fff;border-radius:14px;padding:20px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.1);max-width:400px;margin:0 auto;}
+.geo-scan-card h2{font-size:18px;font-weight:700;margin-bottom:8px;}
+.geo-scan-card p{font-size:13px;color:#9aa0a6;margin-bottom:16px;line-height:1.6;}
+.geo-btn{width:100%;padding:14px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s;}
+.geo-btn.primary{background:linear-gradient(135deg,#1a73e8,#0d47a1);color:#fff;box-shadow:0 4px 12px rgba(26,115,232,.4);}
+.geo-btn.primary:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(26,115,232,.5);}
+.geo-status{padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;margin-top:12px;}
+.geo-status.ok{background:#e6f4ea;color:#2e7d32;}
+.geo-status.warn{background:#fff8e1;color:#f57f17;}
+.geo-status.err{background:#fce8e6;color:#c62828;}
+.scan-item{border:1px solid #e8eaed;border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:12px;}
+.scan-item .scan-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;}
+.scan-item .scan-user{font-weight:700;color:#1c1e21;}
+.scan-item .scan-ts{font-size:11px;color:#9aa0a6;}
+.scan-item .scan-loc{color:#5f6368;margin-top:2px;}
+.scan-item .scan-alert{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;margin-top:4px;}
+.scan-item .scan-alert.ok{background:#e6f4ea;color:#2e7d32;}
+.scan-item .scan-alert.warn{background:#fce8e6;color:#c62828;}
+.alerta-fuera{position:fixed;top:70px;right:20px;background:#ea4335;color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:300;box-shadow:0 4px 16px rgba(234,67,53,.4);display:flex;align-items:center;gap:8px;animation:slideIn .3s ease;}
+@keyframes slideIn{from{transform:translateX(120%);}to{transform:translateX(0);}}
+
 </style>
 </head>
 <body>
@@ -705,6 +728,7 @@ function loadAppData(){
     reparaciones=s.docs.map(function(d){return d.data();});
     if(curView==='reparaciones')renderReparaciones();
   });
+  loadEscaneos();
   switchView('dashboard');checkQRHash();
 }
 function fbSave(e){
@@ -985,7 +1009,46 @@ function dpTab(tab){
         :'<div style="font-size:12px;color:#9aa0a6;padding:8px 0;">Sin reparaciones registradas.</div>'
       );
   } else if(tab==='historial'){
-    body.innerHTML='<div style="font-size:12px;color:#9aa0a6;padding:20px 0;text-align:center;">Historial de cambios próximamente.</div>';
+    var scans = escaneos.filter(function(s){return s.equipo_id===openEquipoId;})
+      .sort(function(a,b){return a.ts>b.ts?-1:1;});
+    var tieneBase = e.geo_lat && e.geo_lng;
+    body.innerHTML=
+      '<div class="dp-sec-t">Ubicación base del equipo</div>'
+      +'<div style="background:#f7f9ff;border-radius:10px;padding:12px 14px;margin-bottom:12px;">'
+      +(tieneBase?
+        '<div style="display:flex;justify-content:space-between;align-items:center;">'
+        +'<div>'
+        +'<div style="font-size:12px;font-weight:600;">📍 Ubicación registrada</div>'
+        +'<div style="font-size:11px;color:#9aa0a6;margin-top:2px;">'+parseFloat(e.geo_lat).toFixed(6)+', '+parseFloat(e.geo_lng).toFixed(6)+'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:6px;">'
+        +'<a href="https://maps.google.com/?q='+e.geo_lat+','+e.geo_lng+'" target="_blank" class="btn btn-sm btn-blue">🗺 Ver mapa</a>'
+        +'<button class="btn btn-sm" onclick="setUbicacionBase(this.dataset.eid)" data-eid="'+openEquipoId+'"">🔄 Actualizar</button>'
+        +'</div></div>'
+        :'<div style="font-size:12px;color:#9aa0a6;margin-bottom:8px;">Sin ubicación base registrada.</div>'
+        +'<button class="btn btn-blue btn-sm" onclick="setUbicacionBase(this.dataset.eid)" data-eid="'+openEquipoId+'"">📍 Establecer ubicación base</button>'
+      )
+      +'</div>'
+      +'<div class="dp-sec-t">Registrar escaneo ahora</div>'
+      +'<button class="btn btn-blue" style="width:100%;justify-content:center;margin-bottom:14px;" onclick="registrarEscaneo(this.dataset.eid)" data-eid="'+openEquipoId+'"">📱 Registrar mi ubicación actual</button>'
+      +'<div class="dp-sec-t">Historial de escaneos ('+scans.length+')</div>'
+      +(scans.length?
+        scans.map(function(s){
+          return '<div class="scan-item">'
+            +'<div class="scan-hd">'
+            +'<span class="scan-user">👤 '+s.usuario+'</span>'
+            +'<span class="scan-ts">'+s.ts+'</span>'
+            +'</div>'
+            +'<div class="scan-loc">📍 '+s.lat.toFixed(5)+', '+s.lng.toFixed(5)
+            +' <span style="color:#c8cad0;">(±'+s.accuracy+'m)</span>'
+            +' &nbsp;<a href="'+s.maps_url+'" target="_blank" style="color:#1a73e8;font-size:11px;">Ver en Maps</a></div>'
+            +'<span class="scan-alert '+(s.fuera_lugar?'warn':'ok')+'">'
+            +(s.fuera_lugar?'🚨 Fuera de ubicación':'✅ En ubicación correcta')
+            +'</span>'
+            +'</div>';
+        }).join('')
+        :'<div style="font-size:12px;color:#9aa0a6;padding:8px 0;">Sin escaneos registrados aún.</div>'
+      );
   } else if(tab==='asignaciones'){
     var movs=transferencias.filter(function(t){return t.equipo_id===openEquipoId;}).sort(function(a,b){return a.fecha>b.fecha?-1:1;});
     var anios=calcAnios(e.fecha);
@@ -1399,6 +1462,130 @@ function printTodasEtiquetas(){
   },500);
 }
 
+
+// ═══════════════════════════════════
+// GEOLOCALIZACIÓN
+// ═══════════════════════════════════
+var escaneos = [];
+
+// Cargar escaneos en loadAppData
+function loadEscaneos(){
+  db.collection('escaneos').onSnapshot(function(s){
+    escaneos = s.docs.map(function(d){return d.data();});
+    if(openEquipoId) dpTab(dpCurTab);
+  }, function(err){ console.warn('escaneos:', err.message); });
+}
+
+// Registrar escaneo con geolocalización
+function registrarEscaneo(equipoId){
+  var e = equipos.find(function(x){return x.id===equipoId;});
+  if(!e) return;
+
+  if(!navigator.geolocation){
+    toast('⚠️ Tu navegador no soporta geolocalización');
+    return;
+  }
+
+  toast('📍 Obteniendo ubicación...');
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      var lat = pos.coords.latitude;
+      var lng = pos.coords.longitude;
+      var acc = Math.round(pos.coords.accuracy);
+
+      // Calcular si está fuera de la ubicación base del equipo
+      var fueraLugar = false;
+      if(e.geo_lat && e.geo_lng){
+        var dist = calcDistancia(lat, lng, parseFloat(e.geo_lat), parseFloat(e.geo_lng));
+        fueraLugar = dist > 0.5; // más de 500 metros
+      }
+
+      var scan = {
+        id: 'SC'+Date.now().toString(36).toUpperCase(),
+        equipo_id: equipoId,
+        equipo_nombre: (e.nombre||e.modelo)+' ('+e.plaza+')',
+        lat: lat,
+        lng: lng,
+        accuracy: acc,
+        maps_url: 'https://maps.google.com/?q='+lat+','+lng,
+        fuera_lugar: fueraLugar,
+        usuario: curUser ? curUser.name : 'Anónimo',
+        usuario_email: curUser ? curUser.email : '',
+        ts: nowStr(),
+        fecha: new Date().toISOString().slice(0,10)
+      };
+
+      db.collection('escaneos').doc(scan.id).set(scan)
+        .then(function(){
+          if(fueraLugar){
+            mostrarAlertaFuera(e, lat, lng);
+          } else {
+            toast('✅ Ubicación registrada correctamente');
+          }
+          // Si no tiene ubicación base, guardarla como base
+          if(!e.geo_lat){
+            e.geo_lat = String(lat);
+            e.geo_lng = String(lng);
+            fbSave(e);
+          }
+          // Actualizar tab historial
+          if(openEquipoId === equipoId) dpTab('historial');
+        })
+        .catch(function(err){ toast('⚠️ Error: '+err.message); });
+    },
+    function(err){
+      var msg = 'Error de geolocalización.';
+      if(err.code===1) msg = '❌ Permiso de ubicación denegado.';
+      if(err.code===2) msg = '❌ No se pudo obtener la ubicación.';
+      if(err.code===3) msg = '❌ Tiempo agotado al obtener ubicación.';
+      toast(msg);
+    },
+    {enableHighAccuracy:true, timeout:10000, maximumAge:0}
+  );
+}
+
+// Calcular distancia en km entre dos coordenadas (Haversine)
+function calcDistancia(lat1, lon1, lat2, lon2){
+  var R = 6371;
+  var dLat = (lat2-lat1) * Math.PI/180;
+  var dLon = (lon2-lon1) * Math.PI/180;
+  var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+          Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+          Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Mostrar alerta cuando equipo está fuera de lugar
+function mostrarAlertaFuera(e, lat, lng){
+  var alerta = document.createElement('div');
+  alerta.className = 'alerta-fuera';
+  alerta.innerHTML = '⚠️ <b>'+e.id+'</b> detectado fuera de '+e.plaza
+    +' &nbsp;<a href="https://maps.google.com/?q='+lat+','+lng+'" target="_blank" style="color:#fff;text-decoration:underline;">Ver mapa</a>'
+    +'&nbsp;<span style="cursor:pointer;opacity:.7;" onclick="this.parentElement.remove()">✕</span>';
+  document.body.appendChild(alerta);
+  setTimeout(function(){ if(alerta.parentElement) alerta.remove(); }, 8000);
+  toast('🚨 Equipo detectado fuera de su ubicación registrada');
+}
+
+// Establecer ubicación base del equipo
+function setUbicacionBase(equipoId){
+  var e = equipos.find(function(x){return x.id===equipoId;});if(!e)return;
+  if(!navigator.geolocation){ toast('Geolocalización no disponible'); return; }
+  toast('📍 Capturando ubicación base...');
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      e.geo_lat = String(pos.coords.latitude);
+      e.geo_lng = String(pos.coords.longitude);
+      e.updBy = curUser?curUser.name:''; e.updTs = nowStr();
+      fbSave(e);
+      toast('✅ Ubicación base guardada para '+e.id);
+      if(openEquipoId===equipoId) dpTab('historial');
+    },
+    function(){ toast('❌ No se pudo obtener la ubicación'); },
+    {enableHighAccuracy:true, timeout:10000, maximumAge:0}
+  );
+}
+
 // EXPORT CSV
 function exportCSV(){
   var h=['ID','Área','Plaza','Tipo','Marca','Modelo','Nombre','Responsable','Puesto','Depto','Ubicación','Usuario','Serie','Procesador','RAM','HDD Marca','HDD Serie','SSD Marca','SSD Serie','IP','MAC Eth','MAC WiFi','SO','Licencia Win','AF','Fecha Compra','Garantía','Proveedor','Precio','Factura','Estado','Observaciones'];
@@ -1421,7 +1608,27 @@ document.getElementById('confirm-ok').addEventListener('click',function(){if(_cb
 // QR HASH
 function checkQRHash(){
   var hash=window.location.hash.replace('#','').trim();
-  if(hash&&hash.startsWith('EQ')){setTimeout(function(){openPanel(hash);},1500);}
+  if(hash&&hash.startsWith('EQ')){
+    setTimeout(function(){
+      openPanel(hash);
+      // Si viene de QR (no hay sesión activa, mostrar pantalla de escaneo)
+      if(!curUser){
+        mostrarPantallaEscaneo(hash);
+      } else {
+        // Registrar escaneo automáticamente
+        setTimeout(function(){ registrarEscaneo(hash); }, 1000);
+      }
+    },1500);
+  }
+}
+
+function mostrarPantallaEscaneo(equipoId){
+  // Esta función se llama cuando se escanea sin sesión — muestra info básica
+  var loginScreen = document.getElementById('login-screen');
+  if(loginScreen){
+    loginScreen.innerHTML += '<div style="margin-top:16px;background:#e8f0fe;border-radius:10px;padding:12px;font-size:13px;text-align:center;color:#1a73e8;">'
+      +'📱 QR escaneado: <b>'+equipoId+'</b><br><span style="font-size:11px;color:#5f6368;">Inicia sesión para ver el detalle y registrar ubicación</span></div>';
+  }
 }
 
 auth.onAuthStateChanged(function(user){
