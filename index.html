@@ -80,6 +80,7 @@ tr:hover td{background:#f7f9ff;}
 .pill-servidor{background:#f3e8fd;color:#7b1fa2;}
 .pill-impresora{background:#fff3e0;color:#e65100;}
 .pill-otro{background:#f0f2f5;color:#5f6368;}
+.pill-celular{background:#fce4ec;color:#c2185b;}
 .pill-bueno{background:#e6f4ea;color:#2e7d32;}
 .pill-regular{background:#fff8e1;color:#f57f17;}
 .pill-malo{background:#fce8e6;color:#c62828;}
@@ -489,7 +490,7 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
       <div class="form-section">Hardware</div>
       <div class="af-g3">
         <div class="af"><label>Tipo *</label>
-          <select id="f-tipo"><option>Desktop</option><option>Laptop</option><option>Servidor</option><option>Impresora</option><option>Otro</option></select>
+          <select id="f-tipo" onchange="toggleCelularFields()"><option>Desktop</option><option>Laptop</option><option>Servidor</option><option>Impresora</option><option>Celular</option><option>Otro</option></select>
         </div>
         <div class="af"><label>Marca *</label><input type="text" id="f-marca" placeholder="Ej. DELL"></div>
         <div class="af"><label>Modelo *</label><input type="text" id="f-modelo" placeholder="Ej. Vostro 230"></div>
@@ -507,6 +508,30 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
       <div class="af-g2">
         <div class="af"><label>SSD — Marca</label><input type="text" id="f-ssd-marca" placeholder="Marca del SSD"></div>
         <div class="af"><label>SSD — N° de serie</label><input type="text" id="f-ssd-serie" placeholder="Serie del SSD"></div>
+      </div>
+      <div id="campos-celular" style="display:none;">
+        <div class="form-section">📱 Datos del celular</div>
+        <div class="af-g3">
+          <div class="af"><label>IMEI 1</label><input type="text" id="f-imei1" placeholder="IMEI principal"></div>
+          <div class="af"><label>IMEI 2</label><input type="text" id="f-imei2" placeholder="IMEI secundario"></div>
+          <div class="af"><label>Número de teléfono</label><input type="text" id="f-telefono" placeholder="Ej. 555-123-4567"></div>
+        </div>
+        <div class="af-g3">
+          <div class="af"><label>Operadora</label>
+            <select id="f-operadora">
+              <option value="">Seleccionar...</option>
+              <option>Telcel</option><option>AT&T</option><option>Movistar</option>
+              <option>Unefon</option><option>Virgin Mobile</option><option>Otra</option>
+            </select>
+          </div>
+          <div class="af"><label>Número de SIM</label><input type="text" id="f-sim" placeholder="N° de SIM card"></div>
+          <div class="af"><label>Almacenamiento interno</label><input type="text" id="f-storage" placeholder="Ej. 128GB"></div>
+        </div>
+        <div class="af-g3">
+          <div class="af"><label>Versión SO (Android/iOS)</label><input type="text" id="f-so-cel" placeholder="Ej. Android 13, iOS 17"></div>
+          <div class="af"><label>Capacidad batería</label><input type="text" id="f-bateria" placeholder="Ej. 4500 mAh"></div>
+          <div class="af"><label>Color</label><input type="text" id="f-color-cel" placeholder="Ej. Negro, Blanco"></div>
+        </div>
       </div>
       <div class="form-section">Red</div>
       <div class="af-g3">
@@ -684,7 +709,7 @@ function setSyncUI(s,m){var p=document.getElementById('topbar-sync'),t=document.
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3000);}
 function fmt$(n){return n?'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:2}):'—';}
 function cleanObj(o){return JSON.parse(JSON.stringify(o,function(k,v){return v===undefined?null:v;}));}
-function tipoPill(t){var m={Desktop:'pill-desktop',Laptop:'pill-laptop',Servidor:'pill-servidor',Impresora:'pill-impresora',Otro:'pill-otro'};return '<span class="pill '+(m[t]||'pill-otro')+'">'+t+'</span>';}
+function tipoPill(t){var m={Desktop:'pill-desktop',Laptop:'pill-laptop',Servidor:'pill-servidor',Impresora:'pill-impresora',Celular:'pill-celular',Otro:'pill-otro'};return '<span class="pill '+(m[t]||'pill-otro')+'">'+t+'</span>';}
 function estadoPill(e){var m={Bueno:'pill-bueno',Regular:'pill-regular',Malo:'pill-malo',Baja:'pill-baja'};return '<span class="pill '+(m[e]||'pill-otro')+'">'+e+'</span>';}
 function row(k,v){return '<div class="dp-row"><div class="dp-key">'+k+'</div><div class="dp-val">'+(v||'—')+'</div></div>';}
 
@@ -878,7 +903,7 @@ function renderInventario(){
     +'</select>'
     +'<select class="fi-sm" onchange="invFilter.tipo=this.value;renderInventario()">'
     +'<option value="">Todos los tipos</option>'
-    +['Desktop','Laptop','Servidor','Impresora','Otro'].map(function(t){return '<option value="'+t+'"'+(invFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')
+    +['Desktop','Laptop','Servidor','Impresora','Celular','Otro'].map(function(t){return '<option value="'+t+'"'+(invFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')
     +'</select>'
     +'<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()">'
     +'<option value="">Todos los estados</option>'
@@ -954,7 +979,9 @@ function openFormEquipo(){editingId=null;document.getElementById('form-modal-tit
 function editEquipo(id){var e=equipos.find(function(x){return x.id===id;});if(!e)return;editingId=id;document.getElementById('form-modal-title').textContent='Editar: '+(e.nombre||e.modelo);fillForm(e);document.getElementById('overlay-form').classList.remove('hidden');}
 function closeFormEquipo(){document.getElementById('overlay-form').classList.add('hidden');editingId=null;}
 function clearForm(){
-  ['area','plaza','nombre','ubicacion','usuario','responsable','puesto','depto','marca','modelo','serie','cpu','ram','hdd-marca','hdd-serie','ssd-marca','ssd-serie','ip','mac-eth','mac-wifi','so','lic-win','pass','pass-vpn','af','fecha','garantia','proveedor','factura','obs'].forEach(function(id){var el=document.getElementById('f-'+id);if(el)el.value='';});
+  ['area','plaza','nombre','ubicacion','usuario','responsable','puesto','depto','marca','modelo','serie','cpu','ram','hdd-marca','hdd-serie','ssd-marca','ssd-serie','ip','mac-eth','mac-wifi','so','lic-win','pass','pass-vpn','af','fecha','garantia','proveedor','factura','obs','imei1','imei2','telefono','sim','storage','so-cel','bateria','color-cel'].forEach(function(id){var el=document.getElementById('f-'+id);if(el)el.value='';});
+  var campos=document.getElementById('campos-celular');if(campos)campos.style.display='none';
+  var opSel=document.getElementById('f-operadora');if(opSel)opSel.value='';
   document.getElementById('f-tipo').value='Desktop';
   document.getElementById('f-estado').value='Bueno';
   document.getElementById('f-precio').value='';
@@ -962,6 +989,11 @@ function clearForm(){
 function fillForm(e){
   var m={'area':e.area,'plaza':e.plaza,'nombre':e.nombre,'ubicacion':e.ubicacion,'usuario':e.usuario,'responsable':e.responsable,'puesto':e.puesto,'depto':e.depto,'marca':e.marca,'modelo':e.modelo,'serie':e.serie,'cpu':e.cpu,'ram':e.ram,'hdd-marca':e.hdd_marca,'hdd-serie':e.hdd_serie,'ssd-marca':e.ssd_marca,'ssd-serie':e.ssd_serie,'ip':e.ip,'mac-eth':e.mac_eth,'mac-wifi':e.mac_wifi,'so':e.so,'lic-win':e.lic_win,'pass':e.pass,'pass-vpn':e.pass_vpn,'af':e.af,'fecha':e.fecha,'garantia':e.garantia,'proveedor':e.proveedor,'factura':e.factura,'obs':e.obs};
   Object.keys(m).forEach(function(k){var el=document.getElementById('f-'+k);if(el)el.value=m[k]||'';});
+  // Campos celular
+  var celFlds={'imei1':e.imei1,'imei2':e.imei2,'telefono':e.telefono,'sim':e.sim,'storage':e.storage,'so-cel':e.so_cel,'bateria':e.bateria,'color-cel':e.color_cel};
+  Object.keys(celFlds).forEach(function(k){var el=document.getElementById('f-'+k);if(el)el.value=celFlds[k]||'';});
+  var opSel=document.getElementById('f-operadora');if(opSel)opSel.value=e.operadora||'';
+  toggleCelularFields();
   document.getElementById('f-tipo').value=e.tipo||'Desktop';
   document.getElementById('f-estado').value=e.estado||'Bueno';
   document.getElementById('f-precio').value=e.precio||'';
@@ -1007,6 +1039,14 @@ function dpTab(tab){
       +row('SSD Marca',e.ssd_marca)+row('SSD Serie',e.ssd_serie)
       +'<div class="dp-sec-t">Software</div>'
       +row('Sistema Operativo',e.so)+row('Licencia Windows',e.lic_win)
+      +(e.tipo==='Celular'?
+        '<div class="dp-sec-t">📱 Datos del celular</div>'
+        +row('IMEI 1',e.imei1)+row('IMEI 2',e.imei2)
+        +row('Teléfono',e.telefono)+row('Operadora',e.operadora)
+        +row('N° SIM',e.sim)+row('Almacenamiento',e.storage)
+        +row('SO Celular',e.so_cel)+row('Batería',e.bateria)
+        +row('Color',e.color_cel)
+        :'')
       +'<div class="dp-sec-t">Estado físico</div>'
       +row('Estado',estadoPill(e.estado))+row('Observaciones',e.obs)
       +(e.updBy?'<div style="font-size:11px;color:#9aa0a6;margin-top:14px;padding-top:10px;border-top:1px solid #f0f2f5;">Última modificación: <b>'+e.updBy+'</b> — '+e.updTs+'</div>':'')
@@ -1298,6 +1338,13 @@ function rowClass(fecha){
   return '';
 }
 
+
+function toggleCelularFields(){
+  var tipo = document.getElementById('f-tipo').value;
+  var campos = document.getElementById('campos-celular');
+  if(campos) campos.style.display = tipo==='Celular' ? 'block' : 'none';
+}
+
 // DETECTAR MÓVIL
 function isMobile(){ return window.innerWidth <= 768; }
 
@@ -1436,7 +1483,7 @@ function renderEtiquetas(){
     +'</select>'
     +'<select class="fi-sm" onchange="etiqFilter.tipo=this.value;renderEtiquetas()">'
     +'<option value="">Todos los tipos</option>'
-    +['Desktop','Laptop','Servidor','Impresora','Otro'].map(function(t){return '<option value="'+t+'"'+(etiqFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')
+    +['Desktop','Laptop','Servidor','Impresora','Celular','Otro'].map(function(t){return '<option value="'+t+'"'+(etiqFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')
     +'</select>'
     +'<select class="fi-sm" onchange="etiqFilter.estado=this.value;renderEtiquetas()">'
     +'<option value="">Todos los estados</option>'
