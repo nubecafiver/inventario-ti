@@ -423,7 +423,7 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
       <button class="btn btn-sm" onclick="doLogout()">Salir</button>
     </div>
   </div>
-  <div id="view-dashboard"    class="view-wrap hidden"></div>
+  <div id="view-dashboard"    class="view-wrap hidden" style="padding:0;background:#0A1628;"></div>
   <div id="view-inventario"   class="view-wrap hidden"></div>
   <div id="view-qr"           class="hidden" style="flex:1;overflow:auto;background:#eef2f7;"></div>
   <div id="view-reparaciones" class="view-wrap hidden"></div>
@@ -843,7 +843,7 @@ function renderDashboard(){
 
   w.innerHTML=`
   <style>
-    .db-wrap{background:#0A1628;min-height:100%;padding:24px;font-family:'Inter',sans-serif;color:#E8EEF7;}
+    .db-wrap{background:#0A1628;min-height:calc(100vh - 56px);padding:24px;font-family:'Inter',sans-serif;color:#E8EEF7;}
     .db-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px;}
     .db-eyebrow{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#C8922A;margin-bottom:6px;}
     .db-heading{font-size:28px;font-weight:800;color:#fff;line-height:1.1;}
