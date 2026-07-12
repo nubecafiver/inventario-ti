@@ -45,13 +45,13 @@ body.app-mode{background:#eef2f7;}
 .user-pill:hover{background:#e5e7eb;}
 .cu-av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;}
 .sync-pill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:10px;font-size:11px;font-weight:600;}
-.sync-pill.ok{background:#dcfce7;color:#15803d;border-radius:20px;}
+.sync-pill.ok{background:#e6f4ea;color:#2d6a2d;}
 .sync-pill.saving{background:#e8f0fe;color:#1a73e8;}
 .sync-pill.error{background:#fce8e6;color:#c0392b;}
 
 /* VIEWS */
 .view-wrap{flex:1;overflow:auto;padding:1.25rem 1.75rem;background:#f0f2f7;}
-#view-dashboard{padding:0;background:#f0f2f7;}
+#view-dashboard{padding:0!important;background:#f0f2f7!important;}
 
 /* DASHBOARD */
 .dash-title{font-size:18px;font-weight:700;color:#1c1e21;margin-bottom:4px;}
@@ -834,54 +834,49 @@ function renderDashboard(){
   var areasSorted=Object.keys(areas).sort(function(a,b){return areas[b]-areas[a];});
   var maxArea=areasSorted.length?areas[areasSorted[0]]:1;
 
-  // Actividad reciente basada en datos reales
   var actItems=[
-    {icon:'ti-device-laptop',bg:'#eff6ff',ic:'#1d4ed8',txt:'<b>'+total+'</b> equipos activos en el inventario',meta:'Hoy · Cafiver TI'},
-    {icon:'ti-circle-check',bg:'#f0fdf4',ic:'#16a34a',txt:'<b>'+(byEstado.Bueno||0)+'</b> equipos en <span style="color:#16a34a;font-weight:600;">buen estado</span>',meta:''+pctBueno+'% del total'},
-    {icon:'ti-alert-triangle',bg:'#fff1f2',ic:'#dc2626',txt:'<b>'+rojo+'</b> equipos con <span style="color:#dc2626;font-weight:600;">+4 años</span> de vida útil',meta:'Requieren reemplazo'},
-    {icon:'ti-tool',bg:'#fffbeb',ic:'#d97706',txt:'<b>'+reparaciones.length+'</b> reparaciones registradas',meta:'Historial completo'},
-    {icon:'ti-refresh',bg:'#f5f3ff',ic:'#7c3aed',txt:'<b>'+(byEstado.Regular||0)+'</b> equipos en estado <span style="color:#d97706;font-weight:600;">regular</span>',meta:'Requieren atención'}
+    {icon:'ti-devices',bg:'#eff6ff',ic:'#1d4ed8',txt:'<b>'+total+'</b> equipos registrados en inventario',meta:'Total activos · Cafiver TI'},
+    {icon:'ti-circle-check',bg:'#f0fdf4',ic:'#16a34a',txt:'<b>'+(byEstado.Bueno||0)+'</b> equipos en <span style="color:#16a34a;font-weight:600;">buen estado</span>',meta:pctBueno+'% del inventario total'},
+    {icon:'ti-alert-triangle',bg:'#fff1f2',ic:'#dc2626',txt:'<b>'+rojo+'</b> equipos con <span style="color:#dc2626;font-weight:600;">+4 años</span> de vida util',meta:'Candidatos a reemplazo'},
+    {icon:'ti-tool',bg:'#fffbeb',ic:'#d97706',txt:'<b>'+reparaciones.length+'</b> reparaciones en el historial',meta:'Ver historial completo'},
+    {icon:'ti-device-mobile',bg:'#f5f3ff',ic:'#7c3aed',txt:'<b>'+celulares.length+'</b> celulares en el sistema',meta:'Modulo de celulares'}
   ];
 
-  // Filas tabla recientes
   var tRows=recent.map(function(e){
     var ini=(e.responsable||'??').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
-    var bgAv=['#dbeafe','#dcfce7','#fef3c7','#fce7f3','#ede9fe'][Math.abs(ini.charCodeAt(0))%5];
-    var txAv=['#1d4ed8','#15803d','#d97706','#be185d','#6d28d9'][Math.abs(ini.charCodeAt(0))%5];
+    var colors=[['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],['#fce7f3','#be185d'],['#ede9fe','#6d28d9']];
+    var col=colors[Math.abs((ini.charCodeAt(0)||65))%5];
     var sc=e.estado==='Bueno'?'background:#dcfce7;color:#15803d;':e.estado==='Regular'?'background:#fef9c3;color:#854d0e;':e.estado==='Malo'?'background:#fee2e2;color:#991b1b;':'background:#f1f5f9;color:#6b7280;';
     var dot=e.estado==='Bueno'?'#16a34a':e.estado==='Regular'?'#ca8a04':e.estado==='Malo'?'#dc2626':'#6b7280';
     var tc=e.tipo==='Desktop'?'background:#f5f3ff;color:#6d28d9;':e.tipo==='Laptop'?'background:#eff6ff;color:#1d4ed8;':'background:#f3f4f6;color:#374151;';
     return '<tr ondblclick="openPanel(\''+e.id+'\')" style="cursor:pointer;">'
-      +'<td style="font-family:monospace;font-size:11px;color:#1d4ed8;font-weight:600;padding:10px 16px;">'+e.id.slice(0,8)+'...</td>'
+      +'<td style="font-family:monospace;font-size:11px;color:#1d4ed8;font-weight:600;padding:10px 16px;">'+e.id.slice(0,10)+'</td>'
       +'<td style="padding:10px 16px;"><div style="font-weight:600;color:#111827;font-size:12px;">'+e.marca+' '+e.modelo+'</div><div style="font-size:10px;color:#9ca3af;">'+e.area+'</div></td>'
       +'<td style="padding:10px 16px;"><span style="'+tc+'display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;">'+e.tipo+'</span></td>'
       +'<td style="padding:10px 16px;font-family:monospace;font-size:11px;color:#6b7280;">'+(e.serie||'—')+'</td>'
-      +'<td style="padding:10px 16px;"><div style="display:flex;align-items:center;gap:7px;"><div style="width:26px;height:26px;border-radius:50%;background:'+bgAv+';color:'+txAv+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;">'+ini+'</div><span style="font-size:12px;color:#374151;">'+(e.responsable||'Sin asignar')+'</span></div></td>'
+      +'<td style="padding:10px 16px;"><div style="display:flex;align-items:center;gap:7px;"><div style="width:26px;height:26px;border-radius:50%;background:'+col[0]+';color:'+col[1]+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;">'+ini+'</div><span style="font-size:12px;color:#374151;">'+(e.responsable||'Sin asignar')+'</span></div></td>'
       +'<td style="padding:10px 16px;"><span style="'+sc+'display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;"><span style="width:5px;height:5px;border-radius:50%;background:'+dot+';display:inline-block;"></span>'+e.estado+'</span></td>'
-      +'<td style="padding:10px 16px;font-size:11px;color:#9ca3af;">'+nowStr()+'</td>'
+      +'<td style="padding:10px 16px;font-size:11px;color:#9ca3af;">'+(e.fecha||'—')+'</td>'
       +'</tr>';
   }).join('');
 
-  // Barras de áreas
-  var barras=areasSorted.slice(0,7).map(function(a){
+  var barras=areasSorted.slice(0,7).map(function(a,idx){
     var pct=Math.round(areas[a]/maxArea*100);
     var shades=['#1d4ed8','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe','#dbeafe'];
-    var idx=areasSorted.indexOf(a);
     var color=shades[Math.min(idx,shades.length-1)];
-    var lbl=a.replace('Área ','').replace('Dirección ','Dir. ').replace('Comercializadora','Comerc.').replace('Coffee Service Comercial','Coffee S.').slice(0,8);
+    var lbl=a.replace('Área ','').replace('Dirección ','Dir. ').replace('Comercializadora Nacional','Comerc.').replace('Coffee Service Comercial','Coffee').slice(0,9);
     return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;">'
       +'<div style="width:100%;height:110px;background:#f3f4f6;border-radius:4px 4px 0 0;overflow:hidden;display:flex;align-items:flex-end;">'
-      +'<div style="width:100%;height:'+pct+'%;background:'+color+';border-radius:4px 4px 0 0;transition:height .3s;"></div></div>'
-      +'<span style="font-size:9px;color:#9ca3af;font-weight:500;text-align:center;">'+lbl+'</span>'
+      +'<div style="width:100%;height:'+pct+'%;background:'+color+';border-radius:4px 4px 0 0;"></div></div>'
+      +'<span style="font-size:9px;color:#9ca3af;font-weight:500;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+lbl+'</span>'
       +'</div>';
   }).join('');
 
-  // Actividad
   var actHTML=actItems.map(function(a){
     return '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid #f3f4f6;">'
       +'<div style="width:32px;height:32px;border-radius:8px;background:'+a.bg+';display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
       +'<i class="ti '+a.icon+'" style="color:'+a.ic+';font-size:15px;" aria-hidden="true"></i></div>'
-      +'<div style="flex:1;"><div style="font-size:12px;color:#374151;line-height:1.4;">'+a.txt+'</div>'
+      +'<div><div style="font-size:12px;color:#374151;line-height:1.4;">'+a.txt+'</div>'
       +'<div style="font-size:10px;color:#9ca3af;margin-top:2px;">'+a.meta+'</div></div>'
       +'</div>';
   }).join('');
@@ -891,98 +886,82 @@ function renderDashboard(){
     +'<style>'
     +'.sw{background:#f0f2f7;min-height:100%;padding:24px 28px;font-family:Inter,system-ui,sans-serif;box-sizing:border-box;}'
     +'.sw-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}'
-    +'.sw-hdr h1{font-size:22px;font-weight:700;color:#111827;letter-spacing:-.02em;}'
-    +'.sw-hdr p{font-size:12px;color:#6b7280;margin-top:3px;}'
+    +'.sw-h1{font-size:22px;font-weight:700;color:#111827;letter-spacing:-.02em;}'
+    +'.sw-sub{font-size:12px;color:#6b7280;margin-top:3px;}'
     +'.sw-btns{display:flex;gap:8px;align-items:center;}'
-    +'.sw-btn-o{display:flex;align-items:center;gap:5px;padding:7px 14px;border:1px solid #d1d5db;border-radius:6px;background:#fff;font-size:12px;font-weight:500;color:#374151;cursor:pointer;transition:background .15s;}'
-    +'.sw-btn-o:hover{background:#f9fafb;}'
-    +'.sw-btn-f{display:flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:6px;background:#1d4ed8;font-size:12px;font-weight:600;color:#fff;cursor:pointer;}'
-    +'.sw-btn-f:hover{background:#1e40af;}'
-    +'.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px;}'
-    +'.sc{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px 18px;cursor:pointer;transition:border-color .15s,box-shadow .15s;}'
-    +'.sc:hover{border-color:#bfdbfe;box-shadow:0 4px 16px rgba(29,78,216,.08);}'
-    +'.sc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}'
-    +'.sc-icon{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;}'
-    +'.sc-badge{font-size:10px;font-weight:600;padding:2px 9px;border-radius:20px;}'
-    +'.sc-lbl{font-size:11px;color:#6b7280;margin-bottom:4px;font-weight:500;}'
-    +'.sc-val{font-size:28px;font-weight:700;color:#111827;letter-spacing:-.02em;line-height:1;}'
-    +'.g2b{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-bottom:14px;}'
-    +'.panel{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
-    +'.ph{padding:13px 18px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
-    +'.ph h3{font-size:13px;font-weight:600;color:#111827;margin:0;}'
-    +'.ph-act{font-size:12px;color:#2563eb;cursor:pointer;font-weight:500;}'
-    +'.tbl-s{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
-    +'.th-s{padding:13px 18px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
-    +'.th-s h3{font-size:13px;font-weight:600;color:#111827;margin:0;}'
-    +'table.mt{width:100%;border-collapse:collapse;}'
-    +'table.mt th{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;padding:9px 16px;border-bottom:1px solid #f3f4f6;text-align:left;background:#fafafa;}'
-    +'table.mt td{font-size:12px;border-bottom:1px solid #f9fafb;color:#374151;vertical-align:middle;}'
-    +'table.mt tr:last-child td{border-bottom:none;}'
-    +'table.mt tr:hover td{background:#f9fafb;}'
-    +'@media(max-width:768px){.g4{grid-template-columns:repeat(2,minmax(0,1fr));}.g2b{grid-template-columns:1fr;}}'
+    +'.sw-bo{display:flex;align-items:center;gap:5px;padding:7px 14px;border:1px solid #d1d5db;border-radius:6px;background:#fff;font-size:12px;font-weight:500;color:#374151;cursor:pointer;}'
+    +'.sw-bo:hover{background:#f9fafb;}'
+    +'.sw-bf{display:flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:6px;background:#1d4ed8;font-size:12px;font-weight:600;color:#fff;cursor:pointer;}'
+    +'.sw-bf:hover{background:#1e40af;}'
+    +'.g4s{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px;}'
+    +'.scs{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px 18px;cursor:pointer;transition:border-color .15s,box-shadow .15s;}'
+    +'.scs:hover{border-color:#bfdbfe;box-shadow:0 2px 12px rgba(29,78,216,.07);}'
+    +'.scs-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}'
+    +'.scs-icon{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;}'
+    +'.scs-badge{font-size:10px;font-weight:600;padding:2px 9px;border-radius:20px;}'
+    +'.scs-lbl{font-size:11px;color:#6b7280;margin-bottom:4px;font-weight:500;}'
+    +'.scs-val{font-size:28px;font-weight:700;color:#111827;letter-spacing:-.02em;line-height:1;}'
+    +'.g2s{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-bottom:14px;}'
+    +'.pnl{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
+    +'.pnl-hd{padding:13px 18px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
+    +'.pnl-hd h3{font-size:13px;font-weight:600;color:#111827;margin:0;}'
+    +'.pnl-act{font-size:12px;color:#2563eb;cursor:pointer;font-weight:500;}'
+    +'.tbl-stitch{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
+    +'.tbl-stitch-hd{padding:13px 18px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
+    +'.tbl-stitch-hd h3{font-size:13px;font-weight:600;color:#111827;margin:0;}'
+    +'table.mts{width:100%;border-collapse:collapse;}'
+    +'table.mts th{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;padding:9px 16px;border-bottom:1px solid #f3f4f6;text-align:left;background:#fafafa;}'
+    +'table.mts td{border-bottom:1px solid #f9fafb;color:#374151;vertical-align:middle;}'
+    +'table.mts tr:last-child td{border-bottom:none;}'
+    +'table.mts tr:hover td{background:#f9fafb;}'
+    +'@media(max-width:768px){.g4s{grid-template-columns:repeat(2,minmax(0,1fr));}.g2s{grid-template-columns:1fr;}}'
     +'</style>'
     +'<div class="sw">'
-
-    // Header
     +'<div class="sw-hdr">'
-    +'<div><h1>IT Asset Dashboard</h1><p>Monitoreo en tiempo real · Cafiver &nbsp;·&nbsp; '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</p></div>'
+    +'<div><div class="sw-h1">IT Asset Dashboard</div><div class="sw-sub">Monitoreo en tiempo real · Cafiver &nbsp;·&nbsp; '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</div></div>'
     +'<div class="sw-btns">'
-    +'<button class="sw-btn-o" onclick="exportCSV()"><i class="ti ti-download" aria-hidden="true"></i> Export Report</button>'
-    +'<button class="sw-btn-f" onclick="openFormEquipo()"><i class="ti ti-plus" aria-hidden="true"></i> Nuevo equipo</button>'
+    +'<button class="sw-bo" onclick="exportCSV()"><i class="ti ti-download" aria-hidden="true"></i> Export Report</button>'
+    +'<button class="sw-bf" onclick="openFormEquipo()"><i class="ti ti-plus" aria-hidden="true"></i> Nuevo equipo</button>'
     +'</div></div>'
-
-    // Stat cards
-    +'<div class="g4">'
-    +'<div class="sc" onclick="switchView(\'inventario\')">'
-    +'<div class="sc-top"><div class="sc-icon" style="background:#eff6ff;"><i class="ti ti-devices" style="color:#1d4ed8;font-size:20px;" aria-hidden="true"></i></div>'
-    +'<span class="sc-badge" style="background:#dcfce7;color:#15803d;">+'+Math.round(total/10)+'%</span></div>'
-    +'<div class="sc-lbl">Total equipos</div><div class="sc-val">'+total+'</div></div>'
-
-    +'<div class="sc" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Bueno\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
-    +'<div class="sc-top"><div class="sc-icon" style="background:#f0fdf4;"><i class="ti ti-circle-check" style="color:#16a34a;font-size:20px;" aria-hidden="true"></i></div>'
-    +'<span class="sc-badge" style="background:#dcfce7;color:#15803d;">'+pctBueno+'%</span></div>'
-    +'<div class="sc-lbl">Buen estado</div><div class="sc-val" style="color:#16a34a;">'+(byEstado.Bueno||0)+'</div></div>'
-
-    +'<div class="sc" onclick="switchView(\'inventario\');">'
-    +'<div class="sc-top"><div class="sc-icon" style="background:#fff7ed;"><i class="ti ti-alert-triangle" style="color:#ea580c;font-size:20px;" aria-hidden="true"></i></div>'
-    +'<span class="sc-badge" style="background:#ffedd5;color:#c2410c;">Activo</span></div>'
-    +'<div class="sc-lbl">Para cambio</div><div class="sc-val" style="color:#ea580c;">'+rojo+'</div></div>'
-
-    +'<div class="sc" onclick="switchView(\'inventario\');">'
-    +'<div class="sc-top"><div class="sc-icon" style="background:#f5f3ff;"><i class="ti ti-currency-dollar" style="color:#7c3aed;font-size:20px;" aria-hidden="true"></i></div>'
-    +'<span class="sc-badge" style="background:#ede9fe;color:#6d28d9;">Stock</span></div>'
-    +'<div class="sc-lbl">Valor inventario</div><div class="sc-val" style="font-size:20px;color:#7c3aed;">'+fmt$(totalInv)+'</div></div>'
+    +'<div class="g4s">'
+    +'<div class="scs" onclick="switchView(\'inventario\')">'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#eff6ff;"><i class="ti ti-devices" style="color:#1d4ed8;font-size:20px;" aria-hidden="true"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">Activos</span></div>'
+    +'<div class="scs-lbl">Total equipos</div><div class="scs-val">'+total+'</div>'
     +'</div>'
-
-    // Chart + Activity
-    +'<div class="g2b">'
-    +'<div class="panel">'
-    +'<div class="ph"><h3>Equipos por área</h3>'
-    +'<select style="font-size:11px;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;color:#374151;background:#fff;"><option>Trimestre actual</option></select>'
+    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Bueno\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#f0fdf4;"><i class="ti ti-circle-check" style="color:#16a34a;font-size:20px;" aria-hidden="true"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">'+pctBueno+'%</span></div>'
+    +'<div class="scs-lbl">Buen estado</div><div class="scs-val" style="color:#16a34a;">'+(byEstado.Bueno||0)+'</div>'
     +'</div>'
-    +'<div style="font-size:11px;color:#6b7280;padding:10px 18px 0;">Distribución por unidad organizacional</div>'
-    +'<div style="padding:12px 18px 16px;height:160px;display:flex;align-items:flex-end;gap:8px;">'+barras+'</div>'
+    +'<div class="scs" onclick="switchView(\'inventario\');">'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#fff7ed;"><i class="ti ti-alert-triangle" style="color:#ea580c;font-size:20px;" aria-hidden="true"></i></div><span class="scs-badge" style="background:#ffedd5;color:#c2410c;">Urgente</span></div>'
+    +'<div class="scs-lbl">Para cambio</div><div class="scs-val" style="color:#ea580c;">'+rojo+'</div>'
     +'</div>'
-
-    +'<div class="panel">'
-    +'<div class="ph"><h3>Actividad reciente</h3><span class="ph-act" onclick="switchView(\'inventario\')">Ver todo</span></div>'
+    +'<div class="scs" onclick="switchView(\'inventario\');">'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#f5f3ff;"><i class="ti ti-currency-dollar" style="color:#7c3aed;font-size:20px;" aria-hidden="true"></i></div><span class="scs-badge" style="background:#ede9fe;color:#6d28d9;">MXN</span></div>'
+    +'<div class="scs-lbl">Valor inventario</div><div class="scs-val" style="font-size:18px;color:#7c3aed;">'+fmt$(totalInv)+'</div>'
+    +'</div>'
+    +'</div>'
+    +'<div class="g2s">'
+    +'<div class="pnl">'
+    +'<div class="pnl-hd"><h3>Equipos por área</h3><select style="font-size:11px;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;color:#374151;background:#fff;"><option>Trimestre actual</option></select></div>'
+    +'<div style="font-size:11px;color:#6b7280;padding:10px 18px 4px;">Distribución por unidad organizacional</div>'
+    +'<div style="padding:8px 18px 16px;height:155px;display:flex;align-items:flex-end;gap:6px;">'+barras+'</div>'
+    +'</div>'
+    +'<div class="pnl">'
+    +'<div class="pnl-hd"><h3>Actividad reciente</h3><span class="pnl-act" onclick="switchView(\'inventario\')">Ver todo</span></div>'
     +'<div>'+actHTML+'</div>'
     +'</div>'
     +'</div>'
-
-    // Tabla recientes
-    +'<div class="tbl-s">'
-    +'<div class="th-s"><h3>Equipos actualizados recientemente</h3>'
+    +'<div class="tbl-stitch">'
+    +'<div class="tbl-stitch-hd"><h3>Equipos actualizados recientemente</h3>'
     +'<div style="display:flex;gap:6px;">'
-    +'<button class="sw-btn-o" style="font-size:11px;padding:5px 10px;"><i class="ti ti-adjustments-horizontal" aria-hidden="true"></i> Filtrar</button>'
-    +'<button class="sw-btn-o" style="font-size:11px;padding:5px 10px;" onclick="switchView(\'inventario\')">Ver todos →</button>'
+    +'<button class="sw-bo" style="font-size:11px;padding:5px 10px;"><i class="ti ti-adjustments-horizontal" aria-hidden="true"></i> Filtrar</button>'
+    +'<button class="sw-bo" style="font-size:11px;padding:5px 10px;" onclick="switchView(\'inventario\')">Ver todos →</button>'
     +'</div></div>'
-    +'<div style="overflow-x:auto;">'
-    +'<table class="mt"><thead><tr>'
-    +'<th>ID equipo</th><th>Modelo</th><th>Tipo</th><th>N serie</th><th>Responsable</th><th>Estado</th><th>Ultimo registro</th>'
-    +'</tr></thead>'
-    +'<tbody>'+tRows+'</tbody></table>'
-    +'</div></div>'
+    +'<div style="overflow-x:auto;"><table class="mts"><thead><tr>'
+    +'<th>ID equipo</th><th>Modelo</th><th>Tipo</th><th>N serie</th><th>Responsable</th><th>Estado</th><th>Fecha compra</th>'
+    +'</tr></thead><tbody>'+tRows+'</tbody></table></div>'
+    +'</div>'
     +'</div>';
 }
 function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderInventario();}
@@ -1853,23 +1832,198 @@ function closeScanSuccess(){
 }
 
 
-// CELULARES
+// ═══ CELULARES ═══
 var celulares=[],editingCelId=null,currentCelId=null;
 var celFilter={q:'',estado:'',area:'',plaza:'',estado_asig:''};
-function loadCelulares(){db.collection('celulares').onSnapshot(function(s){celulares=s.docs.map(function(d){return d.data();});if(curView==='celulares')renderCelulares();},function(e){console.warn(e);});}
+function loadCelulares(){db.collection('celulares').onSnapshot(function(s){celulares=s.docs.map(function(d){return d.data();});if(curView==='celulares')renderCelulares();},function(e){console.warn('cel:',e.message);});}
 function celUID(){return 'CEL'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,4).toUpperCase();}
-function openFormCelular(){editingCelId=null;document.getElementById('cel-modal-title').textContent='Nuevo celular';clearFormCelular();document.getElementById('overlay-celular').classList.remove('hidden');}
-function editCelular(id){var c=celulares.find(function(x){return x.id===id;});if(!c)return;editingCelId=id;closeCelDetail();document.getElementById('cel-modal-title').textContent='Editar: '+c.marca+' '+c.modelo;fillFormCelular(c);document.getElementById('overlay-celular').classList.remove('hidden');}
+function openFormCelular(){
+  editingCelId=null;
+  document.getElementById('cel-modal-title').textContent='Nuevo celular';
+  clearFormCelular();
+  document.getElementById('overlay-celular').classList.remove('hidden');
+}
+function editCelular(id){
+  var cel=celulares.find(function(x){return x.id===id;});if(!cel)return;
+  editingCelId=id;closeCelDetail();
+  document.getElementById('cel-modal-title').textContent='Editar: '+cel.marca+' '+cel.modelo;
+  fillFormCelular(cel);
+  document.getElementById('overlay-celular').classList.remove('hidden');
+}
 function closeFormCelular(){document.getElementById('overlay-celular').classList.add('hidden');editingCelId=null;}
-function clearFormCelular(){['marca','modelo','color','serie','imei1','imei2','storage','ram','bateria','so','so-ver','telefono','sim','pin','empleado','puesto','fecha-asig','fecha-compra','garantia','proveedor','factura','af','obs'].forEach(function(id){var el=document.getElementById('cel-'+id);if(el)el.value='';});var ea=document.getElementById('cel-area-campo');if(ea)ea.value='';var ep=document.getElementById('cel-plaza-campo');if(ep)ep.value='';['cel-operadora','cel-plan'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});document.getElementById('cel-estado').value='Bueno';document.getElementById('cel-estado-asig').value='Asignado';document.getElementById('cel-precio').value='';document.getElementById('cel-fecha-asig').value=new Date().toISOString().slice(0,10);}
-function fillFormCelular(c){var m={'marca':c.marca,'modelo':c.modelo,'color':c.color,'serie':c.serie,'imei1':c.imei1,'imei2':c.imei2,'storage':c.storage,'ram':c.ram,'bateria':c.bateria,'so':c.so,'so-ver':c.so_ver,'telefono':c.telefono,'sim':c.sim,'pin':c.pin,'empleado':c.empleado,'puesto':c.puesto,'fecha-asig':c.fecha_asig,'fecha-compra':c.fecha_compra,'garantia':c.garantia,'proveedor':c.proveedor,'factura':c.factura,'af':c.af,'obs':c.obs};Object.keys(m).forEach(function(k){var el=document.getElementById('cel-'+k);if(el)el.value=m[k]||'';});var ea=document.getElementById('cel-area-campo');if(ea)ea.value=c.area||'';var ep=document.getElementById('cel-plaza-campo');if(ep)ep.value=c.plaza||'';document.getElementById('cel-operadora').value=c.operadora||'';document.getElementById('cel-plan').value=c.plan||'';document.getElementById('cel-estado').value=c.estado||'Bueno';document.getElementById('cel-estado-asig').value=c.estado_asig||'Asignado';document.getElementById('cel-precio').value=c.precio||'';}
-function getCelFormValues(){return {id:editingCelId||celUID(),marca:document.getElementById('cel-marca').value.trim(),modelo:document.getElementById('cel-modelo').value.trim(),color:document.getElementById('cel-color').value.trim(),serie:document.getElementById('cel-serie').value.trim(),imei1:document.getElementById('cel-imei1').value.trim(),imei2:document.getElementById('cel-imei2').value.trim(),storage:document.getElementById('cel-storage').value.trim(),ram:document.getElementById('cel-ram').value.trim(),bateria:document.getElementById('cel-bateria').value.trim(),so:document.getElementById('cel-so').value.trim(),so_ver:document.getElementById('cel-so-ver').value.trim(),telefono:document.getElementById('cel-telefono').value.trim(),operadora:document.getElementById('cel-operadora').value,sim:document.getElementById('cel-sim').value.trim(),plan:document.getElementById('cel-plan').value,pin:document.getElementById('cel-pin').value.trim(),empleado:document.getElementById('cel-empleado').value.trim(),puesto:document.getElementById('cel-puesto').value.trim(),area:(document.getElementById('cel-area-campo')||{value:''}).value.trim(),plaza:(document.getElementById('cel-plaza-campo')||{value:''}).value.trim(),fecha_asig:document.getElementById('cel-fecha-asig').value,fecha_compra:document.getElementById('cel-fecha-compra').value,garantia:document.getElementById('cel-garantia').value.trim(),proveedor:document.getElementById('cel-proveedor').value.trim(),precio:parseFloat(document.getElementById('cel-precio').value)||0,factura:document.getElementById('cel-factura').value.trim(),af:document.getElementById('cel-af').value.trim(),estado:document.getElementById('cel-estado').value,estado_asig:document.getElementById('cel-estado-asig').value,obs:document.getElementById('cel-obs').value.trim(),updBy:curUser?curUser.name:'',updTs:nowStr()};}
-function saveCelular(){var c=getCelFormValues();if(!c.marca||!c.modelo){alert('Marca y Modelo obligatorios');return;}if(!c.imei1){alert('IMEI 1 obligatorio');return;}setSyncUI('saving','Guardando...');db.collection('celulares').doc(c.id).set(c).then(function(){setSyncUI('ok','En linea');closeFormCelular();toast(editingCelId?'Celular actualizado':'Celular guardado');}).catch(function(e){setSyncUI('error','Error');toast('Error: '+e.message);});}
-function deleteCelular(id){var c=celulares.find(function(x){return x.id===id;});if(!c)return;confirmAction('Eliminar celular?',c.marca+' '+c.modelo,function(){db.collection('celulares').doc(id).delete().then(function(){closeCelDetail();toast('Eliminado');});});}
+function clearFormCelular(){
+  ['marca','modelo','color','serie','imei1','imei2','storage','ram','bateria','so','so-ver','telefono','sim','pin','empleado','puesto','fecha-asig','fecha-compra','garantia','proveedor','factura','af','obs'].forEach(function(id){var el=document.getElementById('cel-'+id);if(el)el.value='';});
+  var ea=document.getElementById('cel-area-campo');if(ea)ea.value='';
+  var ep=document.getElementById('cel-plaza-campo');if(ep)ep.value='';
+  var eo=document.getElementById('cel-operadora');if(eo)eo.value='';
+  var ep2=document.getElementById('cel-plan');if(ep2)ep2.value='';
+  var ee=document.getElementById('cel-estado');if(ee)ee.value='Bueno';
+  var ea2=document.getElementById('cel-estado-asig');if(ea2)ea2.value='Asignado';
+  var ep3=document.getElementById('cel-precio');if(ep3)ep3.value='';
+  var ef=document.getElementById('cel-fecha-asig');if(ef)ef.value=new Date().toISOString().slice(0,10);
+}
+function fillFormCelular(cel){
+  var m={'marca':cel.marca,'modelo':cel.modelo,'color':cel.color,'serie':cel.serie,'imei1':cel.imei1,'imei2':cel.imei2,'storage':cel.storage,'ram':cel.ram,'bateria':cel.bateria,'so':cel.so,'so-ver':cel.so_ver,'telefono':cel.telefono,'sim':cel.sim,'pin':cel.pin,'empleado':cel.empleado,'puesto':cel.puesto,'fecha-asig':cel.fecha_asig,'fecha-compra':cel.fecha_compra,'garantia':cel.garantia,'proveedor':cel.proveedor,'factura':cel.factura,'af':cel.af,'obs':cel.obs};
+  Object.keys(m).forEach(function(k){var el=document.getElementById('cel-'+k);if(el)el.value=m[k]||'';});
+  var ea=document.getElementById('cel-area-campo');if(ea)ea.value=cel.area||'';
+  var ep=document.getElementById('cel-plaza-campo');if(ep)ep.value=cel.plaza||'';
+  var eo=document.getElementById('cel-operadora');if(eo)eo.value=cel.operadora||'';
+  var ep2=document.getElementById('cel-plan');if(ep2)ep2.value=cel.plan||'';
+  var ee=document.getElementById('cel-estado');if(ee)ee.value=cel.estado||'Bueno';
+  var ea2=document.getElementById('cel-estado-asig');if(ea2)ea2.value=cel.estado_asig||'Asignado';
+  var ep3=document.getElementById('cel-precio');if(ep3)ep3.value=cel.precio||'';
+}
+function getCelFormValues(){
+  return {
+    id:editingCelId||celUID(),
+    marca:(document.getElementById('cel-marca')||{value:''}).value.trim(),
+    modelo:(document.getElementById('cel-modelo')||{value:''}).value.trim(),
+    color:(document.getElementById('cel-color')||{value:''}).value.trim(),
+    serie:(document.getElementById('cel-serie')||{value:''}).value.trim(),
+    imei1:(document.getElementById('cel-imei1')||{value:''}).value.trim(),
+    imei2:(document.getElementById('cel-imei2')||{value:''}).value.trim(),
+    storage:(document.getElementById('cel-storage')||{value:''}).value.trim(),
+    ram:(document.getElementById('cel-ram')||{value:''}).value.trim(),
+    bateria:(document.getElementById('cel-bateria')||{value:''}).value.trim(),
+    so:(document.getElementById('cel-so')||{value:''}).value.trim(),
+    so_ver:(document.getElementById('cel-so-ver')||{value:''}).value.trim(),
+    telefono:(document.getElementById('cel-telefono')||{value:''}).value.trim(),
+    operadora:(document.getElementById('cel-operadora')||{value:''}).value,
+    sim:(document.getElementById('cel-sim')||{value:''}).value.trim(),
+    plan:(document.getElementById('cel-plan')||{value:''}).value,
+    pin:(document.getElementById('cel-pin')||{value:''}).value.trim(),
+    empleado:(document.getElementById('cel-empleado')||{value:''}).value.trim(),
+    puesto:(document.getElementById('cel-puesto')||{value:''}).value.trim(),
+    area:(document.getElementById('cel-area-campo')||{value:''}).value.trim(),
+    plaza:(document.getElementById('cel-plaza-campo')||{value:''}).value.trim(),
+    fecha_asig:(document.getElementById('cel-fecha-asig')||{value:''}).value,
+    fecha_compra:(document.getElementById('cel-fecha-compra')||{value:''}).value,
+    garantia:(document.getElementById('cel-garantia')||{value:''}).value.trim(),
+    proveedor:(document.getElementById('cel-proveedor')||{value:''}).value.trim(),
+    precio:parseFloat((document.getElementById('cel-precio')||{value:'0'}).value)||0,
+    factura:(document.getElementById('cel-factura')||{value:''}).value.trim(),
+    af:(document.getElementById('cel-af')||{value:''}).value.trim(),
+    estado:(document.getElementById('cel-estado')||{value:'Bueno'}).value,
+    estado_asig:(document.getElementById('cel-estado-asig')||{value:'Asignado'}).value,
+    obs:(document.getElementById('cel-obs')||{value:''}).value.trim(),
+    updBy:curUser?curUser.name:'',
+    updTs:nowStr()
+  };
+}
+function saveCelular(){
+  var cel=getCelFormValues();
+  if(!cel.marca||!cel.modelo){alert('Marca y Modelo son obligatorios.');return;}
+  if(!cel.imei1){alert('El IMEI 1 es obligatorio.');return;}
+  setSyncUI('saving','Guardando...');
+  db.collection('celulares').doc(cel.id).set(cel)
+    .then(function(){setSyncUI('ok','En linea');closeFormCelular();toast(editingCelId?'Celular actualizado':'Celular guardado');})
+    .catch(function(e){setSyncUI('error','Error');toast('Error: '+e.message);});
+}
+function deleteCelular(id){
+  var cel=celulares.find(function(x){return x.id===id;});if(!cel)return;
+  confirmAction('Eliminar celular?',cel.marca+' '+cel.modelo,function(){
+    db.collection('celulares').doc(id).delete().then(function(){closeCelDetail();toast('Celular eliminado');});
+  });
+}
 function celDRow(k,v){return '<div class="dp-row"><div class="dp-key">'+k+'</div><div class="dp-val">'+(v||'—')+'</div></div>';}
-function openCelDetail(id){var c=celulares.find(function(x){return x.id===id;});if(!c)return;currentCelId=id;document.getElementById('cel-detail-title').textContent=c.marca+' '+c.modelo;document.getElementById('cel-edit-btn').onclick=function(){editCelular(id);};document.getElementById('cel-del-btn').onclick=function(){deleteCelular(id);};var ec=c.estado==='Bueno'?'#16a34a':c.estado==='Regular'?'#d97706':c.estado==='Malo'?'#dc2626':'#6b7280';var ac=c.estado_asig==='Asignado'?'#1d4ed8':c.estado_asig==='Disponible'?'#16a34a':'#6b7280';document.getElementById('cel-detail-body').innerHTML='<div style="display:flex;gap:8px;margin-bottom:14px;"><span class="pill" style="background:'+ec+'22;color:'+ec+';">'+c.estado+'</span><span class="pill" style="background:'+ac+'22;color:'+ac+';">'+c.estado_asig+'</span></div><div class="dp-sec-t">Equipo</div>'+celDRow('Marca',c.marca)+celDRow('Modelo',c.modelo)+celDRow('IMEI 1',c.imei1)+celDRow('IMEI 2',c.imei2)+celDRow('Almacenamiento',c.storage)+celDRow('RAM',c.ram)+celDRow('SO',c.so)+'<div class="dp-sec-t">Linea</div>'+celDRow('Telefono',c.telefono)+celDRow('Operadora',c.operadora)+celDRow('SIM',c.sim)+'<div class="dp-sec-t">Asignacion</div>'+celDRow('Empleado','<b>'+(c.empleado||'Sin asignar')+'</b>')+celDRow('Puesto',c.puesto)+celDRow('Area',c.area)+celDRow('Plaza',c.plaza)+'<div class="dp-sec-t">Compra</div>'+celDRow('Fecha',c.fecha_compra)+celDRow('Precio',fmt$(c.precio))+celDRow('Garantia',c.garantia);document.getElementById('overlay-cel-detail').classList.remove('hidden');}
+function openCelDetail(id){
+  var cel=celulares.find(function(x){return x.id===id;});if(!cel)return;
+  currentCelId=id;
+  document.getElementById('cel-detail-title').textContent=cel.marca+' '+cel.modelo+(cel.color?' · '+cel.color:'');
+  document.getElementById('cel-edit-btn').onclick=function(){editCelular(id);};
+  document.getElementById('cel-del-btn').onclick=function(){deleteCelular(id);};
+  var ec=cel.estado==='Bueno'?'#16a34a':cel.estado==='Regular'?'#d97706':cel.estado==='Malo'?'#dc2626':'#6b7280';
+  var ac=cel.estado_asig==='Asignado'?'#1d4ed8':cel.estado_asig==='Disponible'?'#16a34a':'#6b7280';
+  document.getElementById('cel-detail-body').innerHTML=
+    '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">'
+    +'<span class="pill" style="background:'+ec+'22;color:'+ec+';">'+cel.estado+'</span>'
+    +'<span class="pill" style="background:'+ac+'22;color:'+ac+';">'+cel.estado_asig+'</span>'
+    +'<span style="font-size:11px;color:#9aa0a6;font-family:monospace;align-self:center;">'+cel.id+'</span>'
+    +'</div>'
+    +'<div class="dp-sec-t">Equipo</div>'
+    +celDRow('Marca',cel.marca)+celDRow('Modelo',cel.modelo)+celDRow('Color',cel.color)
+    +celDRow('N serie',cel.serie)+celDRow('IMEI 1',cel.imei1)+celDRow('IMEI 2',cel.imei2)
+    +celDRow('Almacenamiento',cel.storage)+celDRow('RAM',cel.ram)+celDRow('Bateria',cel.bateria)
+    +celDRow('SO',cel.so+(cel.so_ver?' '+cel.so_ver:''))
+    +'<div class="dp-sec-t">Linea telefonica</div>'
+    +celDRow('Numero',cel.telefono)+celDRow('Operadora',cel.operadora)+celDRow('SIM',cel.sim)+celDRow('Plan',cel.plan)
+    +'<div class="dp-sec-t">Asignacion</div>'
+    +celDRow('Empleado','<b>'+(cel.empleado||'Sin asignar')+'</b>')+celDRow('Puesto',cel.puesto)
+    +celDRow('Area',cel.area)+celDRow('Plaza',cel.plaza)+celDRow('Fecha asignacion',cel.fecha_asig)
+    +'<div class="dp-sec-t">Compra</div>'
+    +celDRow('Fecha compra',cel.fecha_compra)+celDRow('Garantia',cel.garantia)
+    +celDRow('Proveedor',cel.proveedor)+celDRow('Precio',fmt$(cel.precio))
+    +celDRow('Factura',cel.factura)+celDRow('Activo Fijo',cel.af)
+    +(cel.obs?'<div class="dp-sec-t">Observaciones</div><div style="font-size:13px;color:#5f6368;padding:8px 0;">'+cel.obs+'</div>':'')
+    +(cel.updBy?'<div style="font-size:11px;color:#9aa0a6;margin-top:12px;">Modificado por '+cel.updBy+' — '+cel.updTs+'</div>':'');
+  document.getElementById('overlay-cel-detail').classList.remove('hidden');
+}
 function closeCelDetail(){document.getElementById('overlay-cel-detail').classList.add('hidden');currentCelId=null;}
-function renderCelulares(){var w=document.getElementById('view-celulares');if(!w)return;var data=celulares.filter(function(c){var q=celFilter.q.toLowerCase();if(q&&!(c.marca+c.modelo+c.empleado+c.imei1+c.telefono+c.area+c.plaza).toLowerCase().includes(q))return false;if(celFilter.estado&&c.estado!==celFilter.estado)return false;if(celFilter.estado_asig&&c.estado_asig!==celFilter.estado_asig)return false;if(celFilter.area&&c.area!==celFilter.area)return false;if(celFilter.plaza&&c.plaza!==celFilter.plaza)return false;return true;});var areas=[],plazas=[];celulares.forEach(function(c){if(areas.indexOf(c.area)<0&&c.area)areas.push(c.area);if(plazas.indexOf(c.plaza)<0&&c.plaza)plazas.push(c.plaza);});areas.sort();plazas.sort();var asignados=celulares.filter(function(c){return c.estado_asig==='Asignado';}).length;var totalVal=celulares.reduce(function(a,c){return a+(parseFloat(c.precio)||0);},0);var rows='';data.forEach(function(c){var ec=c.estado==='Bueno'?'#16a34a':c.estado==='Regular'?'#d97706':c.estado==='Malo'?'#dc2626':'#6b7280';var ac=c.estado_asig==='Asignado'?'#1d4ed8':c.estado_asig==='Disponible'?'#16a34a':'#6b7280';var cid=String(c.id);rows+='<tr data-cid="'+cid+'" ondblclick="openCelDetail(this.dataset.cid)" style="cursor:pointer;"><td style="font-family:monospace;font-size:10px;color:#9ca3af;">'+cid+'</td><td><b style="color:#111827;">'+c.marca+'</b> <span style="color:#9ca3af;">'+c.modelo+'</span></td><td style="font-family:monospace;font-size:11px;">'+(c.imei1||'—')+'</td><td>'+(c.telefono||'—')+'</td><td>'+(c.operadora||'—')+'</td><td><b>'+(c.empleado||'Sin asignar')+'</b>'+(c.puesto?'<br><span style="font-size:10px;color:#9ca3af;">'+c.puesto+'</span>':'')+'</td><td>'+(c.area||'—')+'</td><td>'+(c.plaza||'—')+'</td><td><span class="pill" style="background:'+ec+'22;color:'+ec+';">'+c.estado+'</span></td><td><span class="pill" style="background:'+ac+'22;color:'+ac+';">'+c.estado_asig+'</span></td><td><div style="display:flex;gap:3px;"><button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openCelDetail(this.dataset.cid)">&#128065;</button><button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();editCelular(this.dataset.cid)">&#9999;&#65039;</button><button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();deleteCelular(this.dataset.cid)" style="color:#dc2626;">&#128465;</button></div></td></tr>';});var filA='<option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(celFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('');var filP='<option value="">Todas las plazas</option>'+plazas.map(function(p){return '<option value="'+p+'"'+(celFilter.plaza===p?' selected':'')+'>'+p+'</option>';}).join('');var filE='<option value="">Todos</option>'+['Asignado','Disponible','En reparacion','Baja'].map(function(t){return '<option value="'+t+'"'+(celFilter.estado_asig===t?' selected':'')+'>'+t+'</option>';}).join('');w.innerHTML='<div class="dash-title">Celulares</div><div class="dash-sub">Dispositivos moviles asignados al personal</div><div class="stats-grid" style="margin-bottom:16px;"><div class="stat-card"><div class="lbl">Total</div><div class="val blue">'+celulares.length+'</div></div><div class="stat-card"><div class="lbl">Asignados</div><div class="val green">'+asignados+'</div></div><div class="stat-card"><div class="lbl">Valor total</div><div class="val blue" style="font-size:16px;">'+fmt$(totalVal)+'</div></div></div><div class="tbl-box"><div class="tbl-hdr"><span class="tbl-hdr-title">'+data.length+' celular'+(data.length!==1?'es':'')+'</span><div class="tbl-tools"><input class="fi-sm" type="text" placeholder="Buscar..." value="'+celFilter.q+'" oninput="celFilter.q=this.value;renderCelulares()" style="width:180px;"><select class="fi-sm" onchange="celFilter.area=this.value;renderCelulares()">'+filA+'</select><select class="fi-sm" onchange="celFilter.plaza=this.value;renderCelulares()">'+filP+'</select><select class="fi-sm" onchange="celFilter.estado_asig=this.value;renderCelulares()">'+filE+'</select><button class="btn btn-blue btn-sm" onclick="openFormCelular()">+ Nuevo celular</button></div></div><div style="overflow-x:auto;"><table><thead><tr><th>ID</th><th>Marca/Modelo</th><th>IMEI 1</th><th>Telefono</th><th>Operadora</th><th>Empleado</th><th>Area</th><th>Plaza</th><th>Estado</th><th>Asignacion</th><th>Acciones</th></tr></thead><tbody>'+(rows||'<tr><td colspan="11" class="empty-state">Sin celulares.</td></tr>')+'</tbody></table></div></div>';}
+function renderCelulares(){
+  var w=document.getElementById('view-celulares');if(!w)return;
+  var data=celulares.filter(function(cel){
+    var q=celFilter.q.toLowerCase();
+    if(q&&!(cel.marca+cel.modelo+cel.empleado+cel.imei1+cel.telefono+cel.area+cel.plaza).toLowerCase().includes(q))return false;
+    if(celFilter.estado&&cel.estado!==celFilter.estado)return false;
+    if(celFilter.estado_asig&&cel.estado_asig!==celFilter.estado_asig)return false;
+    if(celFilter.area&&cel.area!==celFilter.area)return false;
+    if(celFilter.plaza&&cel.plaza!==celFilter.plaza)return false;
+    return true;
+  });
+  var areas=[],plazas=[];
+  celulares.forEach(function(cel){if(areas.indexOf(cel.area)<0&&cel.area)areas.push(cel.area);if(plazas.indexOf(cel.plaza)<0&&cel.plaza)plazas.push(cel.plaza);});
+  areas.sort();plazas.sort();
+  var asignados=celulares.filter(function(cel){return cel.estado_asig==='Asignado';}).length;
+  var totalVal=celulares.reduce(function(a,cel){return a+(parseFloat(cel.precio)||0);},0);
+  var rows='';
+  data.forEach(function(cel){
+    var ec=cel.estado==='Bueno'?'#16a34a':cel.estado==='Regular'?'#d97706':cel.estado==='Malo'?'#dc2626':'#6b7280';
+    var ac=cel.estado_asig==='Asignado'?'#1d4ed8':cel.estado_asig==='Disponible'?'#16a34a':'#6b7280';
+    var cid=String(cel.id);
+    rows+='<tr data-cid="'+cid+'" ondblclick="openCelDetail(this.dataset.cid)" style="cursor:pointer;">';
+    rows+='<td style="font-family:monospace;font-size:10px;color:#9ca3af;">'+cid+'</td>';
+    rows+='<td><b style="color:#111827;">'+cel.marca+'</b> <span style="color:#9ca3af;">'+cel.modelo+'</span>'+(cel.color?'<br><span style="font-size:10px;color:#d1d5db;">'+cel.color+'</span>':'')+'</td>';
+    rows+='<td style="font-family:monospace;font-size:11px;">'+(cel.imei1||'—')+'</td>';
+    rows+='<td>'+(cel.telefono||'—')+'</td>';
+    rows+='<td>'+(cel.operadora||'—')+'</td>';
+    rows+='<td><b>'+(cel.empleado||'Sin asignar')+'</b>'+(cel.puesto?'<br><span style="font-size:10px;color:#9ca3af;">'+cel.puesto+'</span>':'')+'</td>';
+    rows+='<td>'+(cel.area||'—')+'</td>';
+    rows+='<td>'+(cel.plaza||'—')+'</td>';
+    rows+='<td><span class="pill" style="background:'+ec+'22;color:'+ec+';">'+cel.estado+'</span></td>';
+    rows+='<td><span class="pill" style="background:'+ac+'22;color:'+ac+';">'+cel.estado_asig+'</span></td>';
+    rows+='<td><div style="display:flex;gap:3px;">';
+    rows+='<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openCelDetail(this.dataset.cid)" title="Ver">&#128065;</button>';
+    rows+='<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();editCelular(this.dataset.cid)" title="Editar">&#9999;&#65039;</button>';
+    rows+='<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();deleteCelular(this.dataset.cid)" title="Eliminar" style="color:#dc2626;">&#128465;</button>';
+    rows+='</div></td></tr>';
+  });
+  var filA='<option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(celFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('');
+  var filP='<option value="">Todas las plazas</option>'+plazas.map(function(p){return '<option value="'+p+'"'+(celFilter.plaza===p?' selected':'')+'>'+p+'</option>';}).join('');
+  var filE='<option value="">Todos los estados</option>'+['Asignado','Disponible','En reparacion','Baja'].map(function(t){return '<option value="'+t+'"'+(celFilter.estado_asig===t?' selected':'')+'>'+t+'</option>';}).join('');
+  w.innerHTML=
+    '<div class="dash-title">Celulares</div>'
+    +'<div class="dash-sub">Dispositivos moviles asignados al personal</div>'
+    +'<div class="stats-grid" style="margin-bottom:16px;">'
+    +'<div class="stat-card"><div class="lbl">Total</div><div class="val blue">'+celulares.length+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Asignados</div><div class="val green">'+asignados+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Valor total</div><div class="val blue" style="font-size:15px;">'+fmt$(totalVal)+'</div></div>'
+    +'</div>'
+    +'<div class="tbl-box"><div class="tbl-hdr">'
+    +'<span class="tbl-hdr-title">'+data.length+' celular'+(data.length!==1?'es':'')+'</span>'
+    +'<div class="tbl-tools">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar..." value="'+celFilter.q+'" oninput="celFilter.q=this.value;renderCelulares()" style="width:180px;">'
+    +'<select class="fi-sm" onchange="celFilter.area=this.value;renderCelulares()">'+filA+'</select>'
+    +'<select class="fi-sm" onchange="celFilter.plaza=this.value;renderCelulares()">'+filP+'</select>'
+    +'<select class="fi-sm" onchange="celFilter.estado_asig=this.value;renderCelulares()">'+filE+'</select>'
+    +'<button class="btn btn-blue btn-sm" onclick="openFormCelular()">+ Nuevo celular</button>'
+    +'</div></div>'
+    +'<div style="overflow-x:auto;"><table><thead><tr>'
+    +'<th>ID</th><th>Marca/Modelo</th><th>IMEI 1</th><th>Telefono</th><th>Operadora</th>'
+    +'<th>Empleado</th><th>Area</th><th>Plaza</th><th>Estado</th><th>Asignacion</th><th>Acciones</th>'
+    +'</tr></thead><tbody>'
+    +(rows||'<tr><td colspan="11" class="empty-state">No hay celulares. Haz clic en + Nuevo celular para agregar.</td></tr>')
+    +'</tbody></table></div></div>';
+}
 
 // EXPORT CSV
 function exportCSV(){
@@ -1927,6 +2081,40 @@ auth.onAuthStateChanged(function(user){
 </script>
 
 <!-- ESCÁNER QR -->
+<!-- MODAL CELULAR -->
+<div id="overlay-celular" class="hidden" onclick="if(event.target===this)closeFormCelular()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
+  <div class="modal-card wide">
+    <div class="modal-hd"><h3 id="cel-modal-title">Nuevo celular</h3><button class="icon-btn" onclick="closeFormCelular()">&#x2715;</button></div>
+    <div class="modal-body">
+      <div class="form-section">Identificacion</div>
+      <div class="af-g3"><div class="af"><label>Marca *</label><input type="text" id="cel-marca" placeholder="Samsung, Apple, Xiaomi"></div><div class="af"><label>Modelo *</label><input type="text" id="cel-modelo" placeholder="Galaxy A54, iPhone 14"></div><div class="af"><label>Color</label><input type="text" id="cel-color" placeholder="Negro, Blanco"></div></div>
+      <div class="af-g3"><div class="af"><label>N serie</label><input type="text" id="cel-serie"></div><div class="af"><label>IMEI 1 *</label><input type="text" id="cel-imei1" placeholder="15 digitos"></div><div class="af"><label>IMEI 2</label><input type="text" id="cel-imei2"></div></div>
+      <div class="af-g3"><div class="af"><label>Almacenamiento</label><input type="text" id="cel-storage" placeholder="128GB"></div><div class="af"><label>RAM</label><input type="text" id="cel-ram" placeholder="6GB"></div><div class="af"><label>Bateria</label><input type="text" id="cel-bateria" placeholder="4500 mAh"></div></div>
+      <div class="af-g2"><div class="af"><label>SO</label><input type="text" id="cel-so" placeholder="Android 13, iOS 17"></div><div class="af"><label>Version</label><input type="text" id="cel-so-ver" placeholder="13.0.1"></div></div>
+      <div class="form-section">Linea telefonica</div>
+      <div class="af-g3"><div class="af"><label>Numero de telefono</label><input type="text" id="cel-telefono" placeholder="271-123-4567"></div><div class="af"><label>Operadora</label><select id="cel-operadora"><option value="">Seleccionar...</option><option>Telcel</option><option>AT&amp;T</option><option>Movistar</option><option>Unefon</option><option>Otra</option></select></div><div class="af"><label>N SIM</label><input type="text" id="cel-sim"></div></div>
+      <div class="af-g2"><div class="af"><label>Plan</label><select id="cel-plan"><option value="">Seleccionar...</option><option>Plan empresarial</option><option>Prepago</option><option>Postpago</option></select></div><div class="af"><label>PIN</label><input type="password" id="cel-pin" placeholder="PIN del equipo"></div></div>
+      <div class="form-section">Asignacion al personal</div>
+      <div class="af-g3"><div class="af"><label>Empleado *</label><input type="text" id="cel-empleado" placeholder="Nombre completo"></div><div class="af"><label>Puesto</label><input type="text" id="cel-puesto" placeholder="Vendedor, Supervisor"></div><div class="af"><label>Area</label><input type="text" id="cel-area-campo" placeholder="Comercial, TI"></div></div>
+      <div class="af-g2"><div class="af"><label>Plaza</label><input type="text" id="cel-plaza-campo" placeholder="Ixtaczoquitlan"></div><div class="af"><label>Fecha asignacion</label><input type="date" id="cel-fecha-asig"></div></div>
+      <div class="form-section">Compra y garantia</div>
+      <div class="af-g3"><div class="af"><label>Fecha compra</label><input type="date" id="cel-fecha-compra"></div><div class="af"><label>Garantia</label><input type="text" id="cel-garantia" placeholder="1 ano"></div><div class="af"><label>Proveedor</label><input type="text" id="cel-proveedor"></div></div>
+      <div class="af-g3"><div class="af"><label>Precio ($)</label><input type="number" id="cel-precio" step="0.01" placeholder="0.00"></div><div class="af"><label>Factura</label><input type="text" id="cel-factura"></div><div class="af"><label>Activo Fijo</label><input type="text" id="cel-af"></div></div>
+      <div class="form-section">Estado</div>
+      <div class="af-g2"><div class="af"><label>Estado fisico</label><select id="cel-estado"><option>Bueno</option><option>Regular</option><option>Malo</option><option>Baja</option></select></div><div class="af"><label>Asignacion</label><select id="cel-estado-asig"><option>Asignado</option><option>Disponible</option><option>En reparacion</option><option>Baja</option></select></div></div>
+      <div class="af"><label>Observaciones</label><textarea id="cel-obs" placeholder="Notas, danos visibles..."></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeFormCelular()">Cancelar</button><button class="btn btn-blue" onclick="saveCelular()">&#128190; Guardar celular</button></div>
+  </div>
+</div>
+<!-- MODAL DETALLE CELULAR -->
+<div id="overlay-cel-detail" class="hidden" onclick="if(event.target===this)closeCelDetail()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
+  <div class="modal-card" style="max-width:580px;margin:auto;">
+    <div class="modal-hd"><h3 id="cel-detail-title">Detalle del celular</h3><div style="display:flex;gap:6px;"><button class="icon-btn" id="cel-edit-btn">&#9999;&#65039;</button><button class="icon-btn" id="cel-del-btn" style="color:#ea4335;">&#128465;</button><button class="icon-btn" onclick="closeCelDetail()">&#x2715;</button></div></div>
+    <div class="modal-body" id="cel-detail-body"></div>
+  </div>
+</div>
+
 <div id="scanner-overlay">
   <div class="scanner-box">
     <video id="scanner-video" playsinline autoplay muted></video>
