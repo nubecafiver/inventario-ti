@@ -51,6 +51,7 @@ body.app-mode{background:#eef2f7;}
 
 /* VIEWS */
 .view-wrap{flex:1;overflow:auto;padding:1.25rem 1.75rem;background:#eef2f7;}
+#view-dashboard:not(.hidden){display:flex;flex-direction:column;flex:1;overflow:auto;}
 
 /* DASHBOARD */
 .dash-title{font-size:18px;font-weight:700;color:#1c1e21;margin-bottom:4px;}
@@ -424,7 +425,7 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
       <button class="btn btn-sm" onclick="doLogout()">Salir</button>
     </div>
   </div>
-  <div id="view-dashboard"    class="hidden" style="flex:1;overflow:auto;background:#0A1628;"></div>
+  <div id="view-dashboard"    class="hidden" style="background:#0A1628;"></div>
   <div id="view-inventario"   class="view-wrap hidden"></div>
   <div id="view-qr"           class="hidden" style="flex:1;overflow:auto;background:#eef2f7;"></div>
   <div id="view-reparaciones" class="view-wrap hidden"></div>
