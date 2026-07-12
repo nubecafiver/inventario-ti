@@ -38,8 +38,8 @@ body.app-mode{background:#eef2f7;}
 .proj-name{font-size:15px;font-weight:700;color:#f1f5f9;}
 .proj-sub{font-size:11px;color:#64748b;}
 .tnav{padding:6px 14px;border-radius:4px;font-size:12px;font-weight:500;color:#94a3b8;cursor:pointer;border:none;background:none;font-family:'Inter',sans-serif;transition:all .15s;display:flex;align-items:center;gap:5px;}
-.tnav:hover{background:rgba(203,219,245,.08);color:#e2e8f0;}
-.tnav.on{background:rgba(203,219,245,.15);color:#cbdbf5;font-weight:600;}
+.tnav:hover{background:rgba(203,219,245,.1);color:#e2e8f0;}
+.tnav.on{background:rgba(203,219,245,.18);color:#cbdbf5;font-weight:600;}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
 .user-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:4px;background:rgba(203,219,245,.1);font-size:12px;font-weight:500;cursor:pointer;transition:background .15s;color:#94a3b8;}
 .user-pill:hover{background:rgba(203,219,245,.18);}
@@ -51,7 +51,7 @@ body.app-mode{background:#eef2f7;}
 
 /* VIEWS */
 .view-wrap{flex:1;overflow:auto;padding:1.25rem 1.75rem;background:#eef2f7;}
-#view-dashboard:not(.hidden){display:block;flex:1;overflow:auto;min-height:0;}
+#view-dashboard{padding:0;background:#f8f9ff;}
 
 /* DASHBOARD */
 .dash-title{font-size:18px;font-weight:700;color:#1c1e21;margin-bottom:4px;}
@@ -408,7 +408,7 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
     <button class="tnav"    id="tnav-inventario"   onclick="switchView('inventario')"><span class='tnav-icon'>🗃</span><span class='tnav-txt'> Inventario</span></button>
     <button class="tnav"    id="tnav-qr"           onclick="switchView('qr')"><span class='tnav-icon'>⬛</span><span class='tnav-txt'> QR</span></button>
     <button class="tnav"    id="tnav-reparaciones" onclick="switchView('reparaciones')"><span class='tnav-icon'>🔧</span><span class='tnav-txt'> Reparaciones</span></button>
-    <button class="tnav"    id="tnav-celulares"   onclick="switchView('celulares')"><span class='tnav-icon'>📱</span><span class='tnav-txt'> Celulares</span></button>
+    <button class="tnav"    id="tnav-celulares" onclick="switchView('celulares')"><span class='tnav-icon'>📱</span><span class='tnav-txt'> Celulares</span></button>
     <div class="topbar-right">
       <div class="sync-pill ok" id="topbar-sync">
         <span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;"></span>
@@ -425,7 +425,7 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
       <button class="btn btn-sm" onclick="doLogout()">Salir</button>
     </div>
   </div>
-  <div id="view-dashboard"    class="hidden" style="flex:1;overflow:auto;min-height:0;background:#f8f9ff;"></div>
+  <div id="view-dashboard"    class="view-wrap hidden"></div>
   <div id="view-inventario"   class="view-wrap hidden"></div>
   <div id="view-qr"           class="hidden" style="flex:1;overflow:auto;background:#eef2f7;"></div>
   <div id="view-reparaciones" class="view-wrap hidden"></div>
@@ -827,188 +827,140 @@ function renderDashboard(){
   equipos.forEach(function(e){byTipo[e.tipo]=(byTipo[e.tipo]||0)+1;byEstado[e.estado]=(byEstado[e.estado]||0)+1;totalInv+=parseFloat(e.precio)||0;});
   var areas={};
   equipos.forEach(function(e){areas[e.area]=(areas[e.area]||0)+1;});
-  var rojo=0,amarillo=0,verde=0;
-  equipos.forEach(function(e){var a=calcAnios(e.fecha);var cls=vidaClass(a);if(cls==='rojo')rojo++;else if(cls==='amarillo')amarillo++;else if(cls==='verde')verde++;});
+  var rojo=0,amarillo=0;
+  equipos.forEach(function(e){var a=calcAnios(e.fecha);var cls=vidaClass(a);if(cls==='rojo')rojo++;else if(cls==='amarillo')amarillo++;});
   var pctBueno=total?Math.round((byEstado.Bueno||0)/total*100):0;
   var recent=equipos.slice(-5).reverse();
+  var areasSorted=Object.keys(areas).sort(function(a,b){return areas[b]-areas[a];});
 
-  w.innerHTML=`
-  <style>
-    .pi{--bg:#f8f9ff;--bgc:#eff4ff;--pri:#0f172a;--acc:#cbdbf5;--acc2:#1e40af;--bdr:#e2e8f0;--txt:#0f172a;--txt2:#475569;--txt3:#94a3b8;--rad:4px;font-family:'Inter',sans-serif;}
-    .pi *{box-sizing:border-box;}
-    .pi-wrap{background:var(--bg);min-height:100vh;padding:28px 32px;}
-    .pi-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:12px;}
-    .pi-eyebrow{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--acc2);margin-bottom:6px;}
-    .pi-h1{font-size:26px;font-weight:700;color:var(--pri);line-height:1.2;letter-spacing:-.02em;}
-    .pi-date{font-size:12px;color:var(--txt3);margin-top:3px;}
-    .pi-bdg{display:flex;align-items:center;gap:6px;background:var(--bgc);border:1px solid var(--acc);padding:6px 14px;border-radius:var(--rad);font-size:12px;font-weight:600;color:var(--acc2);}
-    .pi-bdg-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;}
+  // Filas de últimos registros
+  var recentRows=recent.map(function(e){
+    var sc=e.estado==='Bueno'?'background:#dcfce7;color:#166534;':e.estado==='Regular'?'background:#fef9c3;color:#854d0e;':e.estado==='Malo'?'background:#fee2e2;color:#991b1b;':'background:#f1f5f9;color:#64748b;';
+    var tc='background:#eff4ff;color:#1e40af;';
+    return '<tr ondblclick="openPanel(\''+e.id+'\')" style="cursor:pointer;">'
+      +'<td style="font-family:monospace;font-size:10px;color:#94a3b8;padding:10px 16px;">'+e.id+'</td>'
+      +'<td style="padding:10px 16px;"><span style="'+tc+'display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;margin-right:6px;">'+e.tipo+'</span>'
+      +'<b style="color:#0f172a;font-size:12px;">'+e.marca+'</b> <span style="color:#94a3b8;font-size:12px;">'+e.modelo+'</span></td>'
+      +'<td style="padding:10px 16px;font-size:12px;color:#64748b;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+e.area+'</td>'
+      +'<td style="padding:10px 16px;"><span style="'+sc+'display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">'+e.estado+'</span></td>'
+      +'</tr>';
+  }).join('');
 
-    .pi-g1{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
-    .pi-g2{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
-    .pi-g3{display:grid;grid-template-columns:1fr 340px;gap:16px;}
+  // Filas de áreas
+  var areaRows=areasSorted.map(function(a){
+    var pct=Math.round(areas[a]/total*100);
+    var aEsc=a.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return '<div onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\''+aEsc+'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
+      +'style="display:flex;align-items:center;justify-content:space-between;padding:9px 20px;border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .12s;" '
+      +'onmouseover="this.style.background=\'#eff4ff\'" onmouseout="this.style.background=\'\'">'
+      +'<span style="font-size:12px;color:#475569;">'+a+'</span>'
+      +'<div style="display:flex;align-items:center;gap:10px;">'
+      +'<div style="width:64px;height:3px;background:#e2e8f0;border-radius:2px;overflow:hidden;">'
+      +'<div style="width:'+pct+'%;height:100%;background:#1e40af;border-radius:2px;"></div></div>'
+      +'<span style="font-size:12px;font-weight:600;color:#1e40af;min-width:24px;text-align:right;">'+areas[a]+'</span>'
+      +'</div></div>';
+  }).join('');
 
-    .pi-card{background:#fff;border:1px solid var(--bdr);border-radius:var(--rad);padding:20px 22px;cursor:pointer;transition:border-color .15s,box-shadow .15s;position:relative;overflow:hidden;}
-    .pi-card:hover{border-color:var(--acc);box-shadow:0 4px 16px rgba(30,64,175,.08);}
-    .pi-card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--stripe,transparent);border-radius:var(--rad) 0 0 var(--rad);}
-    .pi-card.s-blue::after{background:var(--acc2);}
-    .pi-card.s-green::after{background:#16a34a;}
-    .pi-card.s-amber::after{background:#d97706;}
-    .pi-card.s-red::after{background:#dc2626;}
-
-    .pi-card .c-lbl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-bottom:8px;}
-    .pi-card .c-val{font-size:32px;font-weight:700;color:var(--pri);line-height:1;margin-bottom:4px;letter-spacing:-.02em;}
-    .pi-card .c-val.blue{color:var(--acc2);}
-    .pi-card .c-val.green{color:#16a34a;}
-    .pi-card .c-val.amber{color:#d97706;}
-    .pi-card .c-val.red{color:#dc2626;}
-    .pi-card .c-val.lg{font-size:26px;}
-    .pi-card .c-sub{font-size:11px;color:var(--txt3);}
-    .pi-card .c-bar{height:3px;background:var(--bgc);border-radius:2px;margin-top:12px;overflow:hidden;}
-    .pi-card .c-bar-f{height:100%;border-radius:2px;}
-    .pi-card .c-arrow{position:absolute;right:16px;bottom:14px;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--txt3);}
-    .pi-card:hover .c-arrow{color:var(--acc2);}
-
-    .pi-card-hero{background:var(--pri);border:1px solid var(--pri);border-radius:var(--rad);padding:22px 24px;cursor:pointer;transition:box-shadow .15s;position:relative;overflow:hidden;}
-    .pi-card-hero:hover{box-shadow:0 8px 24px rgba(15,23,42,.25);}
-    .pi-card-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:rgba(203,219,245,.06);}
-    .pi-card-hero .h-lbl{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--acc);margin-bottom:10px;}
-    .pi-card-hero .h-val{font-size:32px;font-weight:700;color:#fff;line-height:1;margin-bottom:5px;letter-spacing:-.02em;}
-    .pi-card-hero .h-sub{font-size:12px;color:rgba(203,219,245,.6);}
-    .pi-card-hero .h-cta{display:inline-flex;align-items:center;gap:4px;margin-top:14px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);opacity:.7;}
-    .pi-card-hero:hover .h-cta{opacity:1;}
-
-    .pi-panel{background:#fff;border:1px solid var(--bdr);border-radius:var(--rad);overflow:hidden;}
-    .pi-panel-hd{padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;}
-    .pi-panel-hd h3{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);margin:0;}
-    .pi-panel-hd span{font-size:11px;color:var(--acc2);cursor:pointer;font-weight:500;}
-    .pi-panel-hd span:hover{text-decoration:underline;}
-
-    .pit{width:100%;border-collapse:collapse;}
-    .pit th{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);padding:8px 12px;border-bottom:1px solid var(--bdr);text-align:left;background:var(--bgc);}
-    .pit td{padding:9px 12px;font-size:12px;border-bottom:1px solid var(--bdr);color:var(--txt2);vertical-align:middle;}
-    .pit tr:last-child td{border-bottom:none;}
-    .pit tr:hover td{background:var(--bgc);cursor:pointer;}
-
-    .pip{display:inline-block;padding:2px 7px;border-radius:var(--rad);font-size:10px;font-weight:600;}
-    .pip-b{background:#dcfce7;color:#166534;}
-    .pip-r{background:#fef9c3;color:#854d0e;}
-    .pip-m{background:#fee2e2;color:#991b1b;}
-    .pip-x{background:var(--bgc);color:var(--txt3);}
-    .tipp{display:inline-block;padding:2px 7px;border-radius:var(--rad);font-size:10px;font-weight:600;background:var(--bgc);color:var(--acc2);}
-
-    .pi-ar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--bdr);cursor:pointer;transition:background .12s;}
-    .pi-ar:last-child{border-bottom:none;}
-    .pi-ar:hover{background:var(--bgc);}
-    .pi-ar-nm{font-size:12px;color:var(--txt2);}
-    .pi-ar-r{display:flex;align-items:center;gap:10px;}
-    .pi-ar-bar{width:64px;height:3px;background:var(--bgc);border-radius:2px;overflow:hidden;}
-    .pi-ar-fill{height:100%;background:var(--acc2);border-radius:2px;}
-    .pi-ar-ct{font-size:12px;font-weight:600;color:var(--acc2);min-width:24px;text-align:right;}
-
-    @media(max-width:768px){.pi-g1,.pi-g2{grid-template-columns:repeat(2,1fr);}.pi-g3{grid-template-columns:1fr;}}
-  </style>
-  <div class="pi">
-  <div class="pi-wrap">
-    <div class="pi-hdr">
-      <div>
-        <div class="pi-eyebrow">Precision ITAM · Cafiver</div>
-        <div class="pi-h1">Dashboard</div>
-        <div class="pi-date">${new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
-      </div>
-      <div class="pi-bdg"><div class="pi-bdg-dot"></div>${total} activos registrados</div>
-    </div>
-
-    <div class="pi-g1">
-      <div class="pi-card-hero" onclick="switchView('inventario')">
-        <div class="h-lbl">Valor total del inventario</div>
-        <div class="h-val">${fmt$(totalInv)}</div>
-        <div class="h-sub">${total} equipos · ${Object.keys(areas).length} áreas</div>
-        <div class="h-cta">Ver inventario completo →</div>
-      </div>
-      <div class="pi-card s-green" onclick="invFilter.q='';invFilter.tipo='';invFilter.estado='Bueno';invFilter.area='';invFilter.plaza='';switchView('inventario');">
-        <div class="c-lbl">Buen estado</div>
-        <div class="c-val green">${byEstado.Bueno||0}</div>
-        <div class="c-sub">${pctBueno}% del total</div>
-        <div class="c-bar"><div class="c-bar-f" style="width:${pctBueno}%;background:#16a34a;"></div></div>
-        <div class="c-arrow">FILTRAR →</div>
-      </div>
-      <div class="pi-card s-amber" onclick="invFilter.q='';invFilter.tipo='';invFilter.estado='Regular';invFilter.area='';invFilter.plaza='';switchView('inventario');">
-        <div class="c-lbl">Estado regular</div>
-        <div class="c-val amber">${byEstado.Regular||0}</div>
-        <div class="c-sub">Requieren atención</div>
-        <div class="c-bar"><div class="c-bar-f" style="width:${total?Math.round((byEstado.Regular||0)/total*100):0}%;background:#d97706;"></div></div>
-        <div class="c-arrow">FILTRAR →</div>
-      </div>
-      <div class="pi-card s-red" onclick="invFilter.q='';invFilter.tipo='';invFilter.estado='Malo';invFilter.area='';invFilter.plaza='';switchView('inventario');">
-        <div class="c-lbl">Malo / Baja</div>
-        <div class="c-val red">${(byEstado.Malo||0)+(byEstado.Baja||0)}</div>
-        <div class="c-sub">Para reemplazo</div>
-        <div class="c-bar"><div class="c-bar-f" style="width:${total?Math.round(((byEstado.Malo||0)+(byEstado.Baja||0))/total*100):0}%;background:#dc2626;"></div></div>
-        <div class="c-arrow">FILTRAR →</div>
-      </div>
-    </div>
-
-    <div class="pi-g2">
-      <div class="pi-card s-blue" onclick="invFilter.q='';invFilter.tipo='Desktop';invFilter.estado='';invFilter.area='';invFilter.plaza='';switchView('inventario');">
-        <div class="c-lbl">Desktops</div>
-        <div class="c-val blue">${byTipo.Desktop||0}</div>
-        <div class="c-sub">Equipos de escritorio</div>
-        <div class="c-arrow">FILTRAR →</div>
-      </div>
-      <div class="pi-card s-blue" onclick="invFilter.q='';invFilter.tipo='Laptop';invFilter.estado='';invFilter.area='';invFilter.plaza='';switchView('inventario');">
-        <div class="c-lbl">Laptops</div>
-        <div class="c-val blue">${byTipo.Laptop||0}</div>
-        <div class="c-sub">Equipos portátiles</div>
-        <div class="c-arrow">FILTRAR →</div>
-      </div>
-      <div class="pi-card s-red" onclick="switchView('inventario');">
-        <div class="c-lbl">Para cambio</div>
-        <div class="c-val red">${rojo}</div>
-        <div class="c-sub">+4 años de vida útil</div>
-        <div class="c-bar"><div class="c-bar-f" style="width:${total?Math.round(rojo/total*100):0}%;background:#dc2626;"></div></div>
-        <div class="c-arrow">VER →</div>
-      </div>
-      <div class="pi-card s-amber" onclick="switchView('reparaciones');">
-        <div class="c-lbl">Reparaciones</div>
-        <div class="c-val amber">${reparaciones.length}</div>
-        <div class="c-sub">Historial total</div>
-        <div class="c-arrow">VER →</div>
-      </div>
-    </div>
-
-    <div class="pi-g3">
-      <div class="pi-panel">
-        <div class="pi-panel-hd"><h3>Últimos registros</h3><span onclick="switchView('inventario')">Ver todos →</span></div>
-        <table class="pit">
-          <thead><tr><th>ID</th><th>Equipo</th><th>Área</th><th>Estado</th></tr></thead>
-          <tbody>${recent.map(function(e){
-            var sc=e.estado==='Bueno'?'pip-b':e.estado==='Regular'?'pip-r':e.estado==='Malo'?'pip-m':'pip-x';
-            return '<tr ondblclick="openPanel(\''+e.id+'\')">'
-              +'<td style="font-family:monospace;font-size:10px;color:#94a3b8;">'+e.id+'</td>'
-              +'<td><span class="tipp">'+e.tipo+'</span> <b style="color:#0f172a;">'+e.marca+'</b> <span style="color:#94a3b8;">'+e.modelo+'</span></td>'
-              +'<td style="color:#64748b;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+e.area+'</td>'
-              +'<td><span class="pip '+sc+'">'+e.estado+'</span></td></tr>';
-          }).join('')}</tbody>
-        </table>
-      </div>
-
-      <div class="pi-panel">
-        <div class="pi-panel-hd"><h3>Por área</h3><span style="color:#94a3b8;cursor:default;">${Object.keys(areas).length} áreas</span></div>
-        <div style="max-height:290px;overflow-y:auto;">
-          ${Object.keys(areas).sort(function(a,b){return areas[b]-areas[a];}).map(function(a){
-            var pct=Math.round(areas[a]/total*100);
-            var aEsc=a.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-            return '<div class="pi-ar" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\''+aEsc+'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
-              +'<span class="pi-ar-nm">'+a+'</span>'
-              +'<div class="pi-ar-r"><div class="pi-ar-bar"><div class="pi-ar-fill" style="width:'+pct+'%;"></div></div><span class="pi-ar-ct">'+areas[a]+'</span></div>'
-              +'</div>';
-          }).join('')}
-        </div>
-      </div>
-    </div>
-  </div>
-  </div>`;
+  w.innerHTML=
+    '<style>'
+    +'.pi-w{background:#f8f9ff;min-height:100%;padding:28px 32px;font-family:Inter,sans-serif;box-sizing:border-box;}'
+    +'.pi-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px;}'
+    +'.pi-ey{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#1e40af;margin-bottom:5px;}'
+    +'.pi-h1{font-size:26px;font-weight:700;color:#0f172a;letter-spacing:-.02em;}'
+    +'.pi-dt{font-size:12px;color:#94a3b8;margin-top:3px;}'
+    +'.pi-bdg{display:flex;align-items:center;gap:6px;background:#eff4ff;border:1px solid #cbdbf5;padding:6px 14px;border-radius:4px;font-size:12px;font-weight:600;color:#1e40af;}'
+    +'.pi-g1{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px;}'
+    +'.pi-g2{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}'
+    +'.pi-g3{display:grid;grid-template-columns:1fr 320px;gap:16px;}'
+    +'.pic{background:#fff;border:1px solid #e2e8f0;border-radius:4px;padding:20px 22px;cursor:pointer;transition:border-color .15s,box-shadow .15s;position:relative;overflow:hidden;}'
+    +'.pic:hover{border-color:#cbdbf5;box-shadow:0 4px 16px rgba(30,64,175,.07);}'
+    +'.pic-stripe{position:absolute;left:0;top:0;bottom:0;width:3px;}'
+    +'.pic .lb{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:8px;}'
+    +'.pic .vl{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1;margin-bottom:4px;}'
+    +'.pic .sb{font-size:11px;color:#94a3b8;}'
+    +'.pic .br{height:3px;background:#f1f5f9;border-radius:2px;margin-top:12px;overflow:hidden;}'
+    +'.pic .brf{height:100%;border-radius:2px;}'
+    +'.pic .arr{position:absolute;right:14px;bottom:12px;font-size:10px;font-weight:700;letter-spacing:.06em;color:#cbd5e1;transition:color .15s;}'
+    +'.pic:hover .arr{color:#1e40af;}'
+    +'.pic-hero{background:#0f172a;border:1px solid #0f172a;border-radius:4px;padding:22px 24px;cursor:pointer;transition:box-shadow .15s;position:relative;overflow:hidden;}'
+    +'.pic-hero:hover{box-shadow:0 8px 24px rgba(15,23,42,.2);}'
+    +'.pic-hero::before{content:"";position:absolute;top:-60px;right:-60px;width:160px;height:160px;border-radius:50%;background:rgba(203,219,245,.04);}'
+    +'.pic-hero .hl{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#cbdbf5;margin-bottom:10px;opacity:.7;}'
+    +'.pic-hero .hv{font-size:30px;font-weight:700;color:#fff;letter-spacing:-.02em;line-height:1;margin-bottom:4px;}'
+    +'.pic-hero .hs{font-size:12px;color:rgba(203,219,245,.5);}'
+    +'.pic-hero .hc{display:inline-block;margin-top:14px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#cbdbf5;opacity:.5;transition:opacity .15s;}'
+    +'.pic-hero:hover .hc{opacity:1;}'
+    +'.pi-panel{background:#fff;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;}'
+    +'.pi-ph{padding:13px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;}'
+    +'.pi-ph h3{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin:0;}'
+    +'.pi-ph a{font-size:11px;color:#1e40af;cursor:pointer;font-weight:500;}'
+    +'.pi-ph a:hover{text-decoration:underline;}'
+    +'table.pit{width:100%;border-collapse:collapse;}'
+    +'table.pit th{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;padding:8px 16px;border-bottom:1px solid #f1f5f9;text-align:left;background:#f8f9ff;}'
+    +'table.pit td{font-size:12px;border-bottom:1px solid #f8f9ff;color:#475569;vertical-align:middle;}'
+    +'table.pit tr:last-child td{border-bottom:none;}'
+    +'table.pit tr:hover td{background:#eff4ff;}'
+    +'@media(max-width:768px){.pi-g1,.pi-g2{grid-template-columns:repeat(2,1fr);}.pi-g3{grid-template-columns:1fr;}}'
+    +'</style>'
+    +'<div class="pi-w">'
+    +'<div class="pi-hdr">'
+    +'<div><div class="pi-ey">Precision ITAM · Cafiver</div><div class="pi-h1">IT Asset Dashboard</div><div class="pi-dt">'+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</div></div>'
+    +'<div class="pi-bdg"><span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;"></span>'+total+' activos registrados</div>'
+    +'</div>'
+    // Grid 1
+    +'<div class="pi-g1">'
+    +'<div class="pic-hero" onclick="switchView(\'inventario\')">'
+    +'<div class="hl">Valor total del inventario</div>'
+    +'<div class="hv">'+fmt$(totalInv)+'</div>'
+    +'<div class="hs">'+total+' equipos · '+Object.keys(areas).length+' áreas</div>'
+    +'<div class="hc">Ver inventario completo →</div>'
+    +'</div>'
+    +'<div class="pic" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Bueno\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
+    +'<div class="pic-stripe" style="background:#16a34a;"></div>'
+    +'<div class="lb">Buen estado</div><div class="vl" style="color:#16a34a;">'+(byEstado.Bueno||0)+'</div><div class="sb">'+pctBueno+'% del total</div>'
+    +'<div class="br"><div class="brf" style="width:'+pctBueno+'%;background:#16a34a;"></div></div>'
+    +'<div class="arr">FILTRAR →</div></div>'
+    +'<div class="pic" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Regular\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
+    +'<div class="pic-stripe" style="background:#d97706;"></div>'
+    +'<div class="lb">Estado regular</div><div class="vl" style="color:#d97706;">'+(byEstado.Regular||0)+'</div><div class="sb">Requieren atención</div>'
+    +'<div class="br"><div class="brf" style="width:'+(total?Math.round((byEstado.Regular||0)/total*100):0)+'%;background:#d97706;"></div></div>'
+    +'<div class="arr">FILTRAR →</div></div>'
+    +'<div class="pic" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Malo\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
+    +'<div class="pic-stripe" style="background:#dc2626;"></div>'
+    +'<div class="lb">Malo / Baja</div><div class="vl" style="color:#dc2626;">'+((byEstado.Malo||0)+(byEstado.Baja||0))+'</div><div class="sb">Para reemplazo</div>'
+    +'<div class="br"><div class="brf" style="width:'+(total?Math.round(((byEstado.Malo||0)+(byEstado.Baja||0))/total*100):0)+'%;background:#dc2626;"></div></div>'
+    +'<div class="arr">FILTRAR →</div></div>'
+    +'</div>'
+    // Grid 2
+    +'<div class="pi-g2">'
+    +'<div class="pic" onclick="invFilter.q=\'\';invFilter.tipo=\'Desktop\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
+    +'<div class="pic-stripe" style="background:#1e40af;"></div>'
+    +'<div class="lb">Desktops</div><div class="vl" style="color:#1e40af;">'+(byTipo.Desktop||0)+'</div><div class="sb">Equipos de escritorio</div><div class="arr">FILTRAR →</div></div>'
+    +'<div class="pic" onclick="invFilter.q=\'\';invFilter.tipo=\'Laptop\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
+    +'<div class="pic-stripe" style="background:#1e40af;"></div>'
+    +'<div class="lb">Laptops</div><div class="vl" style="color:#1e40af;">'+(byTipo.Laptop||0)+'</div><div class="sb">Equipos portátiles</div><div class="arr">FILTRAR →</div></div>'
+    +'<div class="pic" onclick="switchView(\'inventario\');">'
+    +'<div class="pic-stripe" style="background:#dc2626;"></div>'
+    +'<div class="lb">Para cambio</div><div class="vl" style="color:#dc2626;">'+rojo+'</div><div class="sb">+4 años de vida útil</div>'
+    +'<div class="br"><div class="brf" style="width:'+(total?Math.round(rojo/total*100):0)+'%;background:#dc2626;"></div></div>'
+    +'<div class="arr">VER →</div></div>'
+    +'<div class="pic" onclick="switchView(\'reparaciones\');">'
+    +'<div class="pic-stripe" style="background:#d97706;"></div>'
+    +'<div class="lb">Reparaciones</div><div class="vl" style="color:#d97706;">'+reparaciones.length+'</div><div class="sb">Historial total</div><div class="arr">VER →</div></div>'
+    +'</div>'
+    // Grid 3
+    +'<div class="pi-g3">'
+    +'<div class="pi-panel">'
+    +'<div class="pi-ph"><h3>Últimos registros</h3><a onclick="switchView(\'inventario\')">Ver todos →</a></div>'
+    +'<table class="pit"><thead><tr><th>ID</th><th>Equipo</th><th>Área</th><th>Estado</th></tr></thead>'
+    +'<tbody>'+recentRows+'</tbody></table>'
+    +'</div>'
+    +'<div class="pi-panel">'
+    +'<div class="pi-ph"><h3>Equipos por área</h3><span style="font-size:11px;color:#94a3b8;">'+Object.keys(areas).length+' áreas</span></div>'
+    +'<div style="max-height:290px;overflow-y:auto;">'+areaRows+'</div>'
+    +'</div>'
+    +'</div>'
+    +'</div>';
 }
 function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderInventario();}
 
@@ -1886,82 +1838,15 @@ function celUID(){return 'CEL'+Date.now().toString(36).toUpperCase()+Math.random
 function openFormCelular(){editingCelId=null;document.getElementById('cel-modal-title').textContent='Nuevo celular';clearFormCelular();document.getElementById('overlay-celular').classList.remove('hidden');}
 function editCelular(id){var c=celulares.find(function(x){return x.id===id;});if(!c)return;editingCelId=id;closeCelDetail();document.getElementById('cel-modal-title').textContent='Editar: '+c.marca+' '+c.modelo;fillFormCelular(c);document.getElementById('overlay-celular').classList.remove('hidden');}
 function closeFormCelular(){document.getElementById('overlay-celular').classList.add('hidden');editingCelId=null;}
-function clearFormCelular(){
-  ['marca','modelo','color','serie','imei1','imei2','storage','ram','bateria','so','so-ver','telefono','sim','pin','empleado','puesto','fecha-asig','fecha-compra','garantia','proveedor','factura','af','obs'].forEach(function(id){var el=document.getElementById('cel-'+id);if(el)el.value='';});
-  var ea=document.getElementById('cel-area-campo');if(ea)ea.value='';
-  var ep=document.getElementById('cel-plaza-campo');if(ep)ep.value='';
-  ['cel-operadora','cel-plan'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('cel-estado').value='Bueno';
-  document.getElementById('cel-estado-asig').value='Asignado';
-  document.getElementById('cel-precio').value='';
-  document.getElementById('cel-fecha-asig').value=new Date().toISOString().slice(0,10);
-}
-function fillFormCelular(c){
-  var m={'marca':c.marca,'modelo':c.modelo,'color':c.color,'serie':c.serie,'imei1':c.imei1,'imei2':c.imei2,'storage':c.storage,'ram':c.ram,'bateria':c.bateria,'so':c.so,'so-ver':c.so_ver,'telefono':c.telefono,'sim':c.sim,'pin':c.pin,'empleado':c.empleado,'puesto':c.puesto,'fecha-asig':c.fecha_asig,'fecha-compra':c.fecha_compra,'garantia':c.garantia,'proveedor':c.proveedor,'factura':c.factura,'af':c.af,'obs':c.obs};
-  Object.keys(m).forEach(function(k){var el=document.getElementById('cel-'+k);if(el)el.value=m[k]||'';});
-  var ea=document.getElementById('cel-area-campo');if(ea)ea.value=c.area||'';
-  var ep=document.getElementById('cel-plaza-campo');if(ep)ep.value=c.plaza||'';
-  document.getElementById('cel-operadora').value=c.operadora||'';
-  document.getElementById('cel-plan').value=c.plan||'';
-  document.getElementById('cel-estado').value=c.estado||'Bueno';
-  document.getElementById('cel-estado-asig').value=c.estado_asig||'Asignado';
-  document.getElementById('cel-precio').value=c.precio||'';
-}
+function clearFormCelular(){['marca','modelo','color','serie','imei1','imei2','storage','ram','bateria','so','so-ver','telefono','sim','pin','empleado','puesto','fecha-asig','fecha-compra','garantia','proveedor','factura','af','obs'].forEach(function(id){var el=document.getElementById('cel-'+id);if(el)el.value='';});var ea=document.getElementById('cel-area-campo');if(ea)ea.value='';var ep=document.getElementById('cel-plaza-campo');if(ep)ep.value='';['cel-operadora','cel-plan'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});document.getElementById('cel-estado').value='Bueno';document.getElementById('cel-estado-asig').value='Asignado';document.getElementById('cel-precio').value='';document.getElementById('cel-fecha-asig').value=new Date().toISOString().slice(0,10);}
+function fillFormCelular(c){var m={'marca':c.marca,'modelo':c.modelo,'color':c.color,'serie':c.serie,'imei1':c.imei1,'imei2':c.imei2,'storage':c.storage,'ram':c.ram,'bateria':c.bateria,'so':c.so,'so-ver':c.so_ver,'telefono':c.telefono,'sim':c.sim,'pin':c.pin,'empleado':c.empleado,'puesto':c.puesto,'fecha-asig':c.fecha_asig,'fecha-compra':c.fecha_compra,'garantia':c.garantia,'proveedor':c.proveedor,'factura':c.factura,'af':c.af,'obs':c.obs};Object.keys(m).forEach(function(k){var el=document.getElementById('cel-'+k);if(el)el.value=m[k]||'';});var ea=document.getElementById('cel-area-campo');if(ea)ea.value=c.area||'';var ep=document.getElementById('cel-plaza-campo');if(ep)ep.value=c.plaza||'';document.getElementById('cel-operadora').value=c.operadora||'';document.getElementById('cel-plan').value=c.plan||'';document.getElementById('cel-estado').value=c.estado||'Bueno';document.getElementById('cel-estado-asig').value=c.estado_asig||'Asignado';document.getElementById('cel-precio').value=c.precio||'';}
 function getCelFormValues(){return {id:editingCelId||celUID(),marca:document.getElementById('cel-marca').value.trim(),modelo:document.getElementById('cel-modelo').value.trim(),color:document.getElementById('cel-color').value.trim(),serie:document.getElementById('cel-serie').value.trim(),imei1:document.getElementById('cel-imei1').value.trim(),imei2:document.getElementById('cel-imei2').value.trim(),storage:document.getElementById('cel-storage').value.trim(),ram:document.getElementById('cel-ram').value.trim(),bateria:document.getElementById('cel-bateria').value.trim(),so:document.getElementById('cel-so').value.trim(),so_ver:document.getElementById('cel-so-ver').value.trim(),telefono:document.getElementById('cel-telefono').value.trim(),operadora:document.getElementById('cel-operadora').value,sim:document.getElementById('cel-sim').value.trim(),plan:document.getElementById('cel-plan').value,pin:document.getElementById('cel-pin').value.trim(),empleado:document.getElementById('cel-empleado').value.trim(),puesto:document.getElementById('cel-puesto').value.trim(),area:(document.getElementById('cel-area-campo')||{value:''}).value.trim(),plaza:(document.getElementById('cel-plaza-campo')||{value:''}).value.trim(),fecha_asig:document.getElementById('cel-fecha-asig').value,fecha_compra:document.getElementById('cel-fecha-compra').value,garantia:document.getElementById('cel-garantia').value.trim(),proveedor:document.getElementById('cel-proveedor').value.trim(),precio:parseFloat(document.getElementById('cel-precio').value)||0,factura:document.getElementById('cel-factura').value.trim(),af:document.getElementById('cel-af').value.trim(),estado:document.getElementById('cel-estado').value,estado_asig:document.getElementById('cel-estado-asig').value,obs:document.getElementById('cel-obs').value.trim(),updBy:curUser?curUser.name:'',updTs:nowStr()};}
 function saveCelular(){var c=getCelFormValues();if(!c.marca||!c.modelo){alert('Marca y Modelo obligatorios');return;}if(!c.imei1){alert('IMEI 1 obligatorio');return;}setSyncUI('saving','Guardando...');db.collection('celulares').doc(c.id).set(c).then(function(){setSyncUI('ok','En linea');closeFormCelular();toast(editingCelId?'Celular actualizado':'Celular guardado');}).catch(function(e){setSyncUI('error','Error');toast('Error: '+e.message);});}
 function deleteCelular(id){var c=celulares.find(function(x){return x.id===id;});if(!c)return;confirmAction('Eliminar celular?',c.marca+' '+c.modelo,function(){db.collection('celulares').doc(id).delete().then(function(){closeCelDetail();toast('Eliminado');});});}
 function celDRow(k,v){return '<div class="dp-row"><div class="dp-key">'+k+'</div><div class="dp-val">'+(v||'—')+'</div></div>';}
 function openCelDetail(id){var c=celulares.find(function(x){return x.id===id;});if(!c)return;currentCelId=id;document.getElementById('cel-detail-title').textContent=c.marca+' '+c.modelo;document.getElementById('cel-edit-btn').onclick=function(){editCelular(id);};document.getElementById('cel-del-btn').onclick=function(){deleteCelular(id);};var ec=c.estado==='Bueno'?'#2e7d32':c.estado==='Regular'?'#f57f17':c.estado==='Malo'?'#c62828':'#9aa0a6';var ac=c.estado_asig==='Asignado'?'#1a73e8':c.estado_asig==='Disponible'?'#34a853':'#9aa0a6';document.getElementById('cel-detail-body').innerHTML='<div style="display:flex;gap:8px;margin-bottom:14px;"><span class="pill" style="background:'+ec+'22;color:'+ec+';">'+c.estado+'</span><span class="pill" style="background:'+ac+'22;color:'+ac+';">'+c.estado_asig+'</span></div><div class="dp-sec-t">Equipo</div>'+celDRow('Marca',c.marca)+celDRow('Modelo',c.modelo)+celDRow('IMEI 1',c.imei1)+celDRow('IMEI 2',c.imei2)+celDRow('Almacenamiento',c.storage)+celDRow('RAM',c.ram)+celDRow('SO',c.so)+'<div class="dp-sec-t">Linea</div>'+celDRow('Telefono',c.telefono)+celDRow('Operadora',c.operadora)+celDRow('SIM',c.sim)+'<div class="dp-sec-t">Asignacion</div>'+celDRow('Empleado','<b>'+(c.empleado||'Sin asignar')+'</b>')+celDRow('Puesto',c.puesto)+celDRow('Area',c.area)+celDRow('Plaza',c.plaza)+'<div class="dp-sec-t">Compra</div>'+celDRow('Fecha',c.fecha_compra)+celDRow('Precio',fmt$(c.precio))+celDRow('Garantia',c.garantia);document.getElementById('overlay-cel-detail').classList.remove('hidden');}
 function closeCelDetail(){document.getElementById('overlay-cel-detail').classList.add('hidden');currentCelId=null;}
-function renderCelulares(){
-  var w=document.getElementById('view-celulares');if(!w)return;
-  var data=celulares.filter(function(c){var q=celFilter.q.toLowerCase();if(q&&!(c.marca+c.modelo+c.empleado+c.imei1+c.telefono+c.area+c.plaza).toLowerCase().includes(q))return false;if(celFilter.estado&&c.estado!==celFilter.estado)return false;if(celFilter.estado_asig&&c.estado_asig!==celFilter.estado_asig)return false;if(celFilter.area&&c.area!==celFilter.area)return false;if(celFilter.plaza&&c.plaza!==celFilter.plaza)return false;return true;});
-  var areas=[],plazas=[];
-  celulares.forEach(function(c){if(areas.indexOf(c.area)<0&&c.area)areas.push(c.area);if(plazas.indexOf(c.plaza)<0&&c.plaza)plazas.push(c.plaza);});
-  areas.sort();plazas.sort();
-  var asignados=celulares.filter(function(c){return c.estado_asig==='Asignado';}).length;
-  var totalVal=celulares.reduce(function(a,c){return a+(parseFloat(c.precio)||0);},0);
-  var rows='';
-  data.forEach(function(c){
-    var ec=c.estado==='Bueno'?'#2e7d32':c.estado==='Regular'?'#f57f17':c.estado==='Malo'?'#c62828':'#9aa0a6';
-    var ac=c.estado_asig==='Asignado'?'#1a73e8':c.estado_asig==='Disponible'?'#34a853':'#9aa0a6';
-    var cid=String(c.id);
-    rows+='<tr data-cid="'+cid+'" ondblclick="openCelDetail(this.dataset.cid)" style="cursor:pointer;">';
-    rows+='<td style="font-family:monospace;font-size:10px;color:#9aa0a6;">'+cid+'</td>';
-    rows+='<td><b>'+c.marca+'</b> <span style="color:#9aa0a6;">'+c.modelo+'</span></td>';
-    rows+='<td style="font-family:monospace;font-size:11px;">'+(c.imei1||'—')+'</td>';
-    rows+='<td>'+(c.telefono||'—')+'</td><td>'+(c.operadora||'—')+'</td>';
-    rows+='<td><b>'+(c.empleado||'Sin asignar')+'</b>'+(c.puesto?'<br><span style="font-size:10px;color:#9aa0a6;">'+c.puesto+'</span>':'')+'</td>';
-    rows+='<td>'+(c.area||'—')+'</td><td>'+(c.plaza||'—')+'</td>';
-    rows+='<td><span class="pill" style="background:'+ec+'22;color:'+ec+';">'+c.estado+'</span></td>';
-    rows+='<td><span class="pill" style="background:'+ac+'22;color:'+ac+';">'+c.estado_asig+'</span></td>';
-    rows+='<td><div style="display:flex;gap:3px;">';
-    rows+='<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openCelDetail(this.dataset.cid)">&#128065;</button>';
-    rows+='<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();editCelular(this.dataset.cid)">&#9999;&#65039;</button>';
-    rows+='<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();deleteCelular(this.dataset.cid)" style="color:#ea4335;">&#128465;</button>';
-    rows+='</div></td></tr>';
-  });
-  var filA='<option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(celFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('');
-  var filP='<option value="">Todas las plazas</option>'+plazas.map(function(p){return '<option value="'+p+'"'+(celFilter.plaza===p?' selected':'')+'>'+p+'</option>';}).join('');
-  var filE='<option value="">Todos</option>'+['Asignado','Disponible','En reparacion','Baja'].map(function(t){return '<option value="'+t+'"'+(celFilter.estado_asig===t?' selected':'')+'>'+t+'</option>';}).join('');
-  w.innerHTML=
-    '<div class="dash-title">Celulares</div><div class="dash-sub">Dispositivos moviles asignados al personal</div>'
-    +'<div class="stats-grid" style="margin-bottom:16px;">'
-    +'<div class="stat-card"><div class="lbl">Total</div><div class="val blue">'+celulares.length+'</div></div>'
-    +'<div class="stat-card"><div class="lbl">Asignados</div><div class="val green">'+asignados+'</div></div>'
-    +'<div class="stat-card"><div class="lbl">Valor total</div><div class="val blue" style="font-size:16px;">'+fmt$(totalVal)+'</div></div>'
-    +'</div>'
-    +'<div class="tbl-box"><div class="tbl-hdr"><span class="tbl-hdr-title">'+data.length+' celular'+(data.length!==1?'es':'')+'</span>'
-    +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar..." value="'+celFilter.q+'" oninput="celFilter.q=this.value;renderCelulares()" style="width:180px;">'
-    +'<select class="fi-sm" onchange="celFilter.area=this.value;renderCelulares()">'+filA+'</select>'
-    +'<select class="fi-sm" onchange="celFilter.plaza=this.value;renderCelulares()">'+filP+'</select>'
-    +'<select class="fi-sm" onchange="celFilter.estado_asig=this.value;renderCelulares()">'+filE+'</select>'
-    +'<button class="btn btn-blue btn-sm" onclick="openFormCelular()">+ Nuevo celular</button>'
-    +'</div></div>'
-    +'<div style="overflow-x:auto;"><table><thead><tr><th>ID</th><th>Marca/Modelo</th><th>IMEI 1</th><th>Telefono</th><th>Operadora</th><th>Empleado</th><th>Area</th><th>Plaza</th><th>Estado</th><th>Asignacion</th><th>Acciones</th></tr></thead>'
-    +'<tbody>'+(rows||'<tr><td colspan="11" class="empty-state">Sin celulares. Haz clic en + Nuevo celular.</td></tr>')+'</tbody></table></div></div>';
-}
+function renderCelulares(){var w=document.getElementById('view-celulares');if(!w)return;var data=celulares.filter(function(c){var q=celFilter.q.toLowerCase();if(q&&!(c.marca+c.modelo+c.empleado+c.imei1+c.telefono+c.area+c.plaza).toLowerCase().includes(q))return false;if(celFilter.estado&&c.estado!==celFilter.estado)return false;if(celFilter.estado_asig&&c.estado_asig!==celFilter.estado_asig)return false;if(celFilter.area&&c.area!==celFilter.area)return false;if(celFilter.plaza&&c.plaza!==celFilter.plaza)return false;return true;});var areas=[],plazas=[];celulares.forEach(function(c){if(areas.indexOf(c.area)<0&&c.area)areas.push(c.area);if(plazas.indexOf(c.plaza)<0&&c.plaza)plazas.push(c.plaza);});areas.sort();plazas.sort();var asignados=celulares.filter(function(c){return c.estado_asig==='Asignado';}).length;var totalVal=celulares.reduce(function(a,c){return a+(parseFloat(c.precio)||0);},0);var rows='';data.forEach(function(c){var ec=c.estado==='Bueno'?'#2e7d32':c.estado==='Regular'?'#f57f17':c.estado==='Malo'?'#c62828':'#9aa0a6';var ac=c.estado_asig==='Asignado'?'#1a73e8':c.estado_asig==='Disponible'?'#34a853':'#9aa0a6';var cid=String(c.id);rows+='<tr data-cid="'+cid+'" ondblclick="openCelDetail(this.dataset.cid)" style="cursor:pointer;"><td style="font-family:monospace;font-size:10px;color:#9aa0a6;">'+cid+'</td><td><b>'+c.marca+'</b> <span style="color:#9aa0a6;">'+c.modelo+'</span></td><td style="font-family:monospace;font-size:11px;">'+(c.imei1||'—')+'</td><td>'+(c.telefono||'—')+'</td><td>'+(c.operadora||'—')+'</td><td><b>'+(c.empleado||'Sin asignar')+'</b>'+(c.puesto?'<br><span style="font-size:10px;color:#9aa0a6;">'+c.puesto+'</span>':'')+'</td><td>'+(c.area||'—')+'</td><td>'+(c.plaza||'—')+'</td><td><span class="pill" style="background:'+ec+'22;color:'+ec+';">'+c.estado+'</span></td><td><span class="pill" style="background:'+ac+'22;color:'+ac+';">'+c.estado_asig+'</span></td><td><div style="display:flex;gap:3px;"><button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openCelDetail(this.dataset.cid)">&#128065;</button><button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();editCelular(this.dataset.cid)">&#9999;&#65039;</button><button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();deleteCelular(this.dataset.cid)" style="color:#ea4335;">&#128465;</button></div></td></tr>';});var filA='<option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(celFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('');var filP='<option value="">Todas las plazas</option>'+plazas.map(function(p){return '<option value="'+p+'"'+(celFilter.plaza===p?' selected':'')+'>'+p+'</option>';}).join('');var filE='<option value="">Todos</option>'+['Asignado','Disponible','En reparacion','Baja'].map(function(t){return '<option value="'+t+'"'+(celFilter.estado_asig===t?' selected':'')+'>'+t+'</option>';}).join('');w.innerHTML='<div class="dash-title">Celulares</div><div class="dash-sub">Dispositivos moviles asignados al personal</div><div class="stats-grid" style="margin-bottom:16px;"><div class="stat-card"><div class="lbl">Total</div><div class="val blue">'+celulares.length+'</div></div><div class="stat-card"><div class="lbl">Asignados</div><div class="val green">'+asignados+'</div></div><div class="stat-card"><div class="lbl">Valor total</div><div class="val blue" style="font-size:16px;">'+fmt$(totalVal)+'</div></div></div><div class="tbl-box"><div class="tbl-hdr"><span class="tbl-hdr-title">'+data.length+' celular'+(data.length!==1?'es':'')+'</span><div class="tbl-tools"><input class="fi-sm" type="text" placeholder="Buscar..." value="'+celFilter.q+'" oninput="celFilter.q=this.value;renderCelulares()" style="width:180px;"><select class="fi-sm" onchange="celFilter.area=this.value;renderCelulares()">'+filA+'</select><select class="fi-sm" onchange="celFilter.plaza=this.value;renderCelulares()">'+filP+'</select><select class="fi-sm" onchange="celFilter.estado_asig=this.value;renderCelulares()">'+filE+'</select><button class="btn btn-blue btn-sm" onclick="openFormCelular()">+ Nuevo celular</button></div></div><div style="overflow-x:auto;"><table><thead><tr><th>ID</th><th>Marca/Modelo</th><th>IMEI 1</th><th>Telefono</th><th>Operadora</th><th>Empleado</th><th>Area</th><th>Plaza</th><th>Estado</th><th>Asignacion</th><th>Acciones</th></tr></thead><tbody>'+(rows||'<tr><td colspan="11" class="empty-state">Sin celulares.</td></tr>')+'</tbody></table></div></div>';}
 
 // EXPORT CSV
 function exportCSV(){
