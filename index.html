@@ -407,6 +407,7 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
     <button class="tnav"    id="tnav-inventario"   onclick="switchView('inventario')"><span class='tnav-icon'>🗃</span><span class='tnav-txt'> Inventario</span></button>
     <button class="tnav"    id="tnav-qr"           onclick="switchView('qr')"><span class='tnav-icon'>⬛</span><span class='tnav-txt'> QR</span></button>
     <button class="tnav"    id="tnav-reparaciones" onclick="switchView('reparaciones')"><span class='tnav-icon'>🔧</span><span class='tnav-txt'> Reparaciones</span></button>
+    <button class="tnav"    id="tnav-celulares"   onclick="switchView('celulares')"><span class='tnav-icon'>📱</span><span class='tnav-txt'> Celulares</span></button>
     <div class="topbar-right">
       <div class="sync-pill ok" id="topbar-sync">
         <span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;"></span>
@@ -428,6 +429,7 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
   <div id="view-qr"           class="hidden" style="flex:1;overflow:auto;background:#eef2f7;"></div>
   <div id="view-reparaciones" class="view-wrap hidden"></div>
   <div id="view-etiquetas" class="hidden" style="flex:1;overflow:auto;background:#e8eaed;"></div>
+  <div id="view-celulares" class="view-wrap hidden"></div>
 </div>
 
 <!-- DETAIL PANEL -->
@@ -678,12 +680,12 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
 
 <script>
 firebase.initializeApp({
-  apiKey:"AIzaSyAhqpgxj5PQwVI-_j-L3LzukN3lyRqSwiM",
-  authDomain:"gantttracker-cafiver.firebaseapp.com",
-  projectId:"gantttracker-cafiver",
-  storageBucket:"gantttracker-cafiver.firebasestorage.app",
-  messagingSenderId:"210970686391",
-  appId:"1:210970686391:web:8e59db366e4d8430202e32"
+  apiKey:"AIzaSyDsiHm_ifFkGbEUmFJYY4ida7cD1JPBnU8",
+  authDomain:"inventariocomputo-eb34c.firebaseapp.com",
+  projectId:"inventariocomputo-eb34c",
+  storageBucket:"inventariocomputo-eb34c.firebasestorage.app",
+  messagingSenderId:"901143115710",
+  appId:"1:901143115710:web:c9a832bf799a7dde4babef"
 });
 var db=firebase.firestore(), auth=firebase.auth();
 
@@ -789,6 +791,7 @@ function loadAppData(){
     if(curView==='reparaciones')renderReparaciones();
   });
   loadEscaneos();
+  loadCelulares();
   switchView('dashboard');checkQRHash();
 }
 function fbSave(e){
@@ -801,7 +804,7 @@ function fbSave(e){
 // VIEW SWITCH
 function switchView(v){
   curView=v;
-  ['dashboard','inventario','qr','reparaciones','etiquetas'].forEach(function(x){
+  ['dashboard','inventario','qr','reparaciones','etiquetas','celulares'].forEach(function(x){
     document.getElementById('view-'+x).classList.toggle('hidden',x!==v);
     var b=document.getElementById('tnav-'+x);if(b)b.classList.toggle('on',x===v);
   });
@@ -810,6 +813,7 @@ function switchView(v){
   if(v==='qr')renderQR();
   if(v==='reparaciones')renderReparaciones();
   if(v==='etiquetas')renderEtiquetas();
+  if(v==='celulares')renderCelulares();
 }
 
 // DASHBOARD
@@ -1837,6 +1841,259 @@ function procesarEscaneo(eqId){
 function closeScanSuccess(){
   document.getElementById('scan-success-popup').classList.add('hidden');
   lastScannedId = null;
+}
+
+
+// ═══════════════════════════════════
+// CELULARES
+// ═══════════════════════════════════
+var celulares = [];
+var editingCelId = null;
+var currentCelId = null;
+var celFilter = {q:'', estado:'', area:'', plaza:'', estado_asig:''};
+
+function loadCelulares(){
+  db.collection('celulares').onSnapshot(function(s){
+    celulares = s.docs.map(function(d){return d.data();});
+    if(curView==='celulares') renderCelulares();
+  }, function(err){ console.warn('celulares:', err.message); });
+}
+
+function celUID(){
+  return 'CEL'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,4).toUpperCase();
+}
+
+function openFormCelular(){
+  editingCelId = null;
+  document.getElementById('cel-modal-title').textContent = 'Nuevo celular';
+  clearFormCelular();
+  document.getElementById('overlay-celular').classList.remove('hidden');
+}
+
+function editCelular(id){
+  var c = celulares.find(function(x){return x.id===id;});if(!c)return;
+  editingCelId = id;
+  closeCelDetail();
+  document.getElementById('cel-modal-title').textContent = 'Editar: '+c.marca+' '+c.modelo;
+  fillFormCelular(c);
+  document.getElementById('overlay-celular').classList.remove('hidden');
+}
+
+function closeFormCelular(){
+  document.getElementById('overlay-celular').classList.add('hidden');
+  editingCelId = null;
+}
+
+function clearFormCelular(){
+  ['marca','modelo','color','serie','imei1','imei2','storage','ram','bateria','so','so-ver',
+   'telefono','sim','pin','empleado','puesto','fecha-asig','fecha-compra',
+   'garantia','proveedor','factura','af','obs'].forEach(function(id){
+    var el=document.getElementById('cel-'+id); if(el) el.value='';
+  });
+  var elA=document.getElementById('cel-area-campo'); if(elA) elA.value='';
+  var elP=document.getElementById('cel-plaza-campo'); if(elP) elP.value='';
+  document.getElementById('cel-operadora').value='';
+  document.getElementById('cel-plan').value='';
+  document.getElementById('cel-estado').value='Bueno';
+  document.getElementById('cel-estado-asig').value='Asignado';
+  document.getElementById('cel-precio').value='';
+  document.getElementById('cel-fecha-asig').value=new Date().toISOString().slice(0,10);
+}
+
+function fillFormCelular(c){
+  var m = {
+    'marca':c.marca,'modelo':c.modelo,'color':c.color,'serie':c.serie,
+    'imei1':c.imei1,'imei2':c.imei2,'storage':c.storage,'ram':c.ram,'bateria':c.bateria,
+    'so':c.so,'so-ver':c.so_ver,'telefono':c.telefono,'sim':c.sim,'pin':c.pin,
+    'empleado':c.empleado,'puesto':c.puesto,
+    'fecha-asig':c.fecha_asig,'fecha-compra':c.fecha_compra,
+    'garantia':c.garantia,'proveedor':c.proveedor,'factura':c.factura,'af':c.af,'obs':c.obs
+  };
+  Object.keys(m).forEach(function(k){
+    var el=document.getElementById('cel-'+k); if(el) el.value=m[k]||'';
+  });
+  var elA=document.getElementById('cel-area-campo'); if(elA) elA.value=c.area||'';
+  var elP=document.getElementById('cel-plaza-campo'); if(elP) elP.value=c.plaza||'';
+  document.getElementById('cel-operadora').value=c.operadora||'';
+  document.getElementById('cel-plan').value=c.plan||'';
+  document.getElementById('cel-estado').value=c.estado||'Bueno';
+  document.getElementById('cel-estado-asig').value=c.estado_asig||'Asignado';
+  document.getElementById('cel-precio').value=c.precio||'';
+}
+
+function getCelFormValues(){
+  return {
+    id: editingCelId || celUID(),
+    marca: document.getElementById('cel-marca').value.trim(),
+    modelo: document.getElementById('cel-modelo').value.trim(),
+    color: document.getElementById('cel-color').value.trim(),
+    serie: document.getElementById('cel-serie').value.trim(),
+    imei1: document.getElementById('cel-imei1').value.trim(),
+    imei2: document.getElementById('cel-imei2').value.trim(),
+    storage: document.getElementById('cel-storage').value.trim(),
+    ram: document.getElementById('cel-ram').value.trim(),
+    bateria: document.getElementById('cel-bateria').value.trim(),
+    so: document.getElementById('cel-so').value.trim(),
+    so_ver: document.getElementById('cel-so-ver').value.trim(),
+    telefono: document.getElementById('cel-telefono').value.trim(),
+    operadora: document.getElementById('cel-operadora').value,
+    sim: document.getElementById('cel-sim').value.trim(),
+    plan: document.getElementById('cel-plan').value,
+    pin: document.getElementById('cel-pin').value.trim(),
+    empleado: document.getElementById('cel-empleado').value.trim(),
+    puesto: document.getElementById('cel-puesto').value.trim(),
+    area: (document.getElementById('cel-area-campo')||{value:''}).value.trim(),
+    plaza: (document.getElementById('cel-plaza-campo')||{value:''}).value.trim(),
+    fecha_asig: document.getElementById('cel-fecha-asig').value,
+    fecha_compra: document.getElementById('cel-fecha-compra').value,
+    garantia: document.getElementById('cel-garantia').value.trim(),
+    proveedor: document.getElementById('cel-proveedor').value.trim(),
+    precio: parseFloat(document.getElementById('cel-precio').value)||0,
+    factura: document.getElementById('cel-factura').value.trim(),
+    af: document.getElementById('cel-af').value.trim(),
+    estado: document.getElementById('cel-estado').value,
+    estado_asig: document.getElementById('cel-estado-asig').value,
+    obs: document.getElementById('cel-obs').value.trim(),
+    updBy: curUser?curUser.name:'',
+    updTs: nowStr()
+  };
+}
+
+function saveCelular(){
+  var c = getCelFormValues();
+  if(!c.marca||!c.modelo){ alert('Marca y Modelo son obligatorios.'); return; }
+  if(!c.imei1){ alert('El IMEI 1 es obligatorio.'); return; }
+  setSyncUI('saving','Guardando...');
+  db.collection('celulares').doc(c.id).set(c)
+    .then(function(){
+      setSyncUI('ok','En linea');
+      closeFormCelular();
+      toast(editingCelId?'Celular actualizado':'Celular guardado');
+    })
+    .catch(function(e){ setSyncUI('error','Error'); toast('Error: '+e.message); });
+}
+
+function deleteCelular(id){
+  var c = celulares.find(function(x){return x.id===id;});if(!c)return;
+  confirmAction('Eliminar celular?',c.marca+' '+c.modelo+' - '+c.empleado,function(){
+    db.collection('celulares').doc(id).delete().then(function(){
+      closeCelDetail(); toast('Celular eliminado');
+    });
+  });
+}
+
+function celDRow(k,v){ return '<div class="dp-row"><div class="dp-key">'+k+'</div><div class="dp-val">'+(v||'—')+'</div></div>'; }
+
+function openCelDetail(id){
+  var c = celulares.find(function(x){return x.id===id;});if(!c)return;
+  currentCelId = id;
+  document.getElementById('cel-detail-title').textContent = c.marca+' '+c.modelo+(c.color?' · '+c.color:'');
+  document.getElementById('cel-edit-btn').onclick = function(){ editCelular(id); };
+  document.getElementById('cel-del-btn').onclick = function(){ deleteCelular(id); };
+  var ec = c.estado==='Bueno'?'#2e7d32':c.estado==='Regular'?'#f57f17':c.estado==='Malo'?'#c62828':'#9aa0a6';
+  var ac = c.estado_asig==='Asignado'?'#1a73e8':c.estado_asig==='Disponible'?'#34a853':c.estado_asig==='En reparacion'?'#f57f17':'#9aa0a6';
+  document.getElementById('cel-detail-body').innerHTML =
+    '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">'
+    +'<span class="pill" style="background:'+ec+'22;color:'+ec+';">'+c.estado+'</span>'
+    +'<span class="pill" style="background:'+ac+'22;color:'+ac+';">'+c.estado_asig+'</span>'
+    +'<span style="font-size:11px;color:#9aa0a6;align-self:center;font-family:monospace;">'+c.id+'</span>'
+    +'</div>'
+    +'<div class="dp-sec-t">Equipo</div>'
+    +celDRow('Marca',c.marca)+celDRow('Modelo',c.modelo)+celDRow('Color',c.color)
+    +celDRow('N Serie',c.serie)+celDRow('IMEI 1',c.imei1)+celDRow('IMEI 2',c.imei2)
+    +celDRow('Almacenamiento',c.storage)+celDRow('RAM',c.ram)+celDRow('Bateria',c.bateria)
+    +celDRow('SO',c.so+(c.so_ver?' '+c.so_ver:''))
+    +'<div class="dp-sec-t">Linea telefonica</div>'
+    +celDRow('Numero',c.telefono)+celDRow('Operadora',c.operadora)
+    +celDRow('N SIM',c.sim)+celDRow('Plan',c.plan)
+    +'<div class="dp-sec-t">Asignacion</div>'
+    +celDRow('Empleado','<b>'+(c.empleado||'Sin asignar')+'</b>')
+    +celDRow('Puesto',c.puesto)+celDRow('Area',c.area)
+    +celDRow('Plaza',c.plaza)+celDRow('Fecha asignacion',c.fecha_asig)
+    +'<div class="dp-sec-t">Compra</div>'
+    +celDRow('Fecha compra',c.fecha_compra)+celDRow('Garantia',c.garantia)
+    +celDRow('Proveedor',c.proveedor)+celDRow('Precio',fmt$(c.precio))
+    +celDRow('Factura',c.factura)+celDRow('Activo Fijo',c.af)
+    +(c.obs?'<div class="dp-sec-t">Observaciones</div><div style="font-size:13px;color:#5f6368;padding:8px 0;">'+c.obs+'</div>':'')
+    +(c.updBy?'<div style="font-size:11px;color:#9aa0a6;margin-top:12px;">Modificado por '+c.updBy+' — '+c.updTs+'</div>':'');
+  document.getElementById('overlay-cel-detail').classList.remove('hidden');
+}
+
+function closeCelDetail(){
+  document.getElementById('overlay-cel-detail').classList.add('hidden');
+  currentCelId = null;
+}
+
+function renderCelulares(){
+  var w = document.getElementById('view-celulares');if(!w)return;
+  var data = celulares.filter(function(c){
+    var q = celFilter.q.toLowerCase();
+    if(q&&!(c.marca+c.modelo+c.empleado+c.imei1+c.telefono+c.area+c.plaza).toLowerCase().includes(q)) return false;
+    if(celFilter.estado&&c.estado!==celFilter.estado) return false;
+    if(celFilter.estado_asig&&c.estado_asig!==celFilter.estado_asig) return false;
+    if(celFilter.area&&c.area!==celFilter.area) return false;
+    if(celFilter.plaza&&c.plaza!==celFilter.plaza) return false;
+    return true;
+  });
+  var areas=[], plazas=[];
+  celulares.forEach(function(c){
+    if(areas.indexOf(c.area)<0&&c.area) areas.push(c.area);
+    if(plazas.indexOf(c.plaza)<0&&c.plaza) plazas.push(c.plaza);
+  });
+  areas.sort(); plazas.sort();
+  var asignados=celulares.filter(function(c){return c.estado_asig==='Asignado';}).length;
+  var disponibles=celulares.filter(function(c){return c.estado_asig==='Disponible';}).length;
+  var enRep=celulares.filter(function(c){return c.estado_asig==='En reparacion';}).length;
+  var totalVal=celulares.reduce(function(a,c){return a+(parseFloat(c.precio)||0);},0);
+  var rows = '';
+  data.forEach(function(c){
+    var ec=c.estado==='Bueno'?'#2e7d32':c.estado==='Regular'?'#f57f17':c.estado==='Malo'?'#c62828':'#9aa0a6';
+    var ac=c.estado_asig==='Asignado'?'#1a73e8':c.estado_asig==='Disponible'?'#34a853':c.estado_asig==='En reparacion'?'#f57f17':'#9aa0a6';
+    var cid = String(c.id);
+    rows += '<tr style="cursor:pointer;" data-cid="'+cid+'" ondblclick="openCelDetail(this.dataset.cid)">';
+    rows += '<td style="font-family:monospace;font-size:10px;color:#9aa0a6;">'+cid+'</td>';
+    rows += '<td><b>'+c.marca+'</b> <span style="color:#9aa0a6;">'+c.modelo+'</span>'+(c.color?'<br><span style="font-size:10px;color:#c8cad0;">'+c.color+'</span>':'')+'</td>';
+    rows += '<td style="font-family:monospace;font-size:11px;">'+(c.imei1||'—')+'</td>';
+    rows += '<td style="font-size:12px;">'+(c.telefono||'—')+'</td>';
+    rows += '<td style="font-size:12px;">'+(c.operadora||'—')+'</td>';
+    rows += '<td><b style="font-size:12px;">'+(c.empleado||'Sin asignar')+'</b>'+(c.puesto?'<br><span style="font-size:10px;color:#9aa0a6;">'+c.puesto+'</span>':'')+'</td>';
+    rows += '<td style="font-size:11px;">'+(c.area||'—')+'</td>';
+    rows += '<td style="font-size:11px;">'+(c.plaza||'—')+'</td>';
+    rows += '<td><span class="pill" style="background:'+ec+'22;color:'+ec+';">'+c.estado+'</span></td>';
+    rows += '<td><span class="pill" style="background:'+ac+'22;color:'+ac+';">'+c.estado_asig+'</span></td>';
+    rows += '<td><div style="display:flex;gap:3px;">';
+    rows += '<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openCelDetail(this.dataset.cid)" title="Ver">&#128065;</button>';
+    rows += '<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();editCelular(this.dataset.cid)" title="Editar">&#9999;&#65039;</button>';
+    rows += '<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();deleteCelular(this.dataset.cid)" title="Eliminar" style="color:#ea4335;">&#128465;</button>';
+    rows += '</div></td></tr>';
+  });
+  var filArea='<option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(celFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('');
+  var filPlaza='<option value="">Todas las plazas</option>'+plazas.map(function(p){return '<option value="'+p+'"'+(celFilter.plaza===p?' selected':'')+'>'+p+'</option>';}).join('');
+  var filEA='<option value="">Todos los estados</option>'+['Asignado','Disponible','En reparacion','Baja'].map(function(t){return '<option value="'+t+'"'+(celFilter.estado_asig===t?' selected':'')+'>'+t+'</option>';}).join('');
+  w.innerHTML =
+    '<div class="dash-title">Celulares</div>'
+    +'<div class="dash-sub">Gestion de dispositivos moviles asignados al personal</div>'
+    +'<div class="stats-grid" style="margin-bottom:16px;">'
+    +'<div class="stat-card"><div class="lbl">Total</div><div class="val blue">'+celulares.length+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Asignados</div><div class="val green">'+asignados+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Disponibles</div><div class="val amber">'+disponibles+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">En reparacion</div><div class="val red">'+enRep+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Valor total</div><div class="val blue" style="font-size:16px;">'+fmt$(totalVal)+'</div></div>'
+    +'</div>'
+    +'<div class="tbl-box">'
+    +'<div class="tbl-hdr"><span class="tbl-hdr-title">'+data.length+' celular'+(data.length!==1?'es':'')+'</span>'
+    +'<div class="tbl-tools">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar..." value="'+celFilter.q+'" oninput="celFilter.q=this.value;renderCelulares()" style="width:180px;">'
+    +'<select class="fi-sm" onchange="celFilter.area=this.value;renderCelulares()">'+filArea+'</select>'
+    +'<select class="fi-sm" onchange="celFilter.plaza=this.value;renderCelulares()">'+filPlaza+'</select>'
+    +'<select class="fi-sm" onchange="celFilter.estado_asig=this.value;renderCelulares()">'+filEA+'</select>'
+    +'<button class="btn btn-blue btn-sm" onclick="openFormCelular()">+ Nuevo celular</button>'
+    +'</div></div>'
+    +'<div style="overflow-x:auto;"><table>'
+    +'<thead><tr><th>ID</th><th>Marca/Modelo</th><th>IMEI 1</th><th>Telefono</th><th>Operadora</th>'
+    +'<th>Empleado</th><th>Area</th><th>Plaza</th><th>Estado</th><th>Asignacion</th><th>Acciones</th></tr></thead>'
+    +'<tbody>'+(rows||'<tr><td colspan="11" class="empty-state">No hay celulares. Haz clic en + Nuevo celular para agregar.</td></tr>')+'</tbody>'
+    +'</table></div></div>';
 }
 
 // EXPORT CSV
