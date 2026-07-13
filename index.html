@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>InventarioTech — APP CAFIVER</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -51,7 +52,7 @@ body.app-mode{background:#eef2f7;}
 
 /* VIEWS */
 .view-wrap{flex:1;overflow:auto;padding:1.25rem 1.75rem;background:#f0f2f7;}
-#view-dashboard{padding:0!important;background:#f0f2f7!important;}
+#view-dashboard:not(.hidden){display:flex!important;flex-direction:column;flex:1;overflow:auto;padding:0!important;background:#f0f2f7!important;min-height:0;}
 
 /* DASHBOARD */
 .dash-title{font-size:18px;font-weight:700;color:#1c1e21;margin-bottom:4px;}
@@ -362,6 +363,40 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
 .scan-success-card h3{font-size:18px;font-weight:700;margin-bottom:6px;}
 .scan-success-card p{font-size:13px;color:#9aa0a6;line-height:1.5;margin-bottom:16px;}
 .scan-geo-status{padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;margin-bottom:12px;}
+
+
+/* STITCH DASHBOARD */
+.sw{padding:24px 28px;font-family:'Inter',sans-serif;box-sizing:border-box;width:100%;min-height:100%;}
+.sw-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
+.sw-h1{font-size:22px;font-weight:700;color:#111827;letter-spacing:-.02em;}
+.sw-sub{font-size:12px;color:#6b7280;margin-top:3px;}
+.sw-btns{display:flex;gap:8px;}
+.sw-bo{display:flex;align-items:center;gap:5px;padding:7px 14px;border:1px solid #d1d5db;border-radius:6px;background:#fff;font-size:12px;font-weight:500;color:#374151;cursor:pointer;}
+.sw-bo:hover{background:#f9fafb;}
+.sw-bf{display:flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:6px;background:#1d4ed8;font-size:12px;font-weight:600;color:#fff;cursor:pointer;}
+.sw-bf:hover{background:#1e40af;}
+.g4s{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px;}
+.scs{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px 18px;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+.scs:hover{border-color:#bfdbfe;box-shadow:0 2px 12px rgba(29,78,216,.07);}
+.scs-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
+.scs-icon{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;}
+.scs-badge{font-size:10px;font-weight:600;padding:2px 9px;border-radius:20px;}
+.scs-lbl{font-size:11px;color:#6b7280;margin-bottom:4px;font-weight:500;}
+.scs-val{font-size:28px;font-weight:700;color:#111827;letter-spacing:-.02em;line-height:1;}
+.g2s{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-bottom:14px;}
+.pnl{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}
+.pnl-hd{padding:13px 18px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}
+.pnl-hd h3{font-size:13px;font-weight:600;color:#111827;margin:0;}
+.pnl-act{font-size:12px;color:#2563eb;cursor:pointer;font-weight:500;}
+.tbl-stitch{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}
+.tbl-stitch-hd{padding:13px 18px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}
+.tbl-stitch-hd h3{font-size:13px;font-weight:600;color:#111827;margin:0;}
+table.mts{width:100%;border-collapse:collapse;}
+table.mts th{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;padding:9px 16px;border-bottom:1px solid #f3f4f6;text-align:left;background:#fafafa;}
+table.mts td{border-bottom:1px solid #f9fafb;color:#374151;vertical-align:middle;}
+table.mts tr:last-child td{border-bottom:none;}
+table.mts tr:hover td{background:#f9fafb;}
+@media(max-width:768px){.g4s{grid-template-columns:repeat(2,minmax(0,1fr));}.g2s{grid-template-columns:1fr;}}
 
 </style>
 </head>
@@ -836,10 +871,10 @@ function renderDashboard(){
 
   var actItems=[
     {icon:'ti-devices',bg:'#eff6ff',ic:'#1d4ed8',txt:'<b>'+total+'</b> equipos registrados en inventario',meta:'Total activos · Cafiver TI'},
-    {icon:'ti-circle-check',bg:'#f0fdf4',ic:'#16a34a',txt:'<b>'+(byEstado.Bueno||0)+'</b> equipos en <span style="color:#16a34a;font-weight:600;">buen estado</span>',meta:pctBueno+'% del inventario total'},
-    {icon:'ti-alert-triangle',bg:'#fff1f2',ic:'#dc2626',txt:'<b>'+rojo+'</b> equipos con <span style="color:#dc2626;font-weight:600;">+4 años</span> de vida util',meta:'Candidatos a reemplazo'},
-    {icon:'ti-tool',bg:'#fffbeb',ic:'#d97706',txt:'<b>'+reparaciones.length+'</b> reparaciones en el historial',meta:'Ver historial completo'},
-    {icon:'ti-device-mobile',bg:'#f5f3ff',ic:'#7c3aed',txt:'<b>'+celulares.length+'</b> celulares en el sistema',meta:'Modulo de celulares'}
+    {icon:'ti-circle-check',bg:'#f0fdf4',ic:'#16a34a',txt:'<b>'+(byEstado.Bueno||0)+'</b> equipos en <span style="color:#16a34a;font-weight:600;">buen estado</span>',meta:pctBueno+'% del inventario'},
+    {icon:'ti-alert-triangle',bg:'#fff1f2',ic:'#dc2626',txt:'<b>'+rojo+'</b> equipos con <span style="color:#dc2626;font-weight:600;">+4 años</span> vida util',meta:'Candidatos a reemplazo'},
+    {icon:'ti-tool',bg:'#fffbeb',ic:'#d97706',txt:'<b>'+reparaciones.length+'</b> reparaciones en historial',meta:'Ver historial completo'},
+    {icon:'ti-device-mobile',bg:'#f5f3ff',ic:'#7c3aed',txt:'<b>'+celulares.length+'</b> celulares registrados',meta:'Modulo de celulares'}
   ];
 
   var tRows=recent.map(function(e){
@@ -868,7 +903,7 @@ function renderDashboard(){
     return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;">'
       +'<div style="width:100%;height:110px;background:#f3f4f6;border-radius:4px 4px 0 0;overflow:hidden;display:flex;align-items:flex-end;">'
       +'<div style="width:100%;height:'+pct+'%;background:'+color+';border-radius:4px 4px 0 0;"></div></div>'
-      +'<span style="font-size:9px;color:#9ca3af;font-weight:500;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+lbl+'</span>'
+      +'<span style="font-size:9px;color:#9ca3af;font-weight:500;text-align:center;">'+lbl+'</span>'
       +'</div>';
   }).join('');
 
@@ -882,86 +917,55 @@ function renderDashboard(){
   }).join('');
 
   w.innerHTML=
-    '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">'
-    +'<style>'
-    +'.sw{background:#f0f2f7;min-height:100%;padding:24px 28px;font-family:Inter,system-ui,sans-serif;box-sizing:border-box;}'
-    +'.sw-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}'
-    +'.sw-h1{font-size:22px;font-weight:700;color:#111827;letter-spacing:-.02em;}'
-    +'.sw-sub{font-size:12px;color:#6b7280;margin-top:3px;}'
-    +'.sw-btns{display:flex;gap:8px;align-items:center;}'
-    +'.sw-bo{display:flex;align-items:center;gap:5px;padding:7px 14px;border:1px solid #d1d5db;border-radius:6px;background:#fff;font-size:12px;font-weight:500;color:#374151;cursor:pointer;}'
-    +'.sw-bo:hover{background:#f9fafb;}'
-    +'.sw-bf{display:flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:6px;background:#1d4ed8;font-size:12px;font-weight:600;color:#fff;cursor:pointer;}'
-    +'.sw-bf:hover{background:#1e40af;}'
-    +'.g4s{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px;}'
-    +'.scs{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px 18px;cursor:pointer;transition:border-color .15s,box-shadow .15s;}'
-    +'.scs:hover{border-color:#bfdbfe;box-shadow:0 2px 12px rgba(29,78,216,.07);}'
-    +'.scs-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}'
-    +'.scs-icon{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;}'
-    +'.scs-badge{font-size:10px;font-weight:600;padding:2px 9px;border-radius:20px;}'
-    +'.scs-lbl{font-size:11px;color:#6b7280;margin-bottom:4px;font-weight:500;}'
-    +'.scs-val{font-size:28px;font-weight:700;color:#111827;letter-spacing:-.02em;line-height:1;}'
-    +'.g2s{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-bottom:14px;}'
-    +'.pnl{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
-    +'.pnl-hd{padding:13px 18px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
-    +'.pnl-hd h3{font-size:13px;font-weight:600;color:#111827;margin:0;}'
-    +'.pnl-act{font-size:12px;color:#2563eb;cursor:pointer;font-weight:500;}'
-    +'.tbl-stitch{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
-    +'.tbl-stitch-hd{padding:13px 18px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
-    +'.tbl-stitch-hd h3{font-size:13px;font-weight:600;color:#111827;margin:0;}'
-    +'table.mts{width:100%;border-collapse:collapse;}'
-    +'table.mts th{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;padding:9px 16px;border-bottom:1px solid #f3f4f6;text-align:left;background:#fafafa;}'
-    +'table.mts td{border-bottom:1px solid #f9fafb;color:#374151;vertical-align:middle;}'
-    +'table.mts tr:last-child td{border-bottom:none;}'
-    +'table.mts tr:hover td{background:#f9fafb;}'
-    +'@media(max-width:768px){.g4s{grid-template-columns:repeat(2,minmax(0,1fr));}.g2s{grid-template-columns:1fr;}}'
-    +'</style>'
-    +'<div class="sw">'
+    '<div class="sw">'
     +'<div class="sw-hdr">'
-    +'<div><div class="sw-h1">IT Asset Dashboard</div><div class="sw-sub">Monitoreo en tiempo real · Cafiver &nbsp;·&nbsp; '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</div></div>'
+    +'<div><div class="sw-h1">IT Asset Dashboard</div>'
+    +'<div class="sw-sub">Monitoreo en tiempo real · Cafiver · '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</div></div>'
     +'<div class="sw-btns">'
-    +'<button class="sw-bo" onclick="exportCSV()"><i class="ti ti-download" aria-hidden="true"></i> Export Report</button>'
+    +'<button class="sw-bo" onclick="exportCSV()"><i class="ti ti-download" aria-hidden="true"></i> Export</button>'
     +'<button class="sw-bf" onclick="openFormEquipo()"><i class="ti ti-plus" aria-hidden="true"></i> Nuevo equipo</button>'
     +'</div></div>'
     +'<div class="g4s">'
     +'<div class="scs" onclick="switchView(\'inventario\')">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#eff6ff;"><i class="ti ti-devices" style="color:#1d4ed8;font-size:20px;" aria-hidden="true"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">Activos</span></div>'
-    +'<div class="scs-lbl">Total equipos</div><div class="scs-val">'+total+'</div>'
-    +'</div>'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#eff6ff;"><i class="ti ti-devices" style="color:#1d4ed8;font-size:20px;" aria-hidden="true"></i></div>'
+    +'<span class="scs-badge" style="background:#dcfce7;color:#15803d;">Activos</span></div>'
+    +'<div class="scs-lbl">Total equipos</div><div class="scs-val">'+total+'</div></div>'
     +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Bueno\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#f0fdf4;"><i class="ti ti-circle-check" style="color:#16a34a;font-size:20px;" aria-hidden="true"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">'+pctBueno+'%</span></div>'
-    +'<div class="scs-lbl">Buen estado</div><div class="scs-val" style="color:#16a34a;">'+(byEstado.Bueno||0)+'</div>'
-    +'</div>'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#f0fdf4;"><i class="ti ti-circle-check" style="color:#16a34a;font-size:20px;" aria-hidden="true"></i></div>'
+    +'<span class="scs-badge" style="background:#dcfce7;color:#15803d;">'+pctBueno+'%</span></div>'
+    +'<div class="scs-lbl">Buen estado</div><div class="scs-val" style="color:#16a34a;">'+(byEstado.Bueno||0)+'</div></div>'
     +'<div class="scs" onclick="switchView(\'inventario\');">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#fff7ed;"><i class="ti ti-alert-triangle" style="color:#ea580c;font-size:20px;" aria-hidden="true"></i></div><span class="scs-badge" style="background:#ffedd5;color:#c2410c;">Urgente</span></div>'
-    +'<div class="scs-lbl">Para cambio</div><div class="scs-val" style="color:#ea580c;">'+rojo+'</div>'
-    +'</div>'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#fff7ed;"><i class="ti ti-alert-triangle" style="color:#ea580c;font-size:20px;" aria-hidden="true"></i></div>'
+    +'<span class="scs-badge" style="background:#ffedd5;color:#c2410c;">Urgente</span></div>'
+    +'<div class="scs-lbl">Para cambio</div><div class="scs-val" style="color:#ea580c;">'+rojo+'</div></div>'
     +'<div class="scs" onclick="switchView(\'inventario\');">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#f5f3ff;"><i class="ti ti-currency-dollar" style="color:#7c3aed;font-size:20px;" aria-hidden="true"></i></div><span class="scs-badge" style="background:#ede9fe;color:#6d28d9;">MXN</span></div>'
-    +'<div class="scs-lbl">Valor inventario</div><div class="scs-val" style="font-size:18px;color:#7c3aed;">'+fmt$(totalInv)+'</div>'
-    +'</div>'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#f5f3ff;"><i class="ti ti-currency-dollar" style="color:#7c3aed;font-size:20px;" aria-hidden="true"></i></div>'
+    +'<span class="scs-badge" style="background:#ede9fe;color:#6d28d9;">MXN</span></div>'
+    +'<div class="scs-lbl">Valor inventario</div><div class="scs-val" style="font-size:18px;color:#7c3aed;">'+fmt$(totalInv)+'</div></div>'
     +'</div>'
     +'<div class="g2s">'
     +'<div class="pnl">'
-    +'<div class="pnl-hd"><h3>Equipos por área</h3><select style="font-size:11px;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;color:#374151;background:#fff;"><option>Trimestre actual</option></select></div>'
+    +'<div class="pnl-hd"><h3>Equipos por área</h3>'
+    +'<select style="font-size:11px;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;color:#374151;background:#fff;"><option>Trimestre actual</option></select>'
+    +'</div>'
     +'<div style="font-size:11px;color:#6b7280;padding:10px 18px 4px;">Distribución por unidad organizacional</div>'
     +'<div style="padding:8px 18px 16px;height:155px;display:flex;align-items:flex-end;gap:6px;">'+barras+'</div>'
     +'</div>'
     +'<div class="pnl">'
     +'<div class="pnl-hd"><h3>Actividad reciente</h3><span class="pnl-act" onclick="switchView(\'inventario\')">Ver todo</span></div>'
-    +'<div>'+actHTML+'</div>'
+    +actHTML
     +'</div>'
     +'</div>'
     +'<div class="tbl-stitch">'
-    +'<div class="tbl-stitch-hd"><h3>Equipos actualizados recientemente</h3>'
+    +'<div class="tbl-stitch-hd"><h3>Equipos recientes</h3>'
     +'<div style="display:flex;gap:6px;">'
-    +'<button class="sw-bo" style="font-size:11px;padding:5px 10px;"><i class="ti ti-adjustments-horizontal" aria-hidden="true"></i> Filtrar</button>'
     +'<button class="sw-bo" style="font-size:11px;padding:5px 10px;" onclick="switchView(\'inventario\')">Ver todos →</button>'
     +'</div></div>'
-    +'<div style="overflow-x:auto;"><table class="mts"><thead><tr>'
-    +'<th>ID equipo</th><th>Modelo</th><th>Tipo</th><th>N serie</th><th>Responsable</th><th>Estado</th><th>Fecha compra</th>'
-    +'</tr></thead><tbody>'+tRows+'</tbody></table></div>'
-    +'</div>'
+    +'<div style="overflow-x:auto;">'
+    +'<table class="mts"><thead><tr>'
+    +'<th>ID</th><th>Modelo</th><th>Tipo</th><th>N serie</th><th>Responsable</th><th>Estado</th><th>Compra</th>'
+    +'</tr></thead><tbody>'+tRows+'</tbody></table>'
+    +'</div></div>'
     +'</div>';
 }
 function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderInventario();}
