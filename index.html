@@ -2773,6 +2773,13 @@ function renderPersonal(){
       +'</div></td>';
   }).join('');
 
+  var filDir='<option value="">Todas las direcciones</option>'+dirs.map(function(d){
+    return '<option value="'+d+'"'+(personalFilter.direccion===d?' selected':'')+'>'+d+'</option>';
+  }).join('');
+  var filDep='<option value="">Todos los departamentos</option>'+deptos.slice(0,30).map(function(d){
+    return '<option value="'+d+'"'+(personalFilter.departamento===d?' selected':'')+'>'+d+'</option>';
+  }).join('');
+
   w.innerHTML=
     '<div class="dash-title">Personal</div>'
     +'<div class="dash-sub">Catálogo de empleados Cafiver — '+personal.length+' registros</div>'
