@@ -743,7 +743,7 @@ var LOGO_B64='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gKgSUNDX1BST0Z
 var BASE_URL='https://nubecafiver.github.io/inventario-ti/#';
 var curUser=null,curView='dashboard',openEquipoId=null,editingId=null,dpCurTab='info';
 var sortCol='',sortAsc=true;
-var invFilter={q:'',tipo:'',estado:'',plaza:'',area:'',responsable:''};
+var invFilter={q:'',tipo:'',estado:'',plaza:'',area:'',responsable:'',empleadoId:''};
 
 function uid(){return 'EQ'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase();}
 function ini(n){return (n||'?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);}
@@ -1559,7 +1559,10 @@ function renderInventario(){
     if(invFilter.estado&&e.estado!==invFilter.estado)return false;
     if(invFilter.plaza&&e.plaza!==invFilter.plaza)return false;
     if(invFilter.area&&e.area!==invFilter.area)return false;
-    if(invFilter.responsable){
+    if(invFilter.empleadoId){
+      var _memp=e.responsable?findPersonal(e.responsable):null;
+      if(!_memp||_memp.id!==invFilter.empleadoId) return false;
+    } else if(invFilter.responsable){
       if((e.responsable||'').trim()!==invFilter.responsable) return false;
     }
     return true;
@@ -2707,6 +2710,18 @@ function getAvatarStyle(nombre){
   return colors[idx];
 }
 
+function verEqBtn(pid,cnt){
+  return '<button class="btn btn-sm" data-vpid="'+pid+'" '
+    +'onclick="event.stopPropagation();verEquiposEmpleado(this.dataset.vpid)" '
+    +'style="font-size:10px;padding:2px 8px;background:#eff6ff;color:#1d4ed8;border:none;border-radius:4px;cursor:pointer;">'
+    +'Ver equipos ('+cnt+')</button>';
+}
+function verEquiposEmpleado(pid){
+  invFilter.q='';invFilter.tipo='';invFilter.estado='';
+  invFilter.area='';invFilter.plaza='';invFilter.responsable='';
+  invFilter.empleadoId=pid;
+  switchView('inventario');
+}
 function renderPersonal(){
   var w=document.getElementById('view-personal');if(!w)return;
 
@@ -2752,22 +2767,11 @@ function renderPersonal(){
         :'<span style="background:#f1f5f9;color:#6b7280;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">Baja</span>')
       +'</td>'
       +'<td style="padding:9px 14px;"><div style="display:flex;gap:3px;align-items:center;">'
-      +(eqCount>0?(function(){
-        // Encontrar el nombre exacto del responsable como aparece en los equipos
-        var eqDeEste=equipos.filter(function(eq){var m=findPersonal(eq.responsable);return m&&m.id===p.id;});
-        var respExacto=eqDeEste.length?eqDeEste[0].responsable:p.nombre_completo;
-        return '<button class="btn btn-sm" data-pnc="'+respExacto+'" onclick="event.stopPropagation();invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\'\';invFilter.responsable=this.dataset.pnc;switchView(\'inventario\')" style="font-size:10px;padding:2px 8px;background:#eff6ff;color:#1d4ed8;border:none;border-radius:4px;cursor:pointer;">Ver equipos ('+eqCount+')</button>';
-      })():'')
+      +(eqCount>0?verEqBtn(p.id,eqCount):'')
       +'<button class="icon-btn" data-pid="'+p.id+'" onclick="event.stopPropagation();openFormPersonal(this.dataset.pid)">&#9999;&#65039;</button>'
       +'<button class="icon-btn" data-pid="'+p.id+'" onclick="event.stopPropagation();deletePersonal(this.dataset.pid)" style="color:#dc2626;">&#128465;</button>'
-      +'</div></td>'
-      +'</tr>';
+      +'</div></td>';
   }).join('');
-
-  var filDir='<option value="">Todas las direcciones</option>'+dirs.map(function(d){
-    return '<option value="'+d+'"'+(personalFilter.direccion===d?' selected':'')+'>'+d+'</option>';}).join('');
-  var filDep='<option value="">Todos los departamentos</option>'+deptos.slice(0,30).map(function(d){
-    return '<option value="'+d+'"'+(personalFilter.departamento===d?' selected':'')+'>'+d+'</option>';}).join('');
 
   w.innerHTML=
     '<div class="dash-title">Personal</div>'
