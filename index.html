@@ -2548,6 +2548,7 @@ function simCalc(){
 function loadPersonal(){
   db.collection('personal').onSnapshot(function(s){
     personal=s.docs.map(function(d){return d.data();});
+    _personalCacheBuilt=false;
     if(curView==='personal') renderPersonal();
   },function(e){console.warn('personal:',e.message);});
 }
@@ -2559,20 +2560,35 @@ function normStr(s){
     .replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
 }
 
+var _personalCache={};
+var _personalCacheBuilt=false;
+
+function buildPersonalCache(){
+  _personalCache={};
+  personal.forEach(function(p){
+    _personalCache[normStr(p.nombre_completo)]=p;
+  });
+  _personalCacheBuilt=true;
+}
+
 function findPersonal(nombreResp){
   if(!nombreResp||!personal.length) return null;
+  if(!_personalCacheBuilt) buildPersonalCache();
   var busca=normStr(nombreResp);
-  // Busqueda exacta
-  var exacto=personal.find(function(p){return normStr(p.nombre_completo)===busca;});
-  if(exacto) return exacto;
-  // Busqueda parcial: al menos 2 palabras coinciden
+  // Busqueda exacta via cache O(1)
+  if(_personalCache[busca]) return _personalCache[busca];
+  // Busqueda parcial solo si no hay exacta
   var palabras=busca.split(' ').filter(function(x){return x.length>2;});
+  if(!palabras.length) return null;
   var mejor=null, mejorScore=0;
-  personal.forEach(function(p){
-    var nc=normStr(p.nombre_completo);
-    var score=palabras.filter(function(w){return nc.indexOf(w)>=0;}).length;
-    if(score>mejorScore){mejorScore=score;mejor=p;}
-  });
+  var keys=Object.keys(_personalCache);
+  for(var i=0;i<keys.length;i++){
+    var nc=keys[i];
+    var score=0;
+    for(var j=0;j<palabras.length;j++){if(nc.indexOf(palabras[j])>=0)score++;}
+    if(score>mejorScore){mejorScore=score;mejor=_personalCache[keys[i]];}
+    if(score===palabras.length) break; // Match perfecto, salir
+  }
   return mejorScore>=2?mejor:null;
 }
 
@@ -2647,6 +2663,15 @@ function getAvatarStyle(nombre){
 
 function renderPersonal(){
   var w=document.getElementById('view-personal');if(!w)return;
+
+  // ── Índice precalculado: id_empleado → cantidad de equipos ──
+  var eqPorPersona={};
+  equipos.forEach(function(e){
+    if(!e.responsable) return;
+    var m=findPersonal(e.responsable);
+    if(m) eqPorPersona[m.id]=(eqPorPersona[m.id]||0)+1;
+  });
+
   var q=personalFilter.q.toLowerCase();
   var data=personal.filter(function(p){
     if(q&&!(p.nombre_completo+p.puesto+p.departamento+p.numero).toLowerCase().includes(q))return false;
@@ -2654,15 +2679,17 @@ function renderPersonal(){
     if(personalFilter.departamento&&p.departamento!==personalFilter.departamento)return false;
     return true;
   });
+
   var dirs=[...new Set(personal.map(function(p){return p.direccion;}).filter(Boolean))].sort();
   var deptos=[...new Set(personal.map(function(p){return p.departamento;}).filter(Boolean))].sort();
+
+  var conEquipo=Object.keys(eqPorPersona).length;
 
   var rows=data.map(function(p){
     var av=getAvatarStyle(p.nombre||'');
     var ini=(p.nombre||'??').split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2);
     var activo=p.activo!==false;
-    // Buscar equipos asignados
-    var eqCount=equipos.filter(function(e){return findPersonal(e.responsable)&&findPersonal(e.responsable).id===p.id;}).length;
+    var eqCount=eqPorPersona[p.id]||0;
     return '<tr style="cursor:pointer;" data-pid="'+p.id+'" ondblclick="openFormPersonal(this.dataset.pid)">'
       +'<td style="padding:9px 14px;"><div style="display:flex;align-items:center;gap:10px;">'
       +'<div style="width:32px;height:32px;border-radius:50%;background:'+av[0]+';color:'+av[1]+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">'+ini+'</div>'
@@ -2687,7 +2714,7 @@ function renderPersonal(){
 
   var filDir='<option value="">Todas las direcciones</option>'+dirs.map(function(d){
     return '<option value="'+d+'"'+(personalFilter.direccion===d?' selected':'')+'>'+d+'</option>';}).join('');
-  var filDep='<option value="">Todos los departamentos</option>'+deptos.slice(0,20).map(function(d){
+  var filDep='<option value="">Todos los departamentos</option>'+deptos.slice(0,30).map(function(d){
     return '<option value="'+d+'"'+(personalFilter.departamento===d?' selected':'')+'>'+d+'</option>';}).join('');
 
   w.innerHTML=
@@ -2695,14 +2722,14 @@ function renderPersonal(){
     +'<div class="dash-sub">Catálogo de empleados Cafiver — '+personal.length+' registros</div>'
     +'<div class="stats-grid" style="margin-bottom:16px;">'
     +'<div class="stat-card"><div class="lbl">Total empleados</div><div class="val blue">'+personal.length+'</div></div>'
-    +'<div class="stat-card"><div class="lbl">Con equipo asignado</div><div class="val green">'+personal.filter(function(p){return equipos.some(function(e){var m=findPersonal(e.responsable);return m&&m.id===p.id;});}).length+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Con equipo asignado</div><div class="val green">'+conEquipo+'</div></div>'
     +'<div class="stat-card"><div class="lbl">Activos</div><div class="val blue">'+personal.filter(function(p){return p.activo!==false;}).length+'</div></div>'
     +'<div class="stat-card"><div class="lbl">Direcciones</div><div class="val amber">'+dirs.length+'</div></div>'
     +'</div>'
     +'<div class="tbl-box"><div class="tbl-hdr">'
     +'<span class="tbl-hdr-title">'+data.length+' empleados</span>'
     +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar por nombre, puesto..." value="'+personalFilter.q+'" oninput="personalFilter.q=this.value;renderPersonal()" style="width:200px;">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar nombre, puesto..." value="'+personalFilter.q+'" oninput="personalFilter.q=this.value;renderPersonal()" style="width:200px;">'
     +'<select class="fi-sm" onchange="personalFilter.direccion=this.value;renderPersonal()">'+filDir+'</select>'
     +'<select class="fi-sm" onchange="personalFilter.departamento=this.value;renderPersonal()">'+filDep+'</select>'
     +'<button class="btn btn-blue btn-sm" onclick="openFormPersonal()">+ Nuevo empleado</button>'
@@ -2712,17 +2739,6 @@ function renderPersonal(){
     +'<tbody>'+(rows||'<tr><td colspan="7" class="empty-state">Sin empleados. Ejecuta el importador primero.</td></tr>')+'</tbody>'
     +'</table></div></div>';
 }
-
-// EXPORT CSV
-function exportCSV(){
-  var h=['ID','Área','Plaza','Tipo','Marca','Modelo','Nombre','Responsable','Puesto','Depto','Ubicación','Usuario','Serie','Procesador','RAM','HDD Marca','HDD Serie','SSD Marca','SSD Serie','IP','MAC Eth','MAC WiFi','SO','Licencia Win','AF','Fecha Compra','Garantía','Proveedor','Precio','Factura','Estado','Observaciones'];
-  var rows=equipos.map(function(e){return [e.id,e.area,e.plaza,e.tipo,e.marca,e.modelo,e.nombre,e.responsable,e.puesto,e.depto,e.ubicacion,e.usuario,e.serie,e.cpu,e.ram,e.hdd_marca,e.hdd_serie,e.ssd_marca,e.ssd_serie,e.ip,e.mac_eth,e.mac_wifi,e.so,e.lic_win,e.af,e.fecha,e.garantia,e.proveedor,e.precio,e.factura,e.estado,e.obs].map(function(v){return '"'+(v||'').toString().replace(/"/g,'""')+'"';}).join(',');});
-  var csv='\uFEFF'+h.join(',')+'\n'+rows.join('\n');
-  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='inventario_cafiver_'+new Date().toISOString().slice(0,10)+'.csv';a.click();toast('⬇ CSV exportado');
-}
-
-// CHANGE PASSWORD
-function openChPass(){document.getElementById('chpass-new').value='';document.getElementById('chpass-confirm').value='';document.getElementById('chpass-error').style.display='none';document.getElementById('chpass-overlay').classList.remove('hidden');}
 function closeChPass(){document.getElementById('chpass-overlay').classList.add('hidden');}
 function doChPass(){var np=document.getElementById('chpass-new').value,cp=document.getElementById('chpass-confirm').value,err=document.getElementById('chpass-error');err.style.display='none';if(!np){err.textContent='Ingresa la nueva contraseña.';err.style.display='block';return;}if(np.length<6){err.textContent='Mínimo 6 caracteres.';err.style.display='block';return;}if(np!==cp){err.textContent='Las contraseñas no coinciden.';err.style.display='block';return;}var u=auth.currentUser;if(!u){err.textContent='No hay sesión activa.';err.style.display='block';return;}u.updatePassword(np).then(function(){closeChPass();toast('✅ Contraseña actualizada');}).catch(function(e){err.textContent=e.code==='auth/requires-recent-login'?'Cierra sesión, vuelve a entrar y cambia la contraseña.':'Error: '+e.message;err.style.display='block';});}
 
