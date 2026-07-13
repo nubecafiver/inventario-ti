@@ -743,7 +743,7 @@ var LOGO_B64='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gKgSUNDX1BST0Z
 var BASE_URL='https://nubecafiver.github.io/inventario-ti/#';
 var curUser=null,curView='dashboard',openEquipoId=null,editingId=null,dpCurTab='info';
 var sortCol='',sortAsc=true;
-var invFilter={q:'',tipo:'',estado:'',plaza:'',area:''};
+var invFilter={q:'',tipo:'',estado:'',plaza:'',area:'',responsable:''};
 
 function uid(){return 'EQ'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase();}
 function ini(n){return (n||'?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);}
@@ -1577,6 +1577,10 @@ function renderInventario(){
     +'<select class="fi-sm" onchange="invFilter.area=this.value;renderInventario()">'
     +'<option value="">Todas las áreas</option>'
     +areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')
+    +'</select>'
+    +'<select class="fi-sm" id="inv-filter-resp" onchange="invFilter.responsable=this.value;renderInventario()" style="max-width:200px;">'
+    +'<option value="">Todos los responsables</option>'
+    +personal.filter(function(p){return equipos.some(function(e){var m=findPersonal(e.responsable);return m&&m.id===p.id;});}).sort(function(a,b){return a.nombre_completo.localeCompare(b.nombre_completo);}).map(function(p){return '<option value="'+p.nombre_completo+'"'+(invFilter.responsable===p.nombre_completo?' selected':'')+'>'+p.nombre_completo+'</option>';}).join('')
     +'</select>'
     +'<select class="fi-sm" onchange="invFilter.plaza=this.value;renderInventario()">'
     +'<option value="">Todas las plazas</option>'
@@ -2733,7 +2737,8 @@ function renderPersonal(){
       +(activo?'<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">Activo</span>'
         :'<span style="background:#f1f5f9;color:#6b7280;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">Baja</span>')
       +'</td>'
-      +'<td style="padding:9px 14px;"><div style="display:flex;gap:3px;">'
+      +'<td style="padding:9px 14px;"><div style="display:flex;gap:3px;align-items:center;">'
+      +(eqCount>0?'<button class="btn btn-sm" data-pnc="'+p.nombre_completo+'" onclick="event.stopPropagation();invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\'\';invFilter.responsable=this.dataset.pnc;switchView(\'inventario\')" style="font-size:10px;padding:2px 8px;background:#eff6ff;color:#1d4ed8;border:none;border-radius:4px;cursor:pointer;">Ver equipos</button>':'')
       +'<button class="icon-btn" data-pid="'+p.id+'" onclick="event.stopPropagation();openFormPersonal(this.dataset.pid)">&#9999;&#65039;</button>'
       +'<button class="icon-btn" data-pid="'+p.id+'" onclick="event.stopPropagation();deletePersonal(this.dataset.pid)" style="color:#dc2626;">&#128465;</button>'
       +'</div></td>'
