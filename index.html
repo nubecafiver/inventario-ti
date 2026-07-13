@@ -1333,6 +1333,110 @@ function toggleCelularFields(){
 // DETECTAR MÓVIL
 function isMobile(){ return window.innerWidth <= 768; }
 
+function renderInventario(){
+  var w=document.getElementById('view-inventario');if(!w)return;
+  var data=equipos.filter(function(e){
+    var q=invFilter.q.toLowerCase();
+    if(q&&!(e.nombre+e.modelo+e.marca+e.plaza+e.area+e.serie+e.ip+e.so+e.usuario+e.responsable).toLowerCase().includes(q))return false;
+    if(invFilter.tipo&&e.tipo!==invFilter.tipo)return false;
+    if(invFilter.estado&&e.estado!==invFilter.estado)return false;
+    if(invFilter.plaza&&e.plaza!==invFilter.plaza)return false;
+    if(invFilter.area&&e.area!==invFilter.area)return false;
+    return true;
+  });
+  if(sortCol){data.sort(function(a,b){var av=a[sortCol]||'',bv=b[sortCol]||'';return sortAsc?(av<bv?-1:av>bv?1:0):(av>bv?-1:av<bv?1:0);});}
+  var plazas=[],areas=[];
+  equipos.forEach(function(e){
+    if(plazas.indexOf(e.plaza)<0&&e.plaza)plazas.push(e.plaza);
+    if(areas.indexOf(e.area)<0&&e.area)areas.push(e.area);
+  });
+  plazas.sort();areas.sort();
+  w.innerHTML=
+    '<div class="tbl-box">'
+    +'<div class="tbl-hdr">'
+    +'<span class="tbl-hdr-title">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
+    +'<div class="tbl-tools">'
+    +'<input class="fi-sm" type="text" placeholder="🔍 Buscar..." value="'+invFilter.q+'" oninput="invFilter.q=this.value;renderInventario()" style="width:190px;">'
+    +'<select class="fi-sm" onchange="invFilter.area=this.value;renderInventario()">'
+    +'<option value="">Todas las áreas</option>'
+    +areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')
+    +'</select>'
+    +'<select class="fi-sm" onchange="invFilter.plaza=this.value;renderInventario()">'
+    +'<option value="">Todas las plazas</option>'
+    +plazas.map(function(p){return '<option value="'+p+'"'+(invFilter.plaza===p?' selected':'')+'>'+p+'</option>';}).join('')
+    +'</select>'
+    +'<select class="fi-sm" onchange="invFilter.tipo=this.value;renderInventario()">'
+    +'<option value="">Todos los tipos</option>'
+    +['Desktop','Laptop','Servidor','Impresora','Celular','Otro'].map(function(t){return '<option value="'+t+'"'+(invFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')
+    +'</select>'
+    +'<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()">'
+    +'<option value="">Todos los estados</option>'
+    +['Bueno','Regular','Malo','Baja'].map(function(t){return '<option value="'+t+'"'+(invFilter.estado===t?' selected':'')+'>'+t+'</option>';}).join('')
+    +'</select>'
+    +'<button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Nuevo</button>'
+    +'</div></div>'
+    +'<div style="overflow-x:auto;"><table>'
+    +'<thead><tr>'
+    +['id','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado',''].map(function(c,i){
+      var lbl=['ID','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Acciones'][i];
+      if(!c)return '<th>'+lbl+'</th>';
+      return '<th onclick="sortBy(\''+c+'\')" >'+lbl+(sortCol===c?(sortAsc?' ▲':' ▼'):' ⇅')+'</th>';
+    }).join('')
+    +'</tr></thead><tbody>'
+    +(data.length?data.map(function(e){
+      var rc=rowClass(e.fecha);
+      return '<tr class="'+rc+'" style="cursor:pointer;" ondblclick="openPanel(\''+e.id+'\')">'
+        +'<td style="font-family:monospace;font-size:10px;color:#9aa0a6;">'+e.id+'</td>'
+        +'<td>'+tipoPill(e.tipo)+'</td>'
+        +'<td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;">'+e.area+'</td>'
+        +'<td style="white-space:nowrap;font-size:11px;">'+e.plaza+'</td>'
+        +'<td><b style="font-weight:600;">'+e.marca+'</b> <span style="color:#9aa0a6;">'+e.modelo+'</span></td>'
+        +'<td>'+(e.nombre||'—')+'</td>'
+        +'<td style="font-size:11px;color:#9aa0a6;">'+(e.responsable||'—')+'</td>'
+        +'<td style="font-size:11px;">'+(e.cpu||'—')+'</td>'
+        +'<td style="font-size:11px;">'+(e.ram||'—')+'</td>'
+        +'<td style="font-family:monospace;font-size:11px;">'+(e.ip||'—')+'</td>'
+        +'<td style="font-size:11px;">'+(e.so||'—')+'</td>'
+        +'<td>'+estadoPill(e.estado)+'</td>'
+        +'<td>'+vidaPill(e.fecha)+'</td>'
+        +'<td><div style="display:flex;gap:3px;">'
+        +'<button class="icon-btn" title="Ver" onclick="event.stopPropagation();openPanel(\''+e.id+'\')">👁</button>'
+        +'<button class="icon-btn" title="Editar" onclick="event.stopPropagation();editEquipo(\''+e.id+'\')">✏️</button>'
+        +'<button class="icon-btn" title="Reparación" onclick="event.stopPropagation();openFormRepFor(\''+e.id+'\')">🔧</button>'
+        +'<button class="icon-btn" title="Imprimir ficha" onclick="event.stopPropagation();printFichaId(\''+e.id+'\')">🖨</button>'
+        +'<button class="icon-btn" title="Imprimir etiqueta" onclick="event.stopPropagation();printEtiqueta(\''+e.id+'\')">🏷</button>'
+        +'<button class="icon-btn" title="Transferir" onclick="event.stopPropagation();openTransfer(\''+e.id+'\')">🔄</button>'
+        +'<button class="icon-btn" title="Eliminar" onclick="event.stopPropagation();deleteEquipo(\''+e.id+'\')" style="color:#ea4335;">🗑</button>'
+        +'</div></td>'
+        +'</tr>';
+    }).join(''):'<tr><td colspan="13" class="empty-state">No hay equipos que coincidan</td></tr>')
+    +'</tbody></table></div></div>'
+    ;
+  if(isMobile()){
+    // En móvil reemplazar tabla por cards
+    w.querySelector('.tbl-box').innerHTML=
+      '<div class="tbl-hdr">'
+      +'<span class="tbl-hdr-title">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
+      +'<button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Nuevo</button>'
+      +'</div>'
+      +'<div style="padding:6px 12px 2px;">'
+      +'<input class="fi-sm" type="text" placeholder="🔍 Buscar..." value="'+invFilter.q+'" oninput="invFilter.q=this.value;renderInventario()" style="width:100%;margin-bottom:6px;">'
+      +'<div style="display:flex;gap:6px;margin-bottom:8px;">'
+      +'<select class="fi-sm" style="flex:1;" onchange="invFilter.area=this.value;renderInventario()">'
+      +'<option value="">Todas las áreas</option>'
+      +areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')
+      +'</select>'
+      +'<select class="fi-sm" style="flex:1;" onchange="invFilter.estado=this.value;renderInventario()">'
+      +'<option value="">Todos los estados</option>'
+      +['Bueno','Regular','Malo','Baja'].map(function(t){return '<option value="'+t+'"'+(invFilter.estado===t?' selected':'')+'>'+t+'</option>';}).join('')
+      +'</select>'
+      +'</div></div>'
+      +'<div style="padding:0 12px 12px;">'
+      +renderInventarioCards(data)
+      +'</div>';
+  }
+}
+
 // CARDS MÓVIL para inventario
 function renderInventarioCards(data){
   if(!data.length) return '<div class="empty-state">No hay equipos que coincidan</div>';
