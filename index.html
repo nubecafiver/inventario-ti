@@ -2624,21 +2624,29 @@ function findPersonal(nombreResp){
   if(!nombreResp||!personal.length) return null;
   if(!_personalCacheBuilt) buildPersonalCache();
   var busca=normStr(nombreResp);
-  // Busqueda exacta via cache O(1)
+  // Busqueda exacta O(1)
   if(_personalCache[busca]) return _personalCache[busca];
-  // Busqueda parcial solo si no hay exacta
+  // Busqueda parcial con desempate estricto
   var palabras=busca.split(' ').filter(function(x){return x.length>2;});
   if(!palabras.length) return null;
-  var mejor=null, mejorScore=0;
+  var scores=[];
   var keys=Object.keys(_personalCache);
   for(var i=0;i<keys.length;i++){
     var nc=keys[i];
     var score=0;
     for(var j=0;j<palabras.length;j++){if(nc.indexOf(palabras[j])>=0)score++;}
-    if(score>mejorScore){mejorScore=score;mejor=_personalCache[keys[i]];}
-    if(score===palabras.length) break; // Match perfecto, salir
+    if(score>0) scores.push({score:score,p:_personalCache[keys[i]]});
   }
-  return mejorScore>=2?mejor:null;
+  if(!scores.length) return null;
+  scores.sort(function(a,b){return b.score-a.score;});
+  var bestScore=scores[0].score;
+  // Score mínimo: al menos la mitad de las palabras, mínimo 2
+  var minScore=Math.max(2, Math.ceil(palabras.length/2));
+  if(bestScore<minScore) return null;
+  // Desempate estricto: si hay empate en el score máximo, no hay match
+  var winners=scores.filter(function(s){return s.score===bestScore;});
+  if(winners.length>1) return null;
+  return winners[0].p;
 }
 
 function openFormPersonal(id){
