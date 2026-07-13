@@ -6,6 +6,7 @@
 <title>InventarioTech — APP CAFIVER</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -483,6 +484,7 @@ table.mts tr:hover td{background:#f9fafb;}
       <div style="display:flex;gap:4px;flex-shrink:0;">
         <button class="icon-btn" onclick="editFromPanel()" title="Editar">✏️</button>
         <button class="icon-btn" onclick="printFicha()" title="Imprimir ficha">🖨</button>
+        <button class="icon-btn" onclick="generarResguardoDePanel()" title="Generar formato resguardo" style="font-size:13px;">📄</button>
         <button class="icon-btn" onclick="printEtiqueta(openEquipoId)" title="Imprimir etiqueta">🏷</button>
         <button class="icon-btn" onclick="deleteFromPanel()" title="Eliminar" style="color:#ea4335;">🗑</button>
         <button class="icon-btn" onclick="closePanel()">✕</button>
@@ -2717,6 +2719,205 @@ function getAvatarStyle(nombre){
   var idx=Math.abs((nombre||'').charCodeAt(0)||0)%colors.length;
   return colors[idx];
 }
+
+
+// ═══ GENERADOR DE FORMATO RESGUARDO ═══
+function getDirectorPorDireccion(dir){
+  var d=(dir||'').toLowerCase();
+  if(d.indexOf('admiva')>=0)       return {nombre:'Roberto Villanueva',puesto:'Director Administrativo'};
+  if(d.indexOf('comerc nal')>=0)   return {nombre:'Mario Alberto Flores Monico',puesto:'Director de Comercializadora Nacional'};
+  if(d.indexOf('comercial')>=0)    return {nombre:'Carlos Eduardo Lopez Romero',puesto:'Director Comercial'};
+  if(d.indexOf('tecnica')>=0)      return {nombre:'Medardo Ezequiel Lopez Rivas',puesto:'Director Tecnico'};
+  if(d.indexOf('coffeeserv')>=0)   return {nombre:'Juan Gerardo Perdomo Abella',puesto:'Director de Coffee Service'};
+  return {nombre:'Director del Area',puesto:'Direccion'};
+}
+
+function generarResguardoDePanel(){
+  if(!openEquipoId){toast('No hay equipo abierto');return;}
+  var eq=equipos.find(function(x){return x.id===openEquipoId;});
+  if(!eq){toast('Equipo no encontrado');return;}
+  generarResguardo(eq);
+}
+
+function generarResguardo(eq){
+  if(typeof docx==='undefined'){toast('Error: libreria docx no disponible. Verifica conexion a internet.');return;}
+  var D=docx;
+  var noBrd={style:D.BorderStyle.NONE,size:0,color:'FFFFFF'};
+  var tBrd={style:D.BorderStyle.SINGLE,size:4,color:'000000'};
+  var allB={top:tBrd,right:tBrd,bottom:tBrd,left:tBrd};
+  var CONTENT_W=10440;
+
+  function tx(text,o){return new D.TextRun(Object.assign({text:String(text||''),font:'Arial',size:18},o||{}));}
+  function pr(children,o){return new D.Paragraph(Object.assign({children:Array.isArray(children)?children:[children]},o||{}));}
+  function sp(){return new D.Paragraph({children:[tx('')]});}
+  function ck(v){return v?String.fromCharCode(9745):String.fromCharCode(9744);}
+
+  function mkC(text,o){
+    var opts=o||{};
+    return new D.TableCell({
+      columnSpan:opts.cs||1,rowSpan:opts.rs||1,
+      verticalAlign:D.VerticalAlign.CENTER,
+      shading:opts.shade?{type:D.ShadingType.CLEAR,fill:opts.shade}:undefined,
+      width:opts.w?{size:opts.w,type:D.WidthType.DXA}:undefined,
+      borders:opts.borders||allB,
+      children:[pr([tx(text,{bold:opts.bold||false,size:opts.sz||18})],{alignment:opts.al||D.AlignmentType.LEFT})]
+    });
+  }
+
+  function numP(text,ref){
+    return new D.Paragraph({
+      numbering:{reference:ref,level:0},
+      children:[tx(text)]
+    });
+  }
+
+  // Datos del equipo
+  var eqSerie  = eq.serie||'—';
+  var eqMarca  = eq.marca||'—';
+  var eqModelo = eq.modelo||'—';
+  var eqArea   = eq.area||'—';
+  var eqResp   = eq.responsable||'—';
+  var eqPuesto = eq.puesto||'—';
+  var eqUbic   = eq.ubicacion||eq.plaza||'—';
+  var eqTipo   = eq.tipo||'—';
+  var eqFact   = eq.factura||'—';
+  var eqDepto  = eq.departamento||'—';
+  var eqValor  = eq.precio?('$'+(parseFloat(eq.precio)||0).toLocaleString('es-MX')+' MXN'):'—';
+  var esLaptop = eqTipo==='Laptop';
+  var esPC     = eqTipo==='Desktop'||eqTipo==='PC';
+  var esImp    = eqTipo==='Impresora';
+  var esTab    = eqTipo==='Tablet';
+  var dir      = getDirectorPorDireccion(eq.direccion||eqArea||'');
+
+  var C=Math.round(CONTENT_W/11);
+
+  // Tabla usuario
+  var tabUsr=new D.Table({
+    width:{size:CONTENT_W,type:D.WidthType.DXA},
+    columnWidths:[Math.round(CONTENT_W*0.35),Math.round(CONTENT_W*0.65)],
+    rows:[
+      new D.TableRow({children:[mkC('Area:',{bold:true}),mkC(eqArea)]}),
+      new D.TableRow({children:[mkC('Departamento:',{bold:true}),mkC(eqDepto)]}),
+      new D.TableRow({children:[mkC('Nombre del Usuario y responsable:',{bold:true}),mkC(eqResp)]}),
+      new D.TableRow({children:[mkC('Puesto:',{bold:true}),mkC(eqPuesto)]}),
+      new D.TableRow({children:[mkC('Ubicacion:',{bold:true}),mkC(eqUbic)]}),
+    ]
+  });
+
+  // Tabla equipo
+  var tabEq=new D.Table({
+    width:{size:CONTENT_W,type:D.WidthType.DXA},
+    columnWidths:Array(11).fill(C),
+    rows:[
+      new D.TableRow({children:[mkC('Equipo:',{bold:true}),mkC(ck(esLaptop)+' Laptop'),mkC(ck(esPC)+' PC'),mkC(ck(esImp)+' Impresora',{cs:2}),mkC(ck(esTab)+' Tablet',{cs:2}),mkC('',{cs:2}),mkC('',{cs:2})]}),
+      new D.TableRow({children:[mkC('Tipo:',{bold:true}),mkC('Notebook',{cs:3,bold:true}),mkC(''),mkC(ck(true)+' Nuevo   '+ck(false)+' Usado',{cs:3}),mkC('',{cs:3})]}),
+      new D.TableRow({children:[mkC('Marca:',{bold:true}),mkC(eqMarca,{cs:3,bold:true}),mkC(''),mkC('Autorizado retirar de Instalaciones Cafiver:',{cs:4}),mkC(ck(true)+' Si'),mkC(ck(false)+' No')]}),
+      new D.TableRow({children:[mkC('No. Serie:',{bold:true}),mkC(eqSerie,{cs:3,bold:true}),mkC('',{cs:7})]}),
+      new D.TableRow({children:[mkC('Modelo:',{bold:true}),mkC(eqModelo,{cs:3,bold:true}),mkC('Factura:',{bold:true}),mkC(eqFact,{cs:6})]}),
+      new D.TableRow({children:[mkC('Valor de reposicion proporcionado por TI: '+eqValor,{cs:11})]}),
+    ]
+  });
+
+  // Tabla firmas
+  function mkFirmas(){
+    var W3=Math.round(CONTENT_W/3);
+    var WM=Math.round(CONTENT_W*0.08);
+    return new D.Table({
+      width:{size:CONTENT_W,type:D.WidthType.DXA},
+      columnWidths:[W3,WM,CONTENT_W-W3-WM],
+      rows:[
+        new D.TableRow({children:[mkC('Firma de conformidad / Usuario y responsable'),mkC(''),mkC('Autoriza')]}),
+        new D.TableRow({children:[mkC(eqResp,{bold:true}),mkC(''),mkC(dir.nombre,{bold:true})]}),
+        new D.TableRow({children:[mkC(eqPuesto),mkC(''),mkC(dir.puesto)]}),
+        new D.TableRow({children:[mkC('________________________________'),mkC(''),mkC('________________________________')]}),
+      ]
+    });
+  }
+
+  // Tabla Anexo A
+  var cA=[Math.round(CONTENT_W*0.4),Math.round(CONTENT_W*0.35),Math.round(CONTENT_W*0.25)];
+  var rowsA=[new D.TableRow({children:[mkC('Nombre',{bold:true,shade:'D9D9D9',w:cA[0]}),mkC('Puesto',{bold:true,shade:'D9D9D9',w:cA[1]}),mkC('Firma',{bold:true,shade:'D9D9D9',w:cA[2]})]})];
+  for(var i=0;i<8;i++) rowsA.push(new D.TableRow({children:[mkC('',{w:cA[0]}),mkC('',{w:cA[1]}),mkC('',{w:cA[2]})]}));
+  var tabA=new D.Table({width:{size:CONTENT_W,type:D.WidthType.DXA},columnWidths:cA,rows:rowsA});
+
+  var pol=[
+    'Mantenerlo en buen estado o reportarlo a la Jefatura de Tecnologia de la Informacion (JTI). De ser necesario su prestamo al Personal de Cafiver documentar mediante el Resguardo por turno (Anexo A).',
+    'Fuera del horario laboral el equipo debe permanecer bajo llave en mi custodia y dentro de las instalaciones de Cafiver, salvo autorizacion del Director del Area.',
+    'Observar: "Manejo de informacion confidencial de Cafiver" (Anexo B) y "Aviso de privacidad integral" (Anexo C).',
+    'Me comprometo a devolver el equipo en el momento en que lo solicite Cafiver.',
+    'Observare el Codigo de Etica de Cafiver y sus sanciones; y en caso de extravio o dano por uso inadecuado, me responsabilizo hacerme cargo del costo de las partes danadas (no aplica en partes del uso normal del equipo).',
+  ];
+  var polB=[
+    'Limitar la recoleccion de informacion acerca de sus procesos al minimo necesario para cumplir con sus objetivos y funciones.',
+    'No divulgar a terceros informacion sin previo aviso y consentimiento del involucrado, salvo requerimiento legal.',
+    'Mantener control de la confidencialidad de toda la informacion a su alcance en todo tipo de presentacion.',
+    'Mantener la informacion que maneja completa, al dia, fidedigna y resguardada. TI no es responsable de perdidas de informacion de los Usuarios.',
+    'Acatar los procedimientos legales y disciplinarios que correspondan por transgredir la confidencialidad.',
+    'Los terceros contratados por la Empresa se obligan por ese hecho.',
+  ];
+  var swList=['Adobe Reader','SAP GUI','Winzip','Antivirus','Red Cafiver','Impresora','Navegador','Anydesk'];
+
+  var docObj=new D.Document({
+    numbering:{config:[
+      {reference:'pol',levels:[{level:0,format:'decimal',text:'%1.',alignment:D.AlignmentType.LEFT,style:{paragraph:{indent:{left:720,hanging:360}}}}]},
+      {reference:'sw', levels:[{level:0,format:'bullet', text:'-',alignment:D.AlignmentType.LEFT,style:{paragraph:{indent:{left:720,hanging:360}}}}]},
+    ]},
+    sections:[{
+      properties:{page:{size:{width:12240,height:15840},margin:{top:900,right:900,bottom:900,left:900}}},
+      children:[
+        pr([tx('RESGUARDO DE EQUIPO DE COMPUTO',{bold:true,size:24})],{alignment:D.AlignmentType.CENTER}),
+        pr([tx('CAFIVER S.A. DE C.V.',{bold:true,size:20})],{alignment:D.AlignmentType.CENTER}),
+        sp(),tabUsr,sp(),tabEq,sp(),
+        pr([tx('El equipo descrito me ha sido designado (Usuario) para mis actividades y resguardo bajo las politicas siguientes:')]),
+        sp(),
+      ].concat(pol.map(function(p){return numP(p,'pol');})).concat([
+        sp(),mkFirmas(),
+        // Anexo A
+        pr([new D.PageBreak()]),
+        pr([tx('ANEXO "A"',{bold:true,size:22})],{alignment:D.AlignmentType.CENTER}),
+        pr([tx('Usuarios (S/N: '+eqSerie+' '+eqMarca+' '+eqModelo+')',{bold:true})],{alignment:D.AlignmentType.CENTER}),
+        sp(),tabA,
+        // Anexo B
+        pr([new D.PageBreak()]),
+        pr([tx('ANEXO "B"',{bold:true,size:22})],{alignment:D.AlignmentType.CENTER}),
+        pr([tx('Politica: "Manejo de Informacion Confidencial de Cafiver"',{bold:true})],{alignment:D.AlignmentType.CENTER}),
+        pr([tx('A Cargo del Empleado (Usuario)',{italic:true,bold:true})],{alignment:D.AlignmentType.CENTER}),
+        sp(),pr([tx('El Empleado debe de:')]),sp(),
+      ]).concat(polB.map(function(t){return numP(t,'pol');})).concat([
+        // Anexo C
+        pr([new D.PageBreak()]),
+        pr([tx('ANEXO "C"',{bold:true,size:22})],{alignment:D.AlignmentType.CENTER}),
+        pr([tx('"Aviso de Privacidad Integral"',{bold:true})],{alignment:D.AlignmentType.CENTER}),
+        sp(),pr([tx('Aviso de Privacidad',{bold:true})]),sp(),
+        pr([tx('Cafiver, con domicilio en Camino a Potrerillo S/N Fracc. Ojo de Agua, Ixtaczoquitlan, Ver. Mexico C.P. 94450, es la responsable del tratamiento de sus datos personales y/o datos personales sensibles, los cuales seran recabados y/o utilizados con la finalidad de enviarle informacion via correo electronico respecto a la actualizacion de nuestros productos y servicios, para la realizacion de promocion y preventas, actualizacion de base de datos, almacenaje de imagenes para su seguridad y para el cobro por los servicios prestados.')]),
+        sp(),pr([tx('Podra conocer el aviso de privacidad integral completo en: www.cafiver.com')]),
+        // Anexo D
+        pr([new D.PageBreak()]),
+        pr([tx('ANEXO "D"',{bold:true,size:22})],{alignment:D.AlignmentType.CENTER}),
+        pr([tx('"Software instalado"',{bold:true})],{alignment:D.AlignmentType.CENTER}),
+        sp(),pr([tx('Recibi de CAFIVER, S.A. DE C.V. un equipo de computo con el siguiente software instalado:')]),sp(),
+      ]).concat(swList.map(function(sw){return numP(sw,'sw');})).concat([
+        sp(),sp(),
+        pr([tx('_____________________________________________   Fecha: ____________')]),sp(),
+        pr([tx('Este equipo lo recibo en comun acuerdo con lo siguiente:')]),sp(),
+        numP('El software asignado es una herramienta de trabajo por lo cual debe darle el uso adecuado.','pol'),
+        numP('En caso de necesitar otro software, recabar informacion necesaria para su autorizacion de jefe inmediato y el departamento de TI.','pol'),
+        numP('Dada la situacion de que se encuentre un software no autorizado por el area de TI se reportara al jefe inmediato.','pol'),
+        sp(),sp(),mkFirmas(),
+      ])
+    }]
+  });
+
+  D.Packer.toBlob(docObj).then(function(blob){
+    var nombre=('Resguardo_'+eqSerie+'_'+eqResp.split(' ')[0]+'.docx').replace(/[^a-zA-Z0-9_\-.]/g,'_');
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;a.download=nombre;a.click();
+    URL.revokeObjectURL(url);
+    toast('Formato descargado: '+nombre);
+  }).catch(function(e){toast('Error: '+e.message);});
+}
+
 
 function verEqBtn(pid,cnt){
   return '<button class="btn btn-sm" data-vpid="'+pid+'" '
