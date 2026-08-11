@@ -33896,6 +33896,21 @@ table.mts tr:hover td{background:#f9fafb;}
 
 <div id="toast"></div>
 
+<!-- MODAL DETALLE CELULAR -->
+<div id="overlay-cel-detail" class="hidden" onclick="if(event.target===this)closeCelDetail()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
+  <div class="modal-card" style="max-width:560px;width:100%;margin:auto;">
+    <div class="modal-hd">
+      <h3 id="cel-detail-title">Detalle del celular</h3>
+      <div style="display:flex;gap:6px;">
+        <button class="icon-btn" id="cel-edit-btn" title="Editar">&#9999;&#65039;</button>
+        <button class="icon-btn" id="cel-del-btn" title="Eliminar" style="color:#ea4335;">&#128465;</button>
+        <button class="icon-btn" onclick="closeCelDetail()">&#x2715;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="cel-detail-body"></div>
+  </div>
+</div>
+
 <script>
 firebase.initializeApp({
   apiKey:"AIzaSyDsiHm_ifFkGbEUmFJYY4ida7cD1JPBnU8",
@@ -35360,7 +35375,7 @@ function openFormCelular(id){
   var cel=id?celulares.find(function(x){return x.id===id;}):null;
   m._editId=id||null;
   document.getElementById('cel-modal-title').textContent=id?'Editar celular':'Nuevo celular';
-  var campos=['dn','imei','marca','modelo','mpe','total_iva','precio_sin_iva','iva',
+  var campos=['dn','imei','marca','modelo','mpe',
     'num_pers','numero_personal','puesto','departamento','plaza','area','centro_coste','denominacion','obs'];
   campos.forEach(function(f){
     var el=document.getElementById('cel-f-'+f);
@@ -35402,7 +35417,7 @@ function saveCelular(){
   var doc={
     id:id,
     dn:gv('dn'), imei:gv('imei'), marca:gv('marca'), modelo:gv('modelo'),
-    mpe:gn('mpe'), total_iva:gn('total_iva'), precio_sin_iva:gn('precio_sin_iva'), iva:gn('iva'),
+    mpe:gn('mpe'),
     status:gv('status')||'Asignado',
     num_pers:gv('num_pers'), numero_personal:nuevoNombre,
     sexo:gv('sexo'), denominacion:gv('denominacion'),
@@ -35467,84 +35482,110 @@ function openCelDetail(id){
 function closeCelDetail(){var d=document.getElementById('overlay-cel-detail');if(d)d.classList.add('hidden');}
 
 // ── RENDER CELULARES ────────────────────────────────────────
-var celFilter={q:'',marca:'',plaza:'',area:'',status:''};
+var celFilter={q:'',marca:'',plaza:'',areas:[],status:''};
 
 function renderCelulares(){
   var w=document.getElementById('view-celulares');if(!w)return;
 
-  // ── Métricas globales ──
-  var totalMPE=celulares.reduce(function(a,c){return a+(parseFloat(c.mpe)||0);},0);
-  var totalEq=celulares.reduce(function(a,c){return a+(parseFloat(c.total_iva)||0);},0);
-  var marcas=[...new Set(celulares.map(function(c){return c.marca;}).filter(Boolean))].sort();
-  var plazas=[...new Set(celulares.map(function(c){return c.plaza;}).filter(Boolean))].sort();
-  var areas=[...new Set(celulares.map(function(c){return c.area;}).filter(Boolean))].sort();
-  var asignados=celulares.filter(function(c){return (c.status||'Asignado')==='Asignado';}).length;
-  var libres=celulares.filter(function(c){return c.status==='Libre';}).length;
+  var totalMPE=celulares.reduce(function(a,x){return a+(parseFloat(x.mpe)||0);},0);
+  var totalEq=celulares.reduce(function(a,x){return a+(parseFloat(x.total_iva)||0);},0);
+  var marcas=[...new Set(celulares.map(function(x){return x.marca;}).filter(Boolean))].sort();
+  var plazas=[...new Set(celulares.map(function(x){return x.plaza;}).filter(Boolean))].sort();
+  var areas=[...new Set(celulares.map(function(x){return x.area;}).filter(Boolean))].sort();
+  var asignados=celulares.filter(function(x){return (x.status||'Asignado')==='Asignado';}).length;
+  var libres=celulares.filter(function(x){return x.status==='Libre';}).length;
 
-  // ── Datos por área (para dashboard) ──
+  // ── Por área ──
   var porArea={};
   celulares.forEach(function(cel){
     var a=cel.area||'Sin area';
-    if(!porArea[a]) porArea[a]={count:0,mpe:0,eq:0};
+    if(!porArea[a]) porArea[a]={count:0,mpe:0};
     porArea[a].count++;
     porArea[a].mpe+=parseFloat(cel.mpe)||0;
-    porArea[a].eq+=parseFloat(cel.total_iva)||0;
   });
   var areasSorted=Object.keys(porArea).sort(function(a,b){return porArea[b].mpe-porArea[a].mpe;});
   var maxMPE=areasSorted.length?porArea[areasSorted[0]].mpe:1;
 
   // ── Filtrado ──
-  var data=celulares.filter(function(c){
+  var data=celulares.filter(function(x){
     var q=celFilter.q.toLowerCase();
-    if(q&&!(c.marca+c.modelo+c.imei+c.dn+c.numero_personal+c.departamento+c.plaza+c.area).toLowerCase().includes(q))return false;
-    if(celFilter.marca&&c.marca!==celFilter.marca)return false;
-    if(celFilter.plaza&&c.plaza!==celFilter.plaza)return false;
-    if(celFilter.area&&c.area!==celFilter.area)return false;
-    if(celFilter.status&&(c.status||'Asignado')!==celFilter.status)return false;
+    if(q&&!(x.marca+x.modelo+x.imei+x.dn+x.numero_personal+x.departamento+x.plaza+x.area).toLowerCase().includes(q))return false;
+    if(celFilter.marca&&x.marca!==celFilter.marca)return false;
+    if(celFilter.plaza&&x.plaza!==celFilter.plaza)return false;
+    if(celFilter.areas.length&&celFilter.areas.indexOf(x.area||'Sin area')<0)return false;
+    if(celFilter.status&&(x.status||'Asignado')!==celFilter.status)return false;
     return true;
   });
+  var filtMPE=data.reduce(function(a,x){return a+(parseFloat(x.mpe)||0);},0);
+  var hayFiltro=celFilter.areas.length||celFilter.marca||celFilter.plaza||celFilter.status||celFilter.q;
 
-  // ── Barras de área ──
-  var areaBarras=areasSorted.slice(0,8).map(function(a){
+  // ── Barras de área ── multiselect
+  var areaBarras=areasSorted.map(function(a){
     var pct=Math.round(porArea[a].mpe/maxMPE*100);
-    var cnt=porArea[a].count;
-    var mpe=porArea[a].mpe;
+    var sel=celFilter.areas.indexOf(a)>=0;
     var aEsc=a.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return '<div onclick="celFilter.area=\''+aEsc+'\';renderCelulares();" '
-      +'style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:0.5px solid #f3f4f6;cursor:pointer;transition:background .12s;'
-      +(celFilter.area===a?'background:#eff6ff;':'')+'" '
-      +'onmouseover="this.style.background=\'#f9fafb\'" onmouseout="this.style.background=\''+(celFilter.area===a?'#eff6ff':'')+'\';">'
-      +'<span style="font-size:11px;color:#374151;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+a+'</span>'
-      +'<span style="font-size:10px;color:#9ca3af;min-width:24px;text-align:center;">'+cnt+'</span>'
-      +'<div style="width:80px;height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden;flex-shrink:0;">'
-      +'<div style="height:100%;background:#1d4ed8;border-radius:3px;width:'+pct+'%;"></div></div>'
-      +'<span style="font-size:10px;font-weight:500;color:#1d4ed8;min-width:56px;text-align:right;">$'+mpe.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>'
+    return '<div onclick="celToggleArea(\''+aEsc+'\')" '
+      +'style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:0.5px solid #f3f4f6;cursor:pointer;'
+      +(sel?'background:#eff6ff;':'')
+      +'" onmouseover="this.style.background=\''+(sel?'#e0edff':'#f9fafb')+'\'" onmouseout="this.style.background=\''+(sel?'#eff6ff':'')+'\'">'
+      +'<div style="width:14px;height:14px;border-radius:3px;border:1.5px solid '+(sel?'#1d4ed8':'#d1d5db')+';background:'+(sel?'#1d4ed8':'#fff')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;">'
+      +(sel?'<svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>':'')
+      +'</div>'
+      +'<span style="font-size:11px;color:'+(sel?'#1d4ed8':'#374151')+';flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:'+(sel?'500':'400')+';">'+a+'</span>'
+      +'<span style="font-size:10px;color:#9ca3af;min-width:20px;text-align:center;">'+porArea[a].count+'</span>'
+      +'<div style="width:60px;height:5px;background:#f3f4f6;border-radius:3px;overflow:hidden;flex-shrink:0;">'
+      +'<div style="height:100%;background:'+(sel?'#1d4ed8':'#93c5fd')+';border-radius:3px;width:'+pct+'%;"></div></div>'
+      +'<span style="font-size:10px;font-weight:500;color:'+(sel?'#1d4ed8':'#6b7280')+';min-width:56px;text-align:right;">$'+porArea[a].mpe.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>'
+      +'</div>';
+  }).join('');
+
+  // Totales de las áreas seleccionadas
+  var selMPE=0, selCount=0;
+  if(celFilter.areas.length){
+    celFilter.areas.forEach(function(a){
+      if(porArea[a]){selMPE+=porArea[a].mpe;selCount+=porArea[a].count;}
+    });
+  }
+
+  // ── Marcas ──
+  var marcaBarras=marcas.map(function(m){
+    var cnt=celulares.filter(function(x){return x.marca===m;}).length;
+    var mpe=celulares.filter(function(x){return x.marca===m;}).reduce(function(a,x){return a+(parseFloat(x.mpe)||0);},0);
+    var pct=celulares.length?Math.round(cnt/celulares.length*100):0;
+    var color=m==='IPHONE'?'#374151':m==='HONOR'?'#1d4ed8':'#6b7280';
+    return '<div style="margin-bottom:10px;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;">'
+      +'<span style="font-size:11px;font-weight:500;color:#111827;">'+m+'</span>'
+      +'<span style="font-size:10px;color:#6b7280;">'+cnt+' · $'+mpe.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>'
+      +'</div>'
+      +'<div style="height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden;">'
+      +'<div style="height:100%;background:'+color+';border-radius:3px;width:'+pct+'%;"></div></div>'
       +'</div>';
   }).join('');
 
   // ── Filas tabla ──
   var rows=data.map(function(cel){
     var ini=(cel.numero_personal||'??').split(' ').map(function(x){return x[0]||'';}).join('').toUpperCase().slice(0,2);
-    var cols=[['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],['#fce7f3','#be185d'],['#ede9fe','#6d28d9']];
-    var col=cols[Math.abs((ini.charCodeAt(0)||65))%5];
+    var colMap=[['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],['#fce7f3','#be185d'],['#ede9fe','#6d28d9']];
+    var col=colMap[Math.abs((ini.charCodeAt(0)||65))%5];
     var cid=String(cel.id);
     var st=cel.status||'Asignado';
     var scol=st==='Asignado'?'#16a34a':st==='Libre'?'#1d4ed8':st==='En reparacion'?'#d97706':'#6b7280';
     return '<tr data-cid="'+cid+'" ondblclick="openCelDetail(this.dataset.cid)" style="cursor:pointer;">'
-      +'<td style="padding:8px 12px;font-family:monospace;font-size:10px;color:#9ca3af;">'+cid+'</td>'
-      +'<td style="padding:8px 12px;font-family:monospace;font-size:11px;">'+(cel.dn||'—')+'</td>'
-      +'<td style="padding:8px 12px;"><b style="color:#111827;">'+cel.marca+'</b><br><span style="font-size:10px;color:#9ca3af;">'+cel.modelo+'</span></td>'
-      +'<td style="padding:8px 12px;font-family:monospace;font-size:10px;color:#6b7280;">'+(cel.imei||'—')+'</td>'
-      +'<td style="padding:8px 12px;font-size:11px;color:#1d4ed8;font-weight:600;">'+(cel.mpe?'$'+parseFloat(cel.mpe).toLocaleString('es-MX',{minimumFractionDigits:2}):'—')+'</td>'
-      +'<td style="padding:8px 12px;"><div style="display:flex;align-items:center;gap:6px;">'
-      +'<div style="width:26px;height:26px;border-radius:50%;background:'+col[0]+';color:'+col[1]+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0;">'+ini+'</div>'
+      +'<td style="padding:7px 10px;font-family:monospace;font-size:10px;color:#9ca3af;">'+cid+'</td>'
+      +'<td style="padding:7px 10px;font-family:monospace;font-size:11px;">'+(cel.dn||'—')+'</td>'
+      +'<td style="padding:7px 10px;"><b style="color:#111827;font-size:12px;">'+cel.marca+'</b><br><span style="font-size:10px;color:#9ca3af;">'+cel.modelo+'</span></td>'
+      +'<td style="padding:7px 10px;font-family:monospace;font-size:10px;color:#6b7280;">'+(cel.imei||'—')+'</td>'
+      +'<td style="padding:7px 10px;font-size:11px;color:#1d4ed8;font-weight:600;">'+(cel.mpe?'$'+parseFloat(cel.mpe).toLocaleString('es-MX',{minimumFractionDigits:2}):'—')+'</td>'
+      +'<td style="padding:7px 10px;"><div style="display:flex;align-items:center;gap:6px;">'
+      +'<div style="width:24px;height:24px;border-radius:50%;background:'+col[0]+';color:'+col[1]+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0;">'+ini+'</div>'
       +'<div><div style="font-size:11px;font-weight:500;color:#111827;">'+(cel.numero_personal||'Sin asignar')+'</div>'
       +'<div style="font-size:10px;color:#9ca3af;">'+(cel.puesto||'')+'</div></div></div></td>'
-      +'<td style="padding:8px 12px;font-size:11px;color:#6b7280;">'+(cel.departamento||'—')+'</td>'
-      +'<td style="padding:8px 12px;font-size:11px;color:#6b7280;">'+(cel.plaza||'—')+'</td>'
-      +'<td style="padding:8px 12px;"><span style="background:'+scol+'22;color:'+scol+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">'+st+'</span></td>'
-      +'<td style="padding:8px 12px;"><div style="display:flex;gap:3px;">'
-      +'<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openCelDetail(this.dataset.cid)" title="Ver detalle" style="color:#1d4ed8;">&#128065;</button>'
+      +'<td style="padding:7px 10px;font-size:11px;color:#6b7280;">'+(cel.departamento||'—')+'</td>'
+      +'<td style="padding:7px 10px;font-size:11px;color:#6b7280;">'+(cel.plaza||'—')+'</td>'
+      +'<td style="padding:7px 10px;"><span style="background:'+scol+'22;color:'+scol+';padding:2px 7px;border-radius:20px;font-size:10px;font-weight:500;">'+st+'</span></td>'
+      +'<td style="padding:7px 10px;"><div style="display:flex;gap:2px;">'
+      +'<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openCelDetail(this.dataset.cid)" title="Ver" style="color:#1d4ed8;">&#128065;</button>'
       +'<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openFormCelular(this.dataset.cid)" title="Editar">&#9999;&#65039;</button>'
       +'<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();deleteCelular(this.dataset.cid)" title="Eliminar" style="color:#dc2626;">&#128465;</button>'
       +'</div></td>'
@@ -35553,132 +35594,102 @@ function renderCelulares(){
 
   var filM='<option value="">Todas las marcas</option>'+marcas.map(function(m){return '<option value="'+m+'"'+(celFilter.marca===m?' selected':'')+'>'+m+'</option>';}).join('');
   var filP='<option value="">Todas las plazas</option>'+plazas.map(function(p){return '<option value="'+p+'"'+(celFilter.plaza===p?' selected':'')+'>'+p+'</option>';}).join('');
-  var filA='<option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(celFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('');
   var filS='<option value="">Todos los estados</option>'+['Asignado','Libre','En reparacion','Baja'].map(function(s){return '<option value="'+s+'"'+(celFilter.status===s?' selected':'')+'>'+s+'</option>';}).join('');
 
-  // Calcular totales filtrados
-  var filtMPE=data.reduce(function(a,c){return a+(parseFloat(c.mpe)||0);},0);
-
   w.innerHTML=
-    // ── ESTILOS ──
     '<style>'
-    +'.cel-dash{padding:20px 24px;font-family:\'Inter\',sans-serif;}'
-    +'.cel-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;}'
-    +'.cel-h1{font-size:20px;font-weight:500;color:#111827;}'
-    +'.cel-sub{font-size:11px;color:#6b7280;margin-top:2px;}'
-    +'.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;}'
-    +'.kc{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:14px 16px;}'
-    +'.kc-lbl{font-size:10px;color:#6b7280;margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;}'
-    +'.kc-val{font-size:24px;font-weight:500;color:#111827;line-height:1;}'
-    +'.kc-sub{font-size:10px;color:#9ca3af;margin-top:4px;}'
-    +'.cel-body{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-bottom:14px;}'
+    +'.cel-dash{padding:14px 20px;font-family:\'Inter\',sans-serif;}'
+    +'.cel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;}'
+    +'.cel-h1{font-size:18px;font-weight:500;color:#111827;}'
+    +'.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px;}'
+    +'.kc{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:10px 14px;}'
+    +'.kc-lbl{font-size:9px;color:#9ca3af;margin-bottom:3px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;}'
+    +'.kc-val{font-size:20px;font-weight:500;color:#111827;line-height:1;}'
+    +'.kc-sub{font-size:10px;color:#9ca3af;margin-top:3px;}'
+    +'.cel-body{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:10px;margin-bottom:10px;}'
     +'.pnl{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
-    +'.pnl-hd{padding:11px 14px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
-    +'.pnl-hd h3{font-size:11px;font-weight:500;color:#374151;margin:0;display:flex;align-items:center;gap:5px;}'
-    +'.pnl-hd .clr{font-size:10px;color:#2563eb;cursor:pointer;}'
+    +'.pnl-hd{padding:8px 12px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
+    +'.pnl-hd h3{font-size:11px;font-weight:500;color:#374151;margin:0;}'
     +'.tbl-cel{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
-    +'.tbl-cel-hd{padding:11px 14px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}'
+    +'.tbl-cel-hd{padding:9px 12px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}'
     +'table.ct{width:100%;border-collapse:collapse;}'
-    +'table.ct th{font-size:9px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af;padding:8px 12px;border-bottom:0.5px solid #f3f4f6;text-align:left;background:#fafafa;}'
-    +'table.ct td{border-bottom:0.5px solid #f9fafb;color:#374151;vertical-align:middle;}'
+    +'table.ct th{font-size:9px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af;padding:7px 10px;border-bottom:0.5px solid #f3f4f6;text-align:left;background:#fafafa;}'
+    +'table.ct td{border-bottom:0.5px solid #f9fafb;vertical-align:middle;}'
     +'table.ct tr:last-child td{border-bottom:none;}'
     +'table.ct tr:hover td{background:#f9fafb;}'
     +'@media(max-width:900px){.kpi4{grid-template-columns:repeat(2,1fr);}.cel-body{grid-template-columns:1fr;}}'
     +'</style>'
-
-    // ── HEADER ──
     +'<div class="cel-dash">'
+
+    // HEADER
     +'<div class="cel-hdr">'
-    +'<div><div class="cel-h1">Celulares Cafiver</div>'
-    +'<div class="cel-sub">'+celulares.length+' teléfonos registrados · gestión de líneas corporativas</div></div>'
-    +'<button onclick="openFormCelular()" style="display:flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:6px;background:#1d4ed8;font-size:12px;font-weight:500;color:#fff;cursor:pointer;"><i class="ti ti-plus"></i> Nuevo celular</button>'
-    +'</div>'
+    +'<div><div class="cel-h1">Celulares Cafiver</div></div>'
+    +'<div style="display:flex;gap:6px;">'
+    +'<button onclick="exportCelularesExcel()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:0.5px solid #16a34a;border-radius:6px;background:#f0fdf4;font-size:12px;font-weight:500;color:#16a34a;cursor:pointer;"><i class="ti ti-table-export"></i> Exportar Excel</button>'
+    +'<button onclick="openFormCelular()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:6px;background:#1d4ed8;font-size:12px;font-weight:500;color:#fff;cursor:pointer;"><i class="ti ti-plus"></i> Nuevo</button>'
+    +'</div></div>'
 
-    // ── KPIs ──
+    // KPIs
     +'<div class="kpi4">'
-    +'<div class="kc"><div class="kc-lbl">Total celulares</div><div class="kc-val">'+celulares.length+'</div>'
-    +'<div class="kc-sub">'+asignados+' asignados · '+libres+' libres</div></div>'
-    +'<div class="kc"><div class="kc-lbl">Renta mensual total</div>'
-    +'<div class="kc-val" style="color:#1d4ed8;font-size:20px;">$'+totalMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
-    +'<div class="kc-sub">MPE mensual Cafiver</div></div>'
-    +'<div class="kc"><div class="kc-lbl">Renta anual proyectada</div>'
-    +'<div class="kc-val" style="color:#7c3aed;font-size:18px;">$'+(totalMPE*12).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
-    +'<div class="kc-sub">'+celulares.length+' líneas × 12 meses</div></div>'
-    +'<div class="kc"><div class="kc-lbl">Costo equipos (c/IVA)</div>'
-    +'<div class="kc-val" style="color:#d97706;font-size:18px;">$'+totalEq.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
-    +'<div class="kc-sub">Valor total de equipo</div></div>'
+    +'<div class="kc"><div class="kc-lbl">Total celulares</div><div class="kc-val">'+celulares.length+'</div><div class="kc-sub">'+asignados+' asignados · '+libres+' libres</div></div>'
+    +'<div class="kc"><div class="kc-lbl">Renta mensual</div><div class="kc-val" style="color:#1d4ed8;">$'+totalMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+    +(celFilter.areas.length?'<div class="kc-sub" style="color:#1d4ed8;">Selección: $'+selMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</div>':'<div class="kc-sub">MPE mensual total</div>')
+    +'</div>'
+    +'<div class="kc"><div class="kc-lbl">Renta anual</div><div class="kc-val" style="color:#7c3aed;font-size:17px;">$'+(totalMPE*12).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+    +(celFilter.areas.length?'<div class="kc-sub" style="color:#7c3aed;">Selección: $'+(selMPE*12).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>':'<div class="kc-sub">Proyección 12 meses</div>')
+    +'</div>'
+    +'<div class="kc"><div class="kc-lbl">Marcas</div><div class="kc-val" style="color:#d97706;">'+marcas.length+'</div><div class="kc-sub">'+marcas.join(' · ')+'</div></div>'
     +'</div>'
 
-    // ── DASHBOARD: barras área + distribución marcas ──
+    // BODY: barras + marcas
     +'<div class="cel-body">'
     +'<div class="pnl">'
-    +'<div class="pnl-hd"><h3><i class="ti ti-building" style="color:#6b7280;font-size:13px;"></i> Renta mensual por área</h3>'
-    +(celFilter.area?'<span class="clr" onclick="celFilter.area=\'\';renderCelulares()">✕ Limpiar filtro</span>':'<span style="font-size:10px;color:#9ca3af;">Clic para filtrar</span>')
+    +'<div class="pnl-hd"><h3><i class="ti ti-building" style="color:#6b7280;font-size:12px;"></i> Renta por área <span style="font-size:10px;color:#9ca3af;font-weight:400;">— selecciona una o varias</span></h3>'
+    +(celFilter.areas.length?'<span style="font-size:10px;color:#2563eb;cursor:pointer;font-weight:500;" onclick="celFilter.areas=[];renderCelulares()">✕ Limpiar ('+celFilter.areas.length+')</span>':'')
     +'</div>'
-    +'<div style="max-height:240px;overflow-y:auto;">'
-    +'<div style="display:flex;padding:6px 14px 4px;border-bottom:0.5px solid #f3f4f6;">'
+    +'<div style="max-height:220px;overflow-y:auto;">'
+    +'<div style="display:flex;padding:5px 12px 4px;border-bottom:0.5px solid #f3f4f6;">'
     +'<span style="font-size:9px;color:#9ca3af;flex:1;text-transform:uppercase;letter-spacing:.04em;">Área</span>'
-    +'<span style="font-size:9px;color:#9ca3af;min-width:24px;text-align:center;text-transform:uppercase;letter-spacing:.04em;">#</span>'
-    +'<span style="font-size:9px;color:#9ca3af;width:80px;text-transform:uppercase;letter-spacing:.04em;margin:0 8px;">Proporción</span>'
-    +'<span style="font-size:9px;color:#9ca3af;min-width:56px;text-align:right;text-transform:uppercase;letter-spacing:.04em;">MPE/mes</span>'
+    +'<span style="font-size:9px;color:#9ca3af;min-width:20px;text-align:center;">#</span>'
+    +'<span style="font-size:9px;color:#9ca3af;width:60px;margin:0 8px;text-transform:uppercase;">Prop.</span>'
+    +'<span style="font-size:9px;color:#9ca3af;min-width:56px;text-align:right;">MPE/mes</span>'
     +'</div>'
     +areaBarras
     +'</div>'
-    +'<div style="padding:10px 14px;background:#f8f9ff;border-top:0.5px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;">'
-    +'<span style="font-size:10px;color:#6b7280;">Total '+celulares.length+' celulares</span>'
-    +'<span style="font-size:12px;font-weight:500;color:#1d4ed8;">$'+totalMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>'
-    +'</div>'
-    +'</div>'
+    +'<div style="padding:8px 12px;background:#f8f9ff;border-top:0.5px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;">'
+    +(celFilter.areas.length
+      ?'<span style="font-size:10px;color:#1d4ed8;font-weight:500;">'+celFilter.areas.length+' área(s) · '+selCount+' celulares</span><span style="font-size:12px;font-weight:600;color:#1d4ed8;">$'+selMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>'
+      :'<span style="font-size:10px;color:#6b7280;">'+celulares.length+' celulares</span><span style="font-size:12px;font-weight:500;color:#1d4ed8;">$'+totalMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>')
+    +'</div></div>'
 
-    // ── Panel derecho: distribución por marca ──
+    // Panel derecho: marcas + estado
     +'<div class="pnl">'
-    +'<div class="pnl-hd"><h3><i class="ti ti-device-mobile" style="color:#6b7280;font-size:13px;"></i> Distribución por marca</h3></div>'
-    +'<div style="padding:14px;">'
-    +marcas.map(function(m){
-      var cnt=celulares.filter(function(c){return c.marca===m;}).length;
-      var mpe=celulares.filter(function(c){return c.marca===m;}).reduce(function(a,c){return a+(parseFloat(c.mpe)||0);},0);
-      var pct=celulares.length?Math.round(cnt/celulares.length*100):0;
-      var color=m==='IPHONE'?'#374151':m==='HONOR'?'#1d4ed8':'#6b7280';
-      return '<div style="margin-bottom:12px;">'
-        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
-        +'<span style="font-size:12px;font-weight:500;color:#111827;">'+m+'</span>'
-        +'<span style="font-size:11px;color:#6b7280;">'+cnt+' equipos · $'+mpe.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>'
-        +'</div>'
-        +'<div style="height:8px;background:#f3f4f6;border-radius:4px;overflow:hidden;">'
-        +'<div style="height:100%;background:'+color+';border-radius:4px;width:'+pct+'%;"></div></div>'
-        +'<div style="font-size:10px;color:#9ca3af;margin-top:2px;">'+pct+'% del parque</div>'
-        +'</div>';
-    }).join('')
-    +'</div>'
-    // Estado libre/asignado
-    +'<div style="padding:0 14px 14px;">'
-    +'<div style="background:#f8f9ff;border-radius:8px;padding:10px 12px;">'
-    +'<div style="font-size:10px;color:#6b7280;margin-bottom:6px;font-weight:500;">ESTADO DE ASIGNACIÓN</div>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-    +'<span onclick="celFilter.status=\'Asignado\';renderCelulares()" style="cursor:pointer;background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;">'+asignados+' Asignados</span>'
-    +(libres?'<span onclick="celFilter.status=\'Libre\';renderCelulares()" style="cursor:pointer;background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;">'+libres+' Libres</span>':'')
+    +'<div class="pnl-hd"><h3><i class="ti ti-device-mobile" style="color:#6b7280;font-size:12px;"></i> Por marca</h3></div>'
+    +'<div style="padding:10px 12px;">'+marcaBarras+'</div>'
+    +'<div style="padding:8px 12px;border-top:0.5px solid #f3f4f6;">'
+    +'<div style="font-size:9px;color:#9ca3af;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;">Estado de asignación</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+    +'<span onclick="celFilter.status=celFilter.status===\'Asignado\'?\'\':\'Asignado\';renderCelulares()" style="cursor:pointer;background:'+(celFilter.status==='Asignado'?'#16a34a':'#f0fdf4')+';color:'+(celFilter.status==='Asignado'?'#fff':'#15803d')+';padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;">'+asignados+' Asignados</span>'
+    +(libres?'<span onclick="celFilter.status=celFilter.status===\'Libre\'?\'\':\'Libre\';renderCelulares()" style="cursor:pointer;background:'+(celFilter.status==='Libre'?'#1d4ed8':'#eff6ff')+';color:'+(celFilter.status==='Libre'?'#fff':'#1d4ed8')+';padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;">'+libres+' Libres</span>':'')
     +'</div></div></div>'
     +'</div>'
-    +'</div>'
 
-    // ── TABLA ──
+    // TABLA
     +'<div class="tbl-cel">'
     +'<div class="tbl-cel-hd">'
-    +'<div>'
+    +'<div style="display:flex;align-items:center;gap:8px;">'
     +'<span style="font-size:13px;font-weight:500;color:#111827;">'+data.length+' celular'+(data.length!==1?'es':'')+' </span>'
-    +(celFilter.area||celFilter.marca||celFilter.plaza||celFilter.status?'<span style="font-size:11px;color:#6b7280;">— filtrado</span>':'')
-    +(data.length<celulares.length?'<span style="font-size:11px;color:#1d4ed8;margin-left:4px;">MPE: $'+filtMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>':'')
+    +(hayFiltro?'<span style="font-size:11px;color:#1d4ed8;">· $'+filtMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>':'')
     +'</div>'
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar..." value="'+celFilter.q+'" oninput="celFilter.q=this.value;renderCelulares()" style="width:150px;">'
+    +'<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar..." value="'+celFilter.q+'" oninput="celFilter.q=this.value;renderCelulares()" style="width:130px;">'
     +'<select class="fi-sm" onchange="celFilter.marca=this.value;renderCelulares()">'+filM+'</select>'
     +'<select class="fi-sm" onchange="celFilter.plaza=this.value;renderCelulares()">'+filP+'</select>'
-    +'<select class="fi-sm" onchange="celFilter.area=this.value;renderCelulares()">'+filA+'</select>'
     +'<select class="fi-sm" onchange="celFilter.status=this.value;renderCelulares()">'+filS+'</select>'
-    +(celFilter.area||celFilter.marca||celFilter.plaza||celFilter.status||celFilter.q?'<button class="btn btn-sm" onclick="celFilter={q:\'\',marca:\'\',plaza:\'\',area:\'\',status:\'\'};renderCelulares()" style="font-size:11px;">✕ Limpiar</button>':'')
+    +(hayFiltro?'<button class="btn btn-sm" onclick="celFilter={q:\'\',marca:\'\',plaza:\'\',areas:[],status:\'\'};renderCelulares()" style="font-size:11px;">✕ Limpiar</button>':'')
     +'</div></div>'
     +'<div style="overflow-x:auto;"><table class="ct"><thead><tr>'
-    +'<th>ID</th><th>DN</th><th>Marca / Modelo</th><th>IMEI</th><th>Renta/mes</th>'
+    +'<th>ID</th><th>DN</th><th>Marca/Modelo</th><th>IMEI</th><th>Renta/mes</th>'
     +'<th>Asignado a</th><th>Departamento</th><th>Plaza</th><th>Estado</th><th>Acciones</th>'
     +'</tr></thead><tbody>'
     +(rows||'<tr><td colspan="10" class="empty-state">Sin resultados.</td></tr>')
@@ -35686,936 +35697,55 @@ function renderCelulares(){
     +'</div>';
 }
 
-
-// ═══ CATÁLOGO + SIMULADOR ═══
-var catalogo=[], editingCatId=null;
-var personal=[], personalFilter={q:'',direccion:'',departamento:''};
-var editingPersonalId=null;
-var simModo='edad';
-
-function loadCatalogo(){
-  db.collection('catalogo').onSnapshot(function(s){
-    catalogo=s.docs.map(function(d){return d.data();});
-    if(curView==='simulador') renderSimulador();
-  },function(e){console.warn('cat:',e.message);});
+function celToggleArea(area){
+  var idx=celFilter.areas.indexOf(area);
+  if(idx>=0) celFilter.areas.splice(idx,1);
+  else celFilter.areas.push(area);
+  renderCelulares();
 }
 
-function catUID(){return 'CAT'+Date.now().toString(36).toUpperCase();}
-
-function openFormCatalogo(id){
-  editingCatId=id||null;
-  clearFormCatalogo();
-  if(id){
-    var item=catalogo.find(function(x){return x.id===id;});
-    if(item) fillFormCatalogo(item);
-    document.getElementById('cat-modal-title').textContent='Editar equipo';
-  } else {
-    document.getElementById('cat-modal-title').textContent='Nuevo equipo en catálogo';
-  }
-  document.getElementById('overlay-catalogo').classList.remove('hidden');
-}
-
-function closeFormCatalogo(){
-  document.getElementById('overlay-catalogo').classList.add('hidden');
-  editingCatId=null;
-}
-
-function clearFormCatalogo(){
-  ['marca','modelo','cpu','ram','storage','pantalla','so','proveedor','garantia','notas','foto'].forEach(function(id){
-    var el=document.getElementById('cat-'+id); if(el) el.value='';
-  });
-  var et=document.getElementById('cat-tipo'); if(et) et.value='';
-  var ep=document.getElementById('cat-precio'); if(ep) ep.value='';
-  var ev=document.getElementById('cat-vigencia'); if(ev) ev.value='';
-  var ee=document.getElementById('cat-estado'); if(ee) ee.value='Activo';
-  var prev=document.getElementById('cat-foto-preview'); if(prev) prev.style.display='none';
-}
-
-function fillFormCatalogo(item){
-  var m={marca:item.marca,modelo:item.modelo,cpu:item.cpu,ram:item.ram,storage:item.storage,
-    pantalla:item.pantalla,so:item.so,proveedor:item.proveedor,garantia:item.garantia,
-    notas:item.notas,foto:item.foto};
-  Object.keys(m).forEach(function(k){var el=document.getElementById('cat-'+k);if(el&&m[k])el.value=m[k];});
-  var et=document.getElementById('cat-tipo'); if(et) et.value=item.tipo||'';
-  var ep=document.getElementById('cat-precio'); if(ep) ep.value=item.precio||'';
-  var ev=document.getElementById('cat-vigencia'); if(ev) ev.value=item.vigencia||'';
-  var ee=document.getElementById('cat-estado'); if(ee) ee.value=item.estado||'Activo';
-  if(item.foto) showFotoPreview(item.foto);
-}
-
-function showFotoPreview(url){
-  if(!url) return;
-  var prev=document.getElementById('cat-foto-preview');
-  var img=document.getElementById('cat-foto-img');
-  if(prev&&img){ img.src=url; prev.style.display='block'; }
-}
-
-function saveCatalogo(){
-  var tipo=(document.getElementById('cat-tipo')||{value:''}).value;
-  var marca=(document.getElementById('cat-marca')||{value:''}).value.trim();
-  var modelo=(document.getElementById('cat-modelo')||{value:''}).value.trim();
-  var precio=parseFloat((document.getElementById('cat-precio')||{value:'0'}).value)||0;
-  if(!tipo||!marca||!modelo){alert('Tipo, Marca y Modelo son obligatorios.');return;}
-  if(!precio){alert('El precio es obligatorio.');return;}
-  var item={
-    id:editingCatId||catUID(),
-    tipo:tipo,marca:marca,modelo:modelo,precio:precio,
-    cpu:(document.getElementById('cat-cpu')||{value:''}).value.trim(),
-    ram:(document.getElementById('cat-ram')||{value:''}).value.trim(),
-    storage:(document.getElementById('cat-storage')||{value:''}).value.trim(),
-    pantalla:(document.getElementById('cat-pantalla')||{value:''}).value.trim(),
-    so:(document.getElementById('cat-so')||{value:''}).value.trim(),
-    proveedor:(document.getElementById('cat-proveedor')||{value:''}).value.trim(),
-    garantia:(document.getElementById('cat-garantia')||{value:''}).value.trim(),
-    vigencia:(document.getElementById('cat-vigencia')||{value:''}).value,
-    estado:(document.getElementById('cat-estado')||{value:'Activo'}).value,
-    foto:(document.getElementById('cat-foto')||{value:''}).value.trim(),
-    notas:(document.getElementById('cat-notas')||{value:''}).value.trim(),
-    updBy:curUser?curUser.name:'',updTs:nowStr()
-  };
-  setSyncUI('saving','Guardando...');
-  db.collection('catalogo').doc(item.id).set(item)
-    .then(function(){setSyncUI('ok','En linea');closeFormCatalogo();toast(editingCatId?'Equipo actualizado':'Equipo agregado al catálogo');})
-    .catch(function(e){setSyncUI('error','Error');toast('Error: '+e.message);});
-}
-
-function deleteCatalogo(id){
-  var item=catalogo.find(function(x){return x.id===id;});if(!item)return;
-  confirmAction('Eliminar del catálogo?',item.marca+' '+item.modelo,function(){
-    db.collection('catalogo').doc(id).delete().then(function(){toast('Equipo eliminado del catálogo');});
-  });
-}
-
-function renderSimulador(){
-  var w=document.getElementById('view-simulador');if(!w)return;
-  var total=equipos.length||286;
-  var byTipo={Desktop:0,Laptop:0,Otro:0};
-  var byEdad={rojo:0,amarillo:0,verde:0};
-  equipos.forEach(function(e){
-    var t=e.tipo==='Desktop'?'Desktop':e.tipo==='Laptop'?'Laptop':'Otro';
-    byTipo[t]=(byTipo[t]||0)+1;
-    var cls=vidaClass(calcAnios(e.fecha));
-    if(cls==='rojo')byEdad.rojo++;
-    else if(cls==='amarillo')byEdad.amarillo++;
-    else byEdad.verde++;
-  });
-  var byEstado={Bueno:0,Regular:0,Malo:0,Baja:0};
-  equipos.forEach(function(e){byEstado[e.estado]=(byEstado[e.estado]||0)+1;});
-  var totalVal=equipos.reduce(function(a,e){return a+(parseFloat(e.precio)||0);},0);
-
-  // Precios del catálogo por tipo
-  function getPrecioTipo(tipo){
-    var items=catalogo.filter(function(x){return x.tipo===tipo&&x.estado==='Activo';});
-    if(!items.length) return tipo==='Desktop'?35000:tipo==='Laptop'?38000:35000;
-    var sum=items.reduce(function(a,x){return a+(parseFloat(x.precio)||0);},0);
-    return Math.round(sum/items.length);
-  }
-  var precioD=getPrecioTipo('Desktop');
-  var precioL=getPrecioTipo('Laptop');
-  var precioO=getPrecioTipo('Otro');
-
-  w.innerHTML=
-    '<style>'
-    +'.sim-wrap{padding:24px 28px;font-family:\'Inter\',sans-serif;}'
-    +'.sim-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;}'
-    +'.sim-h1{font-size:20px;font-weight:500;color:#111827;letter-spacing:-.01em;}'
-    +'.sim-sub{font-size:12px;color:#6b7280;margin-top:2px;}'
-    +'.sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}'
-    +'.sim-panel{background:#fff;border:0.5px solid #e5e7eb;border-radius:12px;overflow:hidden;}'
-    +'.sim-ph{padding:12px 16px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
-    +'.sim-ph h3{font-size:12px;font-weight:500;color:#374151;margin:0;display:flex;align-items:center;gap:6px;}'
-    +'.sim-bd{padding:16px;}'
-    +'.param-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}'
-    +'.param-lbl{font-size:11px;color:#6b7280;width:180px;flex-shrink:0;}'
-    +'.param-v{font-size:13px;font-weight:500;color:#111827;min-width:70px;text-align:right;}'
-    +'.modo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}'
-    +'.modo-btn{padding:10px 8px;border:0.5px solid #e5e7eb;border-radius:8px;text-align:center;cursor:pointer;background:#fff;transition:all .15s;}'
-    +'.modo-btn.active{border-color:#2563eb;background:#eff6ff;}'
-    +'.modo-btn-ico{font-size:18px;margin-bottom:4px;}'
-    +'.modo-btn-lbl{font-size:10px;color:#6b7280;font-weight:500;}'
-    +'.modo-btn-val{font-size:20px;font-weight:500;color:#111827;}'
-    +'.modo-btn.active .modo-btn-lbl{color:#1d4ed8;}'
-    +'.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}'
-    +'.kpi-s{background:#f9fafb;border-radius:8px;padding:12px;text-align:center;}'
-    +'.kpi-s-lbl{font-size:10px;color:#6b7280;margin-bottom:4px;}'
-    +'.kpi-s-val{font-size:20px;font-weight:500;}'
-    +'.brow{display:flex;align-items:center;gap:8px;margin-bottom:10px;}'
-    +'.blbl{font-size:11px;color:#6b7280;width:70px;flex-shrink:0;}'
-    +'.bwrap{flex:1;height:8px;background:#f3f4f6;border-radius:4px;overflow:hidden;}'
-    +'.bfill{height:100%;border-radius:4px;transition:width .4s;}'
-    +'.bval{font-size:11px;font-weight:500;color:#111827;min-width:80px;text-align:right;}'
-    +'.fase-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}'
-    +'.fase-card{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:12px;border-left:3px solid #e5e7eb;}'
-    +'.ins{background:#eff6ff;border-radius:8px;padding:12px 14px;border-left:3px solid #2563eb;margin-bottom:16px;font-size:12px;color:#374151;line-height:1.5;}'
-    +'.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}'
-    +'.cat-card{background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden;transition:box-shadow .15s;}'
-    +'.cat-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);}'
-    +'.cat-img{width:100%;height:110px;object-fit:contain;background:#f8f9ff;padding:8px;}'
-    +'.cat-img-ph{width:100%;height:110px;background:#f8f9ff;display:flex;align-items:center;justify-content:center;color:#d1d5db;font-size:32px;}'
-    +'.cat-body{padding:10px 12px;}'
-    +'.cat-tipo{font-size:9px;font-weight:600;padding:2px 7px;border-radius:20px;background:#eff6ff;color:#1d4ed8;display:inline-block;margin-bottom:6px;}'
-    +'.cat-nombre{font-size:13px;font-weight:500;color:#111827;line-height:1.3;margin-bottom:4px;}'
-    +'.cat-precio{font-size:16px;font-weight:500;color:#1d4ed8;margin-bottom:4px;}'
-    +'.cat-spec{font-size:10px;color:#9ca3af;line-height:1.4;}'
-    +'.cat-actions{display:flex;gap:4px;padding:8px 12px;border-top:0.5px solid #f3f4f6;}'
-    +'</style>'
-    +'<div class="sim-wrap">'
-    +'<div class="sim-hdr">'
-    +'<div><div class="sim-h1">Simulador de reemplazo</div>'
-    +'<div class="sim-sub">Planifica la renovación del parque tecnológico · Solo TI</div></div>'
-    +'<button onclick="openFormCatalogo()" style="display:flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:6px;background:#1d4ed8;font-size:12px;font-weight:500;color:#fff;cursor:pointer;">'
-    +'<i class="ti ti-plus"></i> Agregar al catálogo</button>'
-    +'</div>'
-
-    // PARÁMETROS
-    +'<div class="sim-grid">'
-    +'<div class="sim-panel">'
-    +'<div class="sim-ph"><h3><i class="ti ti-adjustments-horizontal" aria-hidden="true"></i> Parámetros del plan</h3></div>'
-    +'<div class="sim-bd">'
-    +'<div class="param-row"><span class="param-lbl">Vida útil por política</span>'
-    +'<input type="range" id="s-vida" min="2" max="8" value="4" step="1" style="flex:1;" oninput="simCalc()">'
-    +'<span class="param-v" id="s-vida-v">4 años</span></div>'
-    +'<div class="param-row"><span class="param-lbl">Presupuesto anual (MXN)</span>'
-    +'<input type="range" id="s-pres" min="500000" max="5000000" value="1500000" step="100000" style="flex:1;" oninput="simCalc()">'
-    +'<span class="param-v" id="s-pres-v">$1.5M</span></div>'
-    +'<div class="param-row"><span class="param-lbl">Precio Desktop (promedio)</span>'
-    +'<input type="range" id="s-pd" min="15000" max="80000" value="'+precioD+'" step="1000" style="flex:1;" oninput="simCalc()">'
-    +'<span class="param-v" id="s-pd-v">$'+precioD.toLocaleString('es-MX')+'</span></div>'
-    +'<div class="param-row"><span class="param-lbl">Precio Laptop (promedio)</span>'
-    +'<input type="range" id="s-pl" min="15000" max="80000" value="'+precioL+'" step="1000" style="flex:1;" oninput="simCalc()">'
-    +'<span class="param-v" id="s-pl-v">$'+precioL.toLocaleString('es-MX')+'</span></div>'
-    +'</div></div>'
-
-    // MODO CRITERIO
-    +'<div class="sim-panel">'
-    +'<div class="sim-ph"><h3><i class="ti ti-filter" aria-hidden="true"></i> Criterio de reemplazo</h3></div>'
-    +'<div class="sim-bd">'
-    +'<div class="modo-grid">'
-    +'<div class="modo-btn active" id="sm-edad" onclick="simModo=\'edad\';simActModo();simCalc();">'
-    +'<div class="modo-btn-ico"><i class="ti ti-calendar" aria-hidden="true"></i></div>'
-    +'<div class="modo-btn-lbl">Solo por edad</div>'
-    +'<div class="modo-btn-val" id="sm-v-edad">'+byEdad.rojo+'</div>'
-    +'<div style="font-size:9px;color:#9ca3af;">equipos +'+4+' años</div>'
-    +'</div>'
-    +'<div class="modo-btn" id="sm-estado" onclick="simModo=\'estado\';simActModo();simCalc();">'
-    +'<div class="modo-btn-ico"><i class="ti ti-heart-rate-monitor" aria-hidden="true"></i></div>'
-    +'<div class="modo-btn-lbl">Solo por estado</div>'
-    +'<div class="modo-btn-val" id="sm-v-estado">'+((byEstado.Regular||0)+(byEstado.Malo||0)+(byEstado.Baja||0))+'</div>'
-    +'<div style="font-size:9px;color:#9ca3af;">Regular + Malo + Baja</div>'
-    +'</div>'
-    +'<div class="modo-btn" id="sm-ambos" onclick="simModo=\'ambos\';simActModo();simCalc();">'
-    +'<div class="modo-btn-ico"><i class="ti ti-layers-intersect" aria-hidden="true"></i></div>'
-    +'<div class="modo-btn-lbl">Edad + Estado</div>'
-    +'<div class="modo-btn-val" id="sm-v-ambos">'+(byEdad.rojo+(byEstado.Regular||0))+'</div>'
-    +'<div style="font-size:9px;color:#9ca3af;">Criterio combinado</div>'
-    +'</div></div>'
-    +'<div style="background:#f9fafb;border-radius:8px;padding:10px 12px;">'
-    +'<div style="font-size:11px;color:#6b7280;margin-bottom:6px;">Estado actual del parque</div>'
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-    +'<span style="font-size:11px;background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;">Bueno: '+(byEstado.Bueno||0)+'</span>'
-    +'<span style="font-size:11px;background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:20px;">Regular: '+(byEstado.Regular||0)+'</span>'
-    +'<span style="font-size:11px;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;">Malo: '+(byEstado.Malo||0)+'</span>'
-    +'<span style="font-size:11px;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:20px;">Vida útil OK: '+byEdad.verde+'</span>'
-    +'<span style="font-size:11px;background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:20px;">Próximos: '+byEdad.amarillo+'</span>'
-    +'<span style="font-size:11px;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;">Para cambio: '+byEdad.rojo+'</span>'
-    +'</div></div>'
-    +'</div></div></div>'
-
-    // RESULTADOS
-    +'<div class="kpi-row" id="sim-kpis">'
-    +'<div class="kpi-s"><div class="kpi-s-lbl">Equipos a reemplazar</div><div class="kpi-s-val" id="sk-eq" style="color:#dc2626;">...</div></div>'
-    +'<div class="kpi-s"><div class="kpi-s-lbl">Costo total estimado</div><div class="kpi-s-val" id="sk-costo" style="color:#1d4ed8;font-size:16px;">...</div></div>'
-    +'<div class="kpi-s"><div class="kpi-s-lbl">Años para completar</div><div class="kpi-s-val" id="sk-anios" style="color:#374151;">...</div></div>'
-    +'</div>'
-
-    // DESGLOSE
-    +'<div class="sim-panel" style="margin-bottom:16px;">'
-    +'<div class="sim-ph"><h3><i class="ti ti-chart-bar" aria-hidden="true"></i> Desglose por tipo</h3></div>'
-    +'<div class="sim-bd">'
-    +'<div class="brow"><span class="blbl">Desktop</span><div class="bwrap"><div class="bfill" id="sb-d" style="background:#2a78d6;width:0%;"></div></div><span class="bval" id="sv-d">—</span></div>'
-    +'<div class="brow"><span class="blbl">Laptop</span><div class="bwrap"><div class="bfill" id="sb-l" style="background:#1baf7a;width:0%;"></div></div><span class="bval" id="sv-l">—</span></div>'
-    +'<div class="brow"><span class="blbl">Otros</span><div class="bwrap"><div class="bfill" id="sb-o" style="background:#eda100;width:0%;"></div></div><span class="bval" id="sv-o">—</span></div>'
-    +'</div></div>'
-
-    // FASES
-    +'<div class="fase-grid" id="sim-fases">'
-    +'<div class="fase-card" style="border-left-color:#dc2626;">'
-    +'<div style="font-size:10px;color:#9ca3af;margin-bottom:3px;">FASE 1 · AÑO 1</div>'
-    +'<div style="font-size:12px;font-weight:500;color:#111827;margin-bottom:2px;">Equipos críticos</div>'
-    +'<div style="font-size:11px;color:#6b7280;margin-bottom:6px;">Malo + Baja + más de 6 años</div>'
-    +'<div style="font-size:14px;font-weight:500;color:#dc2626;" id="sf1">...</div></div>'
-    +'<div class="fase-card" style="border-left-color:#d97706;">'
-    +'<div style="font-size:10px;color:#9ca3af;margin-bottom:3px;">FASE 2 · AÑO 2</div>'
-    +'<div style="font-size:12px;font-weight:500;color:#111827;margin-bottom:2px;">Equipos prioritarios</div>'
-    +'<div style="font-size:11px;color:#6b7280;margin-bottom:6px;">Regular + entre vida útil</div>'
-    +'<div style="font-size:14px;font-weight:500;color:#d97706;" id="sf2">...</div></div>'
-    +'<div class="fase-card" style="border-left-color:#2563eb;">'
-    +'<div style="font-size:10px;color:#9ca3af;margin-bottom:3px;">FASE 3 · AÑO 3+</div>'
-    +'<div style="font-size:12px;font-weight:500;color:#111827;margin-bottom:2px;">Restantes por política</div>'
-    +'<div style="font-size:11px;color:#6b7280;margin-bottom:6px;">Buen estado pero por política</div>'
-    +'<div style="font-size:14px;font-weight:500;color:#2563eb;" id="sf3">...</div></div>'
-    +'</div>'
-
-    // INSIGHT
-    +'<div class="ins" id="sim-insight">Calculando recomendación...</div>'
-
-    // CATÁLOGO
-    +'<div class="sim-ph" style="padding:12px 0;border-bottom:0.5px solid #f3f4f6;margin-bottom:14px;">'
-    +'<h3 style="font-size:14px;font-weight:500;color:#111827;margin:0;display:flex;align-items:center;gap:6px;">'
-    +'<i class="ti ti-package" aria-hidden="true"></i> Catálogo de equipos actuales</h3>'
-    +'<span style="font-size:11px;color:#6b7280;">'+catalogo.length+' equipos registrados</span>'
-    +'</div>'
-    +(catalogo.length===0
-      ?'<div style="text-align:center;padding:40px;color:#9ca3af;">'
-        +'<i class="ti ti-package" style="font-size:32px;display:block;margin-bottom:8px;" aria-hidden="true"></i>'
-        +'<div style="font-size:13px;margin-bottom:4px;">Sin equipos en el catálogo</div>'
-        +'<div style="font-size:11px;">Agrega los modelos que compras actualmente con su precio</div>'
-        +'<button onclick="openFormCatalogo()" style="margin-top:12px;padding:7px 14px;border:none;border-radius:6px;background:#1d4ed8;color:#fff;font-size:12px;cursor:pointer;">+ Agregar primer equipo</button>'
-        +'</div>'
-      :'<div class="cat-grid">'
-        +catalogo.map(function(item){
-          var tcol=item.tipo==='Desktop'?'#eff6ff;color:#1d4ed8':item.tipo==='Laptop'?'#f0fdf4;color:#15803d':'#fffbeb;color:#d97706';
-          return '<div class="cat-card">'
-            +(item.foto?'<img class="cat-img" src="'+item.foto+'" alt="'+item.marca+' '+item.modelo+'" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\';">'
-              +'<div class="cat-img-ph" style="display:none;"><i class=\"ti ti-device-laptop\" aria-hidden=\"true\"></i></div>'
-              :'<div class="cat-img-ph"><i class="ti ti-device-laptop" aria-hidden="true"></i></div>')
-            +'<div class="cat-body">'
-            +'<span class="cat-tipo" style="background:'+tcol+';">'+item.tipo+'</span>'
-            +'<div class="cat-nombre">'+item.marca+' '+item.modelo+'</div>'
-            +'<div class="cat-precio">$'+(parseFloat(item.precio)||0).toLocaleString('es-MX')+'</div>'
-            +'<div class="cat-spec">'+(item.cpu?item.cpu+' · ':'')+item.ram+(item.storage?' · '+item.storage:'')+'</div>'
-            +(item.proveedor?'<div class="cat-spec" style="margin-top:2px;">Proveedor: '+item.proveedor+'</div>':'')
-            +(item.garantia?'<div class="cat-spec">Garantía: '+item.garantia+'</div>':'')
-            +(item.vigencia?'<div class="cat-spec" style="color:#d97706;">Precio vigente hasta: '+item.vigencia+'</div>':'')
-            +'</div>'
-            +'<div class="cat-actions">'
-            +'<button class="icon-btn" data-cid="'+item.id+'" onclick="openFormCatalogo(this.dataset.cid)" title="Editar">&#9999;&#65039;</button>'
-            +'<button class="icon-btn" data-cid="'+item.id+'" onclick="deleteCatalogo(this.dataset.cid)" title="Eliminar" style="color:#dc2626;">&#128465;</button>'
-            +'</div>'
-            +'</div>';
-        }).join('')
-        +'</div>'
-    )
-    +'</div>';
-
-  // Ejecutar cálculo inicial
-  setTimeout(function(){
-    simCalc();
-    // Preview de foto
-    var fotoInput=document.getElementById('cat-foto');
-    if(fotoInput){
-      fotoInput.addEventListener('input',function(){showFotoPreview(this.value);});
-    }
-  }, 100);
-}
-
-function simActModo(){
-  ['edad','estado','ambos'].forEach(function(x){
-    var el=document.getElementById('sm-'+x);
-    if(el) el.classList.toggle('active',x===simModo);
-  });
-}
-
-function simCalc(){
-  var vida=parseInt((document.getElementById('s-vida')||{value:4}).value)||4;
-  var pres=parseInt((document.getElementById('s-pres')||{value:1500000}).value)||1500000;
-  var pd=parseInt((document.getElementById('s-pd')||{value:35000}).value)||35000;
-  var pl=parseInt((document.getElementById('s-pl')||{value:38000}).value)||38000;
-  var po=35000;
-
-  var vv=document.getElementById('s-vida-v'); if(vv) vv.textContent=vida+' años';
-  var pv=document.getElementById('s-pres-v'); if(pv) pv.textContent='$'+(pres/1000000).toFixed(1)+'M';
-  var pdv=document.getElementById('s-pd-v'); if(pdv) pdv.textContent='$'+pd.toLocaleString('es-MX');
-  var plv=document.getElementById('s-pl-v'); if(plv) plv.textContent='$'+pl.toLocaleString('es-MX');
-
-  var byTipo={Desktop:0,Laptop:0,Otro:0};
-  var byEstado={Regular:0,Malo:0,Baja:0};
-  var rojoPorTipo={Desktop:0,Laptop:0,Otro:0};
-  var malPorTipo={Desktop:0,Laptop:0,Otro:0};
-
-  equipos.forEach(function(e){
-    var t=e.tipo==='Desktop'?'Desktop':e.tipo==='Laptop'?'Laptop':'Otro';
-    byTipo[t]++;
-    if(e.estado==='Regular')byEstado.Regular++;
-    else if(e.estado==='Malo')byEstado.Malo++;
-    else if(e.estado==='Baja')byEstado.Baja++;
-    var a=calcAnios(e.fecha);
-    if(a!==null&&a>=vida){rojoPorTipo[t]++;}
-    if(e.estado==='Malo'||e.estado==='Baja')malPorTipo[t]++;
-  });
-
-  var dR,lR,oR;
-  var malTotal=(byEstado.Regular||0)+(byEstado.Malo||0)+(byEstado.Baja||0);
-  if(simModo==='edad'){dR=rojoPorTipo.Desktop;lR=rojoPorTipo.Laptop;oR=rojoPorTipo.Otro;}
-  else if(simModo==='estado'){dR=malPorTipo.Desktop;lR=malPorTipo.Laptop;oR=malPorTipo.Otro;}
-  else{
-    dR=Math.min(byTipo.Desktop,rojoPorTipo.Desktop+malPorTipo.Desktop);
-    lR=Math.min(byTipo.Laptop,rojoPorTipo.Laptop+malPorTipo.Laptop);
-    oR=Math.min(byTipo.Otro,rojoPorTipo.Otro+malPorTipo.Otro);
-  }
-
-  var totalEq=dR+lR+oR;
-  var costoTotal=dR*pd+lR*pl+oR*po;
-  var anios=pres>0?costoTotal/pres:99;
-
-  // Update edad count
-  var edadTot=rojoPorTipo.Desktop+rojoPorTipo.Laptop+rojoPorTipo.Otro;
-  var ev=document.getElementById('sm-v-edad'); if(ev) ev.textContent=edadTot;
-  var estv=document.getElementById('sm-v-estado'); if(estv) estv.textContent=malTotal;
-  var ambv=document.getElementById('sm-v-ambos'); if(ambv) ambv.textContent=Math.min(equipos.length,edadTot+malTotal);
-
-  var skeq=document.getElementById('sk-eq'); if(skeq) skeq.textContent=totalEq;
-  var skcosto=document.getElementById('sk-costo'); if(skcosto) skcosto.textContent='$'+Math.round(costoTotal).toLocaleString('es-MX');
-  var skanios=document.getElementById('sk-anios'); if(skanios) skanios.textContent=anios.toFixed(1);
-
-  var maxC=Math.max(dR*pd,lR*pl,oR*po)||1;
-  var sbd=document.getElementById('sb-d'); if(sbd) sbd.style.width=Math.round(dR*pd/maxC*100)+'%';
-  var sbl=document.getElementById('sb-l'); if(sbl) sbl.style.width=Math.round(lR*pl/maxC*100)+'%';
-  var sbo=document.getElementById('sb-o'); if(sbo) sbo.style.width=Math.round(oR*po/maxC*100)+'%';
-  var svd=document.getElementById('sv-d'); if(svd) svd.textContent=dR+' · $'+Math.round(dR*pd).toLocaleString('es-MX');
-  var svl=document.getElementById('sv-l'); if(svl) svl.textContent=lR+' · $'+Math.round(lR*pl).toLocaleString('es-MX');
-  var svo=document.getElementById('sv-o'); if(svo) svo.textContent=oR+' · $'+Math.round(oR*po).toLocaleString('es-MX');
-
-  var f1=Math.min(pres,costoTotal);
-  var f2=Math.min(pres,Math.max(0,costoTotal-pres));
-  var f3=Math.max(0,costoTotal-pres*2);
-  var sf1=document.getElementById('sf1'); if(sf1) sf1.textContent=f2>0?'~$'+Math.round(f1).toLocaleString('es-MX'):'Plan completo en 1 año';
-  var sf2=document.getElementById('sf2'); if(sf2) sf2.textContent=f2>0?'~$'+Math.round(f2).toLocaleString('es-MX'):'—';
-  var sf3=document.getElementById('sf3'); if(sf3) sf3.textContent=f3>0?'~$'+Math.round(f3).toLocaleString('es-MX'):'—';
-
-  var priori=dR>lR?'desktops':'laptops';
-  var recom=anios<=1?'El presupuesto cubre todo el reemplazo en un año.'
-    :anios<=2?'Plan de 2 fases. '
-    :'Plan de '+Math.ceil(anios)+' fases anuales. ';
-  var sins=document.getElementById('sim-insight');
-  if(sins) sins.textContent='Con política de '+vida+' años y presupuesto de $'+Math.round(pres/1000)+'K anuales, el plan tomará '+anios.toFixed(1)+' año(s). '+recom
-    +'Prioriza los '+priori+' ('+Math.round(Math.max(dR,lR)/equipos.length*100)+'% del parque en ese segmento). '
-    +(catalogo.length>0?'Los precios del catálogo se usan como referencia base.':'Agrega equipos al catálogo para usar precios reales.');
-}
-
-
-// ═══ PERSONAL ═══
-function loadPersonal(){
-  db.collection('personal').onSnapshot(function(s){
-    personal=s.docs.map(function(d){return d.data();});
-    _personalCacheBuilt=false;
-    if(curView==='personal') renderPersonal();
-  },function(e){console.warn('personal:',e.message);});
-}
-
-function normStr(s){
-  if(!s) return '';
-  return s.toUpperCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g,'')
-    .replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
-}
-
-var _personalCache={};
-var _personalCacheBuilt=false;
-
-function buildPersonalCache(){
-  _personalCache={};
-  personal.forEach(function(p){
-    _personalCache[normStr(p.nombre_completo)]=p;
-  });
-  _personalCacheBuilt=true;
-}
-
-function findPersonal(nombreResp){
-  if(!nombreResp||!personal.length) return null;
-  if(!_personalCacheBuilt) buildPersonalCache();
-  var busca=normStr(nombreResp);
-  // Busqueda exacta O(1)
-  if(_personalCache[busca]) return _personalCache[busca];
-  // Busqueda parcial con desempate estricto
-  var palabras=busca.split(' ').filter(function(x){return x.length>2;});
-  if(!palabras.length) return null;
-  var scores=[];
-  var keys=Object.keys(_personalCache);
-  for(var i=0;i<keys.length;i++){
-    var nc=keys[i];
-    var score=0;
-    for(var j=0;j<palabras.length;j++){if(nc.indexOf(palabras[j])>=0)score++;}
-    if(score>0) scores.push({score:score,p:_personalCache[keys[i]]});
-  }
-  if(!scores.length) return null;
-  scores.sort(function(a,b){return b.score-a.score;});
-  var bestScore=scores[0].score;
-  // Score mínimo: al menos la mitad de las palabras, mínimo 2
-  var minScore=Math.max(2, Math.ceil(palabras.length/2));
-  if(bestScore<minScore) return null;
-  // Desempate estricto: si hay empate en el score máximo, no hay match
-  var winners=scores.filter(function(s){return s.score===bestScore;});
-  if(winners.length>1) return null;
-  return winners[0].p;
-}
-
-function openFormPersonal(id){
-  editingPersonalId=id||null;
-  if(id){
-    var p=personal.find(function(x){return x.id===id;});
-    if(!p) return;
-    document.getElementById('per-modal-title').textContent='Editar empleado';
-    document.getElementById('per-numero').value=p.numero||'';
-    document.getElementById('per-nombre').value=p.nombre||'';
-    document.getElementById('per-ap1').value=p.apellido1||'';
-    document.getElementById('per-ap2').value=p.apellido2||'';
-    document.getElementById('per-puesto').value=p.puesto||'';
-    document.getElementById('per-depto').value=p.departamento||'';
-    document.getElementById('per-dire').value=p.direccion||'';
-    document.getElementById('per-email').value=p.email||'';
-    document.getElementById('per-tel').value=p.telefono||'';
-    document.getElementById('per-activo').value=String(p.activo!==false);
-  } else {
-    document.getElementById('per-modal-title').textContent='Nuevo empleado';
-    ['numero','nombre','ap1','ap2','puesto','depto','dire','email','tel'].forEach(function(id){
-      var el=document.getElementById('per-'+id); if(el) el.value='';
-    });
-    document.getElementById('per-activo').value='true';
-  }
-  document.getElementById('overlay-personal').classList.remove('hidden');
-}
-
-function closeFormPersonal(){
-  document.getElementById('overlay-personal').classList.add('hidden');
-  editingPersonalId=null;
-}
-
-function savePersonal(){
-  var nombre=(document.getElementById('per-nombre')||{value:''}).value.trim().toUpperCase();
-  var ap1=(document.getElementById('per-ap1')||{value:''}).value.trim().toUpperCase();
-  if(!nombre||!ap1){alert('Nombre y Apellido paterno son obligatorios.');return;}
-  var ap2=(document.getElementById('per-ap2')||{value:''}).value.trim().toUpperCase();
-  var numero=(document.getElementById('per-numero')||{value:''}).value.trim();
-  var nc=(nombre+' '+ap1+(ap2?' '+ap2:'')).trim();
-  var id=editingPersonalId||(numero||'EMP'+Date.now().toString(36).toUpperCase());
-  var item={
-    id:id, numero:numero, nombre:nombre, apellido1:ap1, apellido2:ap2,
-    nombre_completo:nc,
-    puesto:(document.getElementById('per-puesto')||{value:''}).value.trim(),
-    departamento:(document.getElementById('per-depto')||{value:''}).value.trim(),
-    direccion:(document.getElementById('per-dire')||{value:''}).value.trim(),
-    email:(document.getElementById('per-email')||{value:''}).value.trim(),
-    telefono:(document.getElementById('per-tel')||{value:''}).value.trim(),
-    activo:(document.getElementById('per-activo')||{value:'true'}).value==='true'
-  };
-  setSyncUI('saving','Guardando...');
-  db.collection('personal').doc(item.id).set(item)
-    .then(function(){setSyncUI('ok','En linea');closeFormPersonal();toast(editingPersonalId?'Empleado actualizado':'Empleado agregado');})
-    .catch(function(e){setSyncUI('error','Error');toast('Error: '+e.message);});
-}
-
-function deletePersonal(id){
-  var p=personal.find(function(x){return x.id===id;});if(!p)return;
-  confirmAction('Eliminar empleado?',p.nombre_completo,function(){
-    db.collection('personal').doc(id).delete().then(function(){toast('Empleado eliminado');});
-  });
-}
-
-function getAvatarStyle(nombre){
-  var colors=[['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],
-    ['#fce7f3','#be185d'],['#ede9fe','#6d28d9'],['#ffedd5','#c2410c'],['#f0fdf4','#166534']];
-  var idx=Math.abs((nombre||'').charCodeAt(0)||0)%colors.length;
-  return colors[idx];
-}
-
-
-// ═══ GENERADOR DE FORMATO RESGUARDO ═══
-function getDirectorPorDireccion(dir){
-  var d=(dir||'').toLowerCase();
-  if(d.indexOf('admiva')>=0)       return {nombre:'Roberto Villanueva',puesto:'Director Administrativo'};
-  if(d.indexOf('comerc nal')>=0)   return {nombre:'Mario Alberto Flores Monico',puesto:'Director de Comercializadora Nacional'};
-  if(d.indexOf('comercial')>=0)    return {nombre:'Carlos Eduardo Lopez Romero',puesto:'Director Comercial'};
-  if(d.indexOf('tecnica')>=0)      return {nombre:'Medardo Ezequiel Lopez Rivas',puesto:'Director Tecnico'};
-  if(d.indexOf('coffeeserv')>=0)   return {nombre:'Juan Gerardo Perdomo Abella',puesto:'Director de Coffee Service'};
-  return {nombre:'Director del Area',puesto:'Direccion'};
-}
-
-function generarResguardoDePanel(){
-  if(!openEquipoId){toast('No hay equipo abierto');return;}
-  var eq=equipos.find(function(x){return x.id===openEquipoId;});
-  if(!eq){toast('Equipo no encontrado');return;}
-  generarResguardo(eq);
-}
-
-function generarResguardo(eq){
-  if(typeof docx==='undefined'){toast('Error: libreria docx no disponible. Verifica conexion a internet.');return;}
-  var D=docx;
-  var noBrd={style:D.BorderStyle.NONE,size:0,color:'FFFFFF'};
-  var tBrd={style:D.BorderStyle.SINGLE,size:4,color:'000000'};
-  var allB={top:tBrd,right:tBrd,bottom:tBrd,left:tBrd};
-  var CONTENT_W=10440;
-
-  function tx(text,o){return new D.TextRun(Object.assign({text:String(text||''),font:'Arial',size:18},o||{}));}
-  function pr(children,o){return new D.Paragraph(Object.assign({children:Array.isArray(children)?children:[children]},o||{}));}
-  function sp(){return new D.Paragraph({children:[tx('')]});}
-  function ck(v){return v?String.fromCharCode(9745):String.fromCharCode(9744);}
-
-  function mkC(text,o){
-    var opts=o||{};
-    return new D.TableCell({
-      columnSpan:opts.cs||1,rowSpan:opts.rs||1,
-      verticalAlign:D.VerticalAlign.CENTER,
-      shading:opts.shade?{type:D.ShadingType.CLEAR,fill:opts.shade}:undefined,
-      width:opts.w?{size:opts.w,type:D.WidthType.DXA}:undefined,
-      borders:opts.borders||allB,
-      children:[pr([tx(text,{bold:opts.bold||false,size:opts.sz||18})],{alignment:opts.al||D.AlignmentType.LEFT})]
-    });
-  }
-
-  function numP(text,ref){
-    return new D.Paragraph({
-      numbering:{reference:ref,level:0},
-      children:[tx(text)]
-    });
-  }
-
-  // Datos del equipo
-  var eqSerie  = eq.serie||'—';
-  var eqMarca  = eq.marca||'—';
-  var eqModelo = eq.modelo||'—';
-  var eqArea   = eq.area||'—';
-  var eqResp   = eq.responsable||'—';
-  var eqPuesto = eq.puesto||'—';
-  var eqUbic   = eq.ubicacion||eq.plaza||'—';
-  var eqTipo   = eq.tipo||'—';
-  var eqFact   = eq.factura||'—';
-  var eqDepto  = eq.departamento||'—';
-  var eqValor  = eq.precio?('$'+(parseFloat(eq.precio)||0).toLocaleString('es-MX')+' MXN'):'—';
-  var esLaptop = eqTipo==='Laptop';
-  var esPC     = eqTipo==='Desktop'||eqTipo==='PC';
-  var esImp    = eqTipo==='Impresora';
-  var esTab    = eqTipo==='Tablet';
-  var dir      = getDirectorPorDireccion(eq.direccion||eqArea||'');
-
-  var C=Math.round(CONTENT_W/11);
-
-  // Tabla usuario
-  var tabUsr=new D.Table({
-    width:{size:CONTENT_W,type:D.WidthType.DXA},
-    columnWidths:[Math.round(CONTENT_W*0.35),Math.round(CONTENT_W*0.65)],
-    rows:[
-      new D.TableRow({children:[mkC('Area:',{bold:true}),mkC(eqArea)]}),
-      new D.TableRow({children:[mkC('Departamento:',{bold:true}),mkC(eqDepto)]}),
-      new D.TableRow({children:[mkC('Nombre del Usuario y responsable:',{bold:true}),mkC(eqResp)]}),
-      new D.TableRow({children:[mkC('Puesto:',{bold:true}),mkC(eqPuesto)]}),
-      new D.TableRow({children:[mkC('Ubicacion:',{bold:true}),mkC(eqUbic)]}),
-    ]
-  });
-
-  // Tabla equipo
-  var tabEq=new D.Table({
-    width:{size:CONTENT_W,type:D.WidthType.DXA},
-    columnWidths:Array(11).fill(C),
-    rows:[
-      new D.TableRow({children:[mkC('Equipo:',{bold:true}),mkC(ck(esLaptop)+' Laptop'),mkC(ck(esPC)+' PC'),mkC(ck(esImp)+' Impresora',{cs:2}),mkC(ck(esTab)+' Tablet',{cs:2}),mkC('',{cs:2}),mkC('',{cs:2})]}),
-      new D.TableRow({children:[mkC('Tipo:',{bold:true}),mkC('Notebook',{cs:3,bold:true}),mkC(''),mkC(ck(true)+' Nuevo   '+ck(false)+' Usado',{cs:3}),mkC('',{cs:3})]}),
-      new D.TableRow({children:[mkC('Marca:',{bold:true}),mkC(eqMarca,{cs:3,bold:true}),mkC(''),mkC('Autorizado retirar de Instalaciones Cafiver:',{cs:4}),mkC(ck(true)+' Si'),mkC(ck(false)+' No')]}),
-      new D.TableRow({children:[mkC('No. Serie:',{bold:true}),mkC(eqSerie,{cs:3,bold:true}),mkC('',{cs:7})]}),
-      new D.TableRow({children:[mkC('Modelo:',{bold:true}),mkC(eqModelo,{cs:3,bold:true}),mkC('Factura:',{bold:true}),mkC(eqFact,{cs:6})]}),
-      new D.TableRow({children:[mkC('Valor de reposicion proporcionado por TI: '+eqValor,{cs:11})]}),
-    ]
-  });
-
-  // Tabla firmas
-  function mkFirmas(){
-    var W3=Math.round(CONTENT_W/3);
-    var WM=Math.round(CONTENT_W*0.08);
-    return new D.Table({
-      width:{size:CONTENT_W,type:D.WidthType.DXA},
-      columnWidths:[W3,WM,CONTENT_W-W3-WM],
-      rows:[
-        new D.TableRow({children:[mkC('Firma de conformidad / Usuario y responsable'),mkC(''),mkC('Autoriza')]}),
-        new D.TableRow({children:[mkC(eqResp,{bold:true}),mkC(''),mkC(dir.nombre,{bold:true})]}),
-        new D.TableRow({children:[mkC(eqPuesto),mkC(''),mkC(dir.puesto)]}),
-        new D.TableRow({children:[mkC('________________________________'),mkC(''),mkC('________________________________')]}),
-      ]
-    });
-  }
-
-  // Tabla Anexo A
-  var cA=[Math.round(CONTENT_W*0.4),Math.round(CONTENT_W*0.35),Math.round(CONTENT_W*0.25)];
-  var rowsA=[new D.TableRow({children:[mkC('Nombre',{bold:true,shade:'D9D9D9',w:cA[0]}),mkC('Puesto',{bold:true,shade:'D9D9D9',w:cA[1]}),mkC('Firma',{bold:true,shade:'D9D9D9',w:cA[2]})]})];
-  for(var i=0;i<8;i++) rowsA.push(new D.TableRow({children:[mkC('',{w:cA[0]}),mkC('',{w:cA[1]}),mkC('',{w:cA[2]})]}));
-  var tabA=new D.Table({width:{size:CONTENT_W,type:D.WidthType.DXA},columnWidths:cA,rows:rowsA});
-
-  var pol=[
-    'Mantenerlo en buen estado o reportarlo a la Jefatura de Tecnologia de la Informacion (JTI). De ser necesario su prestamo al Personal de Cafiver documentar mediante el Resguardo por turno (Anexo A).',
-    'Fuera del horario laboral el equipo debe permanecer bajo llave en mi custodia y dentro de las instalaciones de Cafiver, salvo autorizacion del Director del Area.',
-    'Observar: "Manejo de informacion confidencial de Cafiver" (Anexo B) y "Aviso de privacidad integral" (Anexo C).',
-    'Me comprometo a devolver el equipo en el momento en que lo solicite Cafiver.',
-    'Observare el Codigo de Etica de Cafiver y sus sanciones; y en caso de extravio o dano por uso inadecuado, me responsabilizo hacerme cargo del costo de las partes danadas (no aplica en partes del uso normal del equipo).',
-  ];
-  var polB=[
-    'Limitar la recoleccion de informacion acerca de sus procesos al minimo necesario para cumplir con sus objetivos y funciones.',
-    'No divulgar a terceros informacion sin previo aviso y consentimiento del involucrado, salvo requerimiento legal.',
-    'Mantener control de la confidencialidad de toda la informacion a su alcance en todo tipo de presentacion.',
-    'Mantener la informacion que maneja completa, al dia, fidedigna y resguardada. TI no es responsable de perdidas de informacion de los Usuarios.',
-    'Acatar los procedimientos legales y disciplinarios que correspondan por transgredir la confidencialidad.',
-    'Los terceros contratados por la Empresa se obligan por ese hecho.',
-  ];
-  var swList=['Adobe Reader','SAP GUI','Winzip','Antivirus','Red Cafiver','Impresora','Navegador','Anydesk'];
-
-  var docObj=new D.Document({
-    numbering:{config:[
-      {reference:'pol',levels:[{level:0,format:'decimal',text:'%1.',alignment:D.AlignmentType.LEFT,style:{paragraph:{indent:{left:720,hanging:360}}}}]},
-      {reference:'sw', levels:[{level:0,format:'bullet', text:'-',alignment:D.AlignmentType.LEFT,style:{paragraph:{indent:{left:720,hanging:360}}}}]},
-    ]},
-    sections:[{
-      properties:{page:{size:{width:12240,height:15840},margin:{top:900,right:900,bottom:900,left:900}}},
-      children:[
-        pr([tx('RESGUARDO DE EQUIPO DE COMPUTO',{bold:true,size:24})],{alignment:D.AlignmentType.CENTER}),
-        pr([tx('CAFIVER S.A. DE C.V.',{bold:true,size:20})],{alignment:D.AlignmentType.CENTER}),
-        sp(),tabUsr,sp(),tabEq,sp(),
-        pr([tx('El equipo descrito me ha sido designado (Usuario) para mis actividades y resguardo bajo las politicas siguientes:')]),
-        sp(),
-      ].concat(pol.map(function(p){return numP(p,'pol');})).concat([
-        sp(),mkFirmas(),
-        // Anexo A
-        pr([new D.PageBreak()]),
-        pr([tx('ANEXO "A"',{bold:true,size:22})],{alignment:D.AlignmentType.CENTER}),
-        pr([tx('Usuarios (S/N: '+eqSerie+' '+eqMarca+' '+eqModelo+')',{bold:true})],{alignment:D.AlignmentType.CENTER}),
-        sp(),tabA,
-        // Anexo B
-        pr([new D.PageBreak()]),
-        pr([tx('ANEXO "B"',{bold:true,size:22})],{alignment:D.AlignmentType.CENTER}),
-        pr([tx('Politica: "Manejo de Informacion Confidencial de Cafiver"',{bold:true})],{alignment:D.AlignmentType.CENTER}),
-        pr([tx('A Cargo del Empleado (Usuario)',{italic:true,bold:true})],{alignment:D.AlignmentType.CENTER}),
-        sp(),pr([tx('El Empleado debe de:')]),sp(),
-      ]).concat(polB.map(function(t){return numP(t,'pol');})).concat([
-        // Anexo C
-        pr([new D.PageBreak()]),
-        pr([tx('ANEXO "C"',{bold:true,size:22})],{alignment:D.AlignmentType.CENTER}),
-        pr([tx('"Aviso de Privacidad Integral"',{bold:true})],{alignment:D.AlignmentType.CENTER}),
-        sp(),pr([tx('Aviso de Privacidad',{bold:true})]),sp(),
-        pr([tx('Cafiver, con domicilio en Camino a Potrerillo S/N Fracc. Ojo de Agua, Ixtaczoquitlan, Ver. Mexico C.P. 94450, es la responsable del tratamiento de sus datos personales y/o datos personales sensibles, los cuales seran recabados y/o utilizados con la finalidad de enviarle informacion via correo electronico respecto a la actualizacion de nuestros productos y servicios, para la realizacion de promocion y preventas, actualizacion de base de datos, almacenaje de imagenes para su seguridad y para el cobro por los servicios prestados.')]),
-        sp(),pr([tx('Podra conocer el aviso de privacidad integral completo en: www.cafiver.com')]),
-        // Anexo D
-        pr([new D.PageBreak()]),
-        pr([tx('ANEXO "D"',{bold:true,size:22})],{alignment:D.AlignmentType.CENTER}),
-        pr([tx('"Software instalado"',{bold:true})],{alignment:D.AlignmentType.CENTER}),
-        sp(),pr([tx('Recibi de CAFIVER, S.A. DE C.V. un equipo de computo con el siguiente software instalado:')]),sp(),
-      ]).concat(swList.map(function(sw){return numP(sw,'sw');})).concat([
-        sp(),sp(),
-        pr([tx('_____________________________________________   Fecha: ____________')]),sp(),
-        pr([tx('Este equipo lo recibo en comun acuerdo con lo siguiente:')]),sp(),
-        numP('El software asignado es una herramienta de trabajo por lo cual debe darle el uso adecuado.','pol'),
-        numP('En caso de necesitar otro software, recabar informacion necesaria para su autorizacion de jefe inmediato y el departamento de TI.','pol'),
-        numP('Dada la situacion de que se encuentre un software no autorizado por el area de TI se reportara al jefe inmediato.','pol'),
-        sp(),sp(),mkFirmas(),
-      ])
-    }]
-  });
-
-  D.Packer.toBlob(docObj).then(function(blob){
-    var nombre=('Resguardo_'+eqSerie+'_'+eqResp.split(' ')[0]+'.docx').replace(/[^a-zA-Z0-9_\-.]/g,'_');
-    var url=URL.createObjectURL(blob);
-    var a=document.createElement('a');
-    a.href=url;a.download=nombre;a.click();
-    URL.revokeObjectURL(url);
-    toast('Formato descargado: '+nombre);
-  }).catch(function(e){toast('Error: '+e.message);});
-}
-
-
-function verEqBtn(pid,cnt){
-  return '<button class="btn btn-sm" data-vpid="'+pid+'" '
-    +'onclick="event.stopPropagation();verEquiposEmpleado(this.dataset.vpid)" '
-    +'style="font-size:10px;padding:2px 8px;background:#eff6ff;color:#1d4ed8;border:none;border-radius:4px;cursor:pointer;">'
-    +'Ver equipos ('+cnt+')</button>';
-}
-function verEquiposEmpleado(pid){
-  invFilter.q='';invFilter.tipo='';invFilter.estado='';
-  invFilter.area='';invFilter.plaza='';invFilter.responsable='';
-  invFilter.empleadoId=pid;
-  switchView('inventario');
-}
-function renderPersonal(){
-  var w=document.getElementById('view-personal');if(!w)return;
-
-  // ── Índice precalculado: id_empleado → cantidad de equipos ──
-  var eqPorPersona={};
-  equipos.forEach(function(e){
-    if(!e.responsable) return;
-    var m=findPersonal(e.responsable);
-    if(m) eqPorPersona[m.id]=(eqPorPersona[m.id]||0)+1;
-  });
-
-  var q=personalFilter.q.toLowerCase();
-  var data=personal.filter(function(p){
-    if(q&&!(p.nombre_completo+p.puesto+p.departamento+p.numero).toLowerCase().includes(q))return false;
-    if(personalFilter.direccion&&p.direccion!==personalFilter.direccion)return false;
-    if(personalFilter.departamento&&p.departamento!==personalFilter.departamento)return false;
+function exportCelularesExcel(){
+  // Obtener datos filtrados
+  var data=celulares.filter(function(x){
+    var q=celFilter.q.toLowerCase();
+    if(q&&!(x.marca+x.modelo+x.imei+x.dn+x.numero_personal+x.departamento+x.plaza+x.area).toLowerCase().includes(q))return false;
+    if(celFilter.marca&&x.marca!==celFilter.marca)return false;
+    if(celFilter.plaza&&x.plaza!==celFilter.plaza)return false;
+    if(celFilter.areas.length&&celFilter.areas.indexOf(x.area||'Sin area')<0)return false;
+    if(celFilter.status&&(x.status||'Asignado')!==celFilter.status)return false;
     return true;
   });
 
-  var dirs=[...new Set(personal.map(function(p){return p.direccion;}).filter(Boolean))].sort();
-  var deptos=[...new Set(personal.map(function(p){return p.departamento;}).filter(Boolean))].sort();
+  // Construir CSV con BOM para Excel
+  var headers=['ID','DN','Marca','Modelo','IMEI','Renta Mensual','N Pers','Nombre','Puesto','Departamento','Plaza','Area','Centro Costo','Denominacion','Estado','Observaciones'];
+  var rows=[headers];
+  data.forEach(function(cel){
+    rows.push([
+      cel.id, cel.dn, cel.marca, cel.modelo, cel.imei,
+      cel.mpe||0,
+      cel.num_pers, cel.numero_personal, cel.puesto,
+      cel.departamento, cel.plaza, cel.area,
+      cel.centro_coste, cel.denominacion,
+      cel.status||'Asignado', cel.obs||''
+    ]);
+  });
+  var csv='\uFEFF'+rows.map(function(r){
+    return r.map(function(v){
+      var s=String(v===null||v===undefined?'':v);
+      if(s.indexOf(',')>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0) s='"'+s.replace(/"/g,'""')+'"';
+      return s;
+    }).join(',');
+  }).join('\n');
 
-  var conEquipo=Object.keys(eqPorPersona).length;
-
-  var rows=data.map(function(p){
-    var av=getAvatarStyle(p.nombre||'');
-    var ini=(p.nombre||'??').split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2);
-    var activo=p.activo!==false;
-    var eqCount=eqPorPersona[p.id]||0;
-    return '<tr style="cursor:pointer;" data-pid="'+p.id+'" ondblclick="openFormPersonal(this.dataset.pid)">'
-      +'<td style="padding:9px 14px;"><div style="display:flex;align-items:center;gap:10px;">'
-      +'<div style="width:32px;height:32px;border-radius:50%;background:'+av[0]+';color:'+av[1]+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">'+ini+'</div>'
-      +'<div><div style="font-weight:500;color:#111827;font-size:12px;">'+p.nombre_completo+'</div>'
-      +'<div style="font-size:10px;color:#9ca3af;">N° '+p.numero+'</div></div></div></td>'
-      +'<td style="padding:9px 14px;font-size:12px;color:#374151;">'+p.puesto+'</td>'
-      +'<td style="padding:9px 14px;font-size:11px;color:#6b7280;">'+p.departamento+'</td>'
-      +'<td style="padding:9px 14px;font-size:11px;color:#6b7280;">'+p.direccion+'</td>'
-      +'<td style="padding:9px 14px;">'
-      +(eqCount>0?'<span style="background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">'+eqCount+' equipo'+(eqCount>1?'s':'')+'</span>':'<span style="color:#d1d5db;font-size:10px;">—</span>')
-      +'</td>'
-      +'<td style="padding:9px 14px;">'
-      +(activo?'<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">Activo</span>'
-        :'<span style="background:#f1f5f9;color:#6b7280;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">Baja</span>')
-      +'</td>'
-      +'<td style="padding:9px 14px;"><div style="display:flex;gap:3px;align-items:center;">'
-      +(eqCount>0?verEqBtn(p.id,eqCount):'')
-      +'<button class="icon-btn" data-pid="'+p.id+'" onclick="event.stopPropagation();openFormPersonal(this.dataset.pid)">&#9999;&#65039;</button>'
-      +'<button class="icon-btn" data-pid="'+p.id+'" onclick="event.stopPropagation();deletePersonal(this.dataset.pid)" style="color:#dc2626;">&#128465;</button>'
-      +'</div></td>';
-  }).join('');
-
-  var filDir='<option value="">Todas las direcciones</option>'+dirs.map(function(d){
-    return '<option value="'+d+'"'+(personalFilter.direccion===d?' selected':'')+'>'+d+'</option>';
-  }).join('');
-  var filDep='<option value="">Todos los departamentos</option>'+deptos.slice(0,30).map(function(d){
-    return '<option value="'+d+'"'+(personalFilter.departamento===d?' selected':'')+'>'+d+'</option>';
-  }).join('');
-
-  w.innerHTML=
-    '<div class="dash-title">Personal</div>'
-    +'<div class="dash-sub">Catálogo de empleados Cafiver — '+personal.length+' registros</div>'
-    +'<div class="stats-grid" style="margin-bottom:16px;">'
-    +'<div class="stat-card"><div class="lbl">Total empleados</div><div class="val blue">'+personal.length+'</div></div>'
-    +'<div class="stat-card"><div class="lbl">Con equipo asignado</div><div class="val green">'+conEquipo+'</div></div>'
-    +'<div class="stat-card"><div class="lbl">Activos</div><div class="val blue">'+personal.filter(function(p){return p.activo!==false;}).length+'</div></div>'
-    +'<div class="stat-card"><div class="lbl">Direcciones</div><div class="val amber">'+dirs.length+'</div></div>'
-    +'</div>'
-    +'<div class="tbl-box"><div class="tbl-hdr">'
-    +'<span class="tbl-hdr-title">'+data.length+' empleados</span>'
-    +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar nombre, puesto..." value="'+personalFilter.q+'" oninput="personalFilter.q=this.value;renderPersonal()" style="width:200px;">'
-    +'<select class="fi-sm" onchange="personalFilter.direccion=this.value;renderPersonal()">'+filDir+'</select>'
-    +'<select class="fi-sm" onchange="personalFilter.departamento=this.value;renderPersonal()">'+filDep+'</select>'
-    +'<button class="btn btn-blue btn-sm" onclick="openFormPersonal()">+ Nuevo empleado</button>'
-    +'</div></div>'
-    +'<div style="overflow-x:auto;"><table>'
-    +'<thead><tr><th>Empleado</th><th>Puesto</th><th>Departamento</th><th>Dirección</th><th>Equipos</th><th>Estado</th><th>Acciones</th></tr></thead>'
-    +'<tbody>'+(rows||'<tr><td colspan="7" class="empty-state">Sin empleados. Ejecuta el importador primero.</td></tr>')+'</tbody>'
-    +'</table></div></div>';
-}
-function closeChPass(){document.getElementById('chpass-overlay').classList.add('hidden');}
-function doChPass(){var np=document.getElementById('chpass-new').value,cp=document.getElementById('chpass-confirm').value,err=document.getElementById('chpass-error');err.style.display='none';if(!np){err.textContent='Ingresa la nueva contraseña.';err.style.display='block';return;}if(np.length<6){err.textContent='Mínimo 6 caracteres.';err.style.display='block';return;}if(np!==cp){err.textContent='Las contraseñas no coinciden.';err.style.display='block';return;}var u=auth.currentUser;if(!u){err.textContent='No hay sesión activa.';err.style.display='block';return;}u.updatePassword(np).then(function(){closeChPass();toast('✅ Contraseña actualizada');}).catch(function(e){err.textContent=e.code==='auth/requires-recent-login'?'Cierra sesión, vuelve a entrar y cambia la contraseña.':'Error: '+e.message;err.style.display='block';});}
-
-// CONFIRM
-var _cb=null;
-function confirmAction(t,m,cb){_cb=cb;document.getElementById('confirm-title').textContent=t;document.getElementById('confirm-msg').textContent=m;document.getElementById('confirm-overlay').classList.remove('hidden');}
-function closeConfirm(){document.getElementById('confirm-overlay').classList.add('hidden');_cb=null;}
-document.getElementById('confirm-ok').addEventListener('click',function(){if(_cb)_cb();closeConfirm();});
-
-// QR HASH
-function checkQRHash(){
-  var hash=window.location.hash.replace('#','').trim();
-  if(hash&&hash.startsWith('EQ')){
-    setTimeout(function(){
-      openPanel(hash);
-      // Si viene de QR (no hay sesión activa, mostrar pantalla de escaneo)
-      if(!curUser){
-        mostrarPantallaEscaneo(hash);
-      } else {
-        // Registrar escaneo automáticamente
-        setTimeout(function(){ registrarEscaneo(hash); }, 1000);
-      }
-    },1500);
-  }
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var label=celFilter.areas.length?celFilter.areas.join('-'):'Todos';
+  a.href=url;
+  a.download='Celulares_Cafiver_'+label+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Excel descargado: '+data.length+' celulares');
 }
 
-function mostrarPantallaEscaneo(equipoId){
-  // Esta función se llama cuando se escanea sin sesión — muestra info básica
-  var loginScreen = document.getElementById('login-screen');
-  if(loginScreen){
-    loginScreen.innerHTML += '<div style="margin-top:16px;background:#e8f0fe;border-radius:10px;padding:12px;font-size:13px;text-align:center;color:#1a73e8;">'
-      +'📱 QR escaneado: <b>'+equipoId+'</b><br><span style="font-size:11px;color:#5f6368;">Inicia sesión para ver el detalle y registrar ubicación</span></div>';
-  }
-}
-
-auth.onAuthStateChanged(function(user){
-  if(user){
-    var email=user.email.toLowerCase();
-    var profile=USER_DIR[email]||{name:email.split('@')[0],color:'#1a73e8'};
-    curUser={uid:user.uid,email:email,name:profile.name,color:profile.color};
-    enterApp();
-  }
-});
-</script>
-
-<!-- ESCÁNER QR -->
-<!-- MODAL CELULAR -->
-<div id="overlay-celular" class="hidden" onclick="if(event.target===this)closeFormCelular()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
-  <div class="modal-card wide">
-    <div class="modal-hd"><h3 id="cel-modal-title">Nuevo celular</h3><button class="icon-btn" onclick="closeFormCelular()">&#x2715;</button></div>
-    <div class="modal-body">
-      <div class="form-section">Linea</div>
-      <div class="af-g2">
-        <div class="af"><label>DN (Numero telefonico)</label><input type="text" id="cel-f-dn" placeholder="2721234567"></div>
-        <div class="af"><label>IMEI *</label><input type="text" id="cel-f-imei" placeholder="15 digitos"></div>
-      </div>
-      <div class="form-section">Equipo</div>
-      <div class="af-g2">
-        <div class="af"><label>Marca *</label><input type="text" id="cel-f-marca" placeholder="IPHONE, HONOR, SAMSUNG..."></div>
-        <div class="af"><label>Modelo</label><input type="text" id="cel-f-modelo" placeholder="IPHONE 16 PRO 256 GB"></div>
-      </div>
-      <div class="form-section">Costo mensual</div>
-      <div class="af-g2">
-        <div class="af"><label>Renta mensual / MPE ($)</label><input type="number" id="cel-f-mpe" placeholder="238.24" step="0.01"></div>
-        <div class="af"><label>Total con IVA — precio del equipo ($)</label><input type="number" id="cel-f-total_iva" placeholder="0.00" step="0.01"></div>
-      </div>
-      <div class="af-g2">
-        <div class="af"><label>Precio sin IVA ($)</label><input type="number" id="cel-f-precio_sin_iva" placeholder="0.00" step="0.01"></div>
-        <div class="af"><label>IVA ($)</label><input type="number" id="cel-f-iva" placeholder="0.00" step="0.01"></div>
-      </div>
-      <div class="form-section">Estado y asignacion</div>
-      <div class="af-g2">
-        <div class="af"><label>Estado</label>
-          <select id="cel-f-status">
-            <option value="Asignado">Asignado</option>
-            <option value="Libre">Libre</option>
-            <option value="En reparacion">En reparacion</option>
-            <option value="Baja">Baja</option>
-          </select>
-        </div>
-        <div class="af"><label>N Pers (SAP)</label><input type="text" id="cel-f-num_pers" placeholder="50001"></div>
-      </div>
-      <div class="af-g2">
-        <div class="af"><label>Numero de personal (Nombre)</label><input type="text" id="cel-f-numero_personal" placeholder="APELLIDO NOMBRE"></div>
-        <div class="af"><label>Puesto</label><input type="text" id="cel-f-puesto" placeholder="Gerente de..."></div>
-      </div>
-      <div class="af-g2">
-        <div class="af"><label>Departamento</label><input type="text" id="cel-f-departamento" placeholder="Direccion General"></div>
-        <div class="af"><label>Plaza</label><input type="text" id="cel-f-plaza" placeholder="Direccion General"></div>
-      </div>
-      <div class="af-g2">
-        <div class="af"><label>Area</label><input type="text" id="cel-f-area" placeholder="Direccion General"></div>
-        <div class="af"><label>Centro de costo</label><input type="text" id="cel-f-centro_coste" placeholder="KF01001"></div>
-      </div>
-      <div class="af-g2">
-        <div class="af"><label>Denominacion</label><input type="text" id="cel-f-denominacion" placeholder="Veracruz"></div>
-        <div class="af"><label>Sexo</label>
-          <select id="cel-f-sexo"><option value="">...</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option></select>
-        </div>
-      </div>
-      <div class="af"><label>Observaciones</label><textarea id="cel-f-obs" placeholder="Notas, danos, accesorios incluidos..." style="min-height:70px;"></textarea></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeFormCelular()">Cancelar</button>
-      <button class="btn btn-blue" onclick="saveCelular()">Guardar celular</button>
-    </div>
-  </div>
-</div>
 
