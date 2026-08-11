@@ -35350,24 +35350,26 @@ var celFilter={q:'',estado:'',area:'',plaza:'',estado_asig:''};
 function loadCelulares(){
   db.collection('celulares').onSnapshot(function(s){
     celulares=s.docs.map(function(d){return d.data();});
-    _personalCacheBuilt=false;
     if(curView==='celulares') renderCelulares();
   },function(e){console.warn('cel:',e.message);});
 }
 
-// ── MODAL CELULAR (columnas Excel) ─────────────────────────
+// ── FORM CELULAR ────────────────────────────────────────────
 function openFormCelular(id){
-  var m=document.getElementById('overlay-celular');
-  if(!m) return;
-  var c2=id?celulares.find(function(x){return x.id===id;}):null;
+  var m=document.getElementById('overlay-celular'); if(!m) return;
+  var cel=id?celulares.find(function(x){return x.id===id;}):null;
+  m._editId=id||null;
   document.getElementById('cel-modal-title').textContent=id?'Editar celular':'Nuevo celular';
-  // Limpiar
-  ['dn','marca','modelo','imei','mpe','total_iva','precio_sin_iva','iva',
-   'num_pers','numero_personal','sexo','denominacion','centro_coste',
-   'departamento','puesto','plaza','area'].forEach(function(f){
-    var el=document.getElementById('cel-f-'+f); if(el) el.value=c2?(c2[f]||''):'';
+  var campos=['dn','imei','marca','modelo','mpe','total_iva','precio_sin_iva','iva',
+    'num_pers','numero_personal','puesto','departamento','plaza','area','centro_coste','denominacion','obs'];
+  campos.forEach(function(f){
+    var el=document.getElementById('cel-f-'+f);
+    if(el) el.value=cel?(cel[f]||''):'';
   });
-  m._editId = id||null;
+  var ss=document.getElementById('cel-f-status');
+  if(ss) ss.value=cel?(cel.status||'Asignado'):'Asignado';
+  var sx=document.getElementById('cel-f-sexo');
+  if(sx) sx.value=cel?(cel.sexo||''):'';
   m.classList.remove('hidden');
 }
 function closeFormCelular(){
@@ -35377,19 +35379,37 @@ function saveCelular(){
   var m=document.getElementById('overlay-celular');
   var id=m._editId||('CEL'+Date.now().toString(36).toUpperCase());
   function gv(f){var el=document.getElementById('cel-f-'+f);return el?el.value.trim():'';}
-  var marca=gv('marca'), imei=gv('imei');
-  if(!marca){alert('Marca es obligatorio.');return;}
-  if(!imei) {alert('IMEI es obligatorio.');return;}
+  function gn(f){return parseFloat(gv(f))||0;}
+  if(!gv('marca')){alert('Marca es obligatorio.');return;}
+  if(!gv('imei')){alert('IMEI es obligatorio.');return;}
+
+  // Si hay reasignacion, guardar historial
+  var celAnterior=m._editId?celulares.find(function(x){return x.id===m._editId;}):null;
+  var historial=celAnterior&&celAnterior.historial?celAnterior.historial:[];
+  var nuevoNombre=gv('numero_personal');
+  if(celAnterior&&celAnterior.numero_personal&&celAnterior.numero_personal!==nuevoNombre&&nuevoNombre){
+    historial=historial.concat([{
+      nombre:celAnterior.numero_personal,
+      num_pers:celAnterior.num_pers||'',
+      puesto:celAnterior.puesto||'',
+      departamento:celAnterior.departamento||'',
+      plaza:celAnterior.plaza||'',
+      fecha:nowStr(),
+      por:curUser?curUser.name:''
+    }]);
+  }
+
   var doc={
-    id:id, dn:gv('dn'), marca:marca, modelo:gv('modelo'), imei:imei,
-    mpe:parseFloat(gv('mpe'))||0,
-    total_iva:parseFloat(gv('total_iva'))||0,
-    precio_sin_iva:parseFloat(gv('precio_sin_iva'))||0,
-    iva:parseFloat(gv('iva'))||0,
-    num_pers:gv('num_pers'), numero_personal:gv('numero_personal'),
+    id:id,
+    dn:gv('dn'), imei:gv('imei'), marca:gv('marca'), modelo:gv('modelo'),
+    mpe:gn('mpe'), total_iva:gn('total_iva'), precio_sin_iva:gn('precio_sin_iva'), iva:gn('iva'),
+    status:gv('status')||'Asignado',
+    num_pers:gv('num_pers'), numero_personal:nuevoNombre,
     sexo:gv('sexo'), denominacion:gv('denominacion'),
     centro_coste:gv('centro_coste'), departamento:gv('departamento'),
     puesto:gv('puesto'), plaza:gv('plaza'), area:gv('area'),
+    obs:gv('obs'),
+    historial:historial,
     updBy:curUser?curUser.name:'', updTs:nowStr()
   };
   setSyncUI('saving','Guardando...');
@@ -35403,73 +35423,128 @@ function deleteCelular(id){
     db.collection('celulares').doc(id).delete().then(function(){toast('Eliminado');});
   });
 }
+
+// ── DETALLE CELULAR ─────────────────────────────────────────
 function openCelDetail(id){
   var cel=celulares.find(function(x){return x.id===id;});if(!cel)return;
   var d=document.getElementById('overlay-cel-detail');if(!d)return;
-  document.getElementById('cel-detail-title').textContent=cel.marca+' '+cel.modelo;
-  document.getElementById('cel-edit-btn').onclick=function(){openFormCelular(id);};
-  document.getElementById('cel-del-btn').onclick=function(){deleteCelular(id);};
+  document.getElementById('cel-detail-title').textContent=(cel.marca||'Celular')+' — '+(cel.modelo||'');
+  document.getElementById('cel-edit-btn').onclick=function(){closeCelDetail();openFormCelular(id);};
+  document.getElementById('cel-del-btn').onclick=function(){closeCelDetail();deleteCelular(id);};
   function dr(k,v){return '<div class="dp-row"><div class="dp-key">'+k+'</div><div class="dp-val">'+(v||'—')+'</div></div>';}
+  var scol=cel.status==='Asignado'?'#16a34a':cel.status==='Libre'?'#1d4ed8':cel.status==='En reparacion'?'#d97706':'#6b7280';
+  var hist='';
+  if(cel.historial&&cel.historial.length){
+    hist='<div class="dp-sec-t">Historial de asignaciones</div>';
+    var hl=cel.historial.slice().reverse();
+    hl.forEach(function(h,i){
+      hist+='<div style="background:#f8f9ff;border-radius:6px;padding:8px 10px;margin-bottom:6px;border-left:3px solid #e5e7eb;">'
+        +'<div style="font-size:11px;font-weight:500;color:#374151;">'+h.nombre+'</div>'
+        +'<div style="font-size:10px;color:#9ca3af;margin-top:2px;">'+h.puesto+(h.departamento?' · '+h.departamento:'')+(h.plaza?' · '+h.plaza:'')+'</div>'
+        +'<div style="font-size:10px;color:#9ca3af;margin-top:1px;">Reasignado: '+h.fecha+(h.por?' por '+h.por:'')+'</div>'
+        +'</div>';
+    });
+  }
   document.getElementById('cel-detail-body').innerHTML=
-    '<div class="dp-sec-t">Línea</div>'
-    +dr('DN / Número',cel.dn)
-    +dr('IMEI',cel.imei)
-    +'<div class="dp-sec-t">Equipo</div>'
-    +dr('Marca',cel.marca)+dr('Modelo',cel.modelo)
+    '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">'
+    +'<span style="background:'+scol+'22;color:'+scol+';padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;">'+(cel.status||'Asignado')+'</span>'
+    +'<span style="background:#f1f5f9;color:#475569;padding:2px 10px;border-radius:20px;font-size:11px;">'+cel.id+'</span>'
+    +'</div>'
+    +'<div class="dp-sec-t">Linea y equipo</div>'
+    +dr('DN / Numero',cel.dn)+dr('IMEI',cel.imei)+dr('Marca',cel.marca)+dr('Modelo',cel.modelo)
     +'<div class="dp-sec-t">Costo</div>'
-    +dr('MPE (mensualidad)',cel.mpe?'$'+parseFloat(cel.mpe).toLocaleString('es-MX'):'—')
-    +dr('Total con IVA',cel.total_iva?'$'+parseFloat(cel.total_iva).toLocaleString('es-MX'):'—')
-    +dr('Precio sin IVA',cel.precio_sin_iva?'$'+parseFloat(cel.precio_sin_iva).toLocaleString('es-MX'):'—')
-    +'<div class="dp-sec-t">Asignación</div>'
-    +dr('N° Personal',cel.num_pers)
-    +dr('Nombre',cel.numero_personal)
-    +dr('Puesto',cel.puesto)
-    +dr('Departamento',cel.departamento)
-    +dr('Plaza',cel.plaza)
-    +dr('Área',cel.area)
-    +dr('Centro de costo',cel.centro_coste)
-    +dr('Denominación',cel.denominacion);
+    +dr('Renta mensual (MPE)',cel.mpe?'$'+parseFloat(cel.mpe).toLocaleString('es-MX',{minimumFractionDigits:2}):'—')
+    +dr('Total con IVA (equipo)',cel.total_iva?'$'+parseFloat(cel.total_iva).toLocaleString('es-MX',{minimumFractionDigits:2}):'—')
+    +'<div class="dp-sec-t">Asignacion actual</div>'
+    +dr('N° Personal',cel.num_pers)+dr('Nombre',cel.numero_personal)
+    +dr('Puesto',cel.puesto)+dr('Departamento',cel.departamento)
+    +dr('Plaza',cel.plaza)+dr('Area',cel.area)
+    +dr('Centro de costo',cel.centro_coste)+dr('Denominacion',cel.denominacion)
+    +(cel.obs?'<div class="dp-sec-t">Observaciones</div><div style="font-size:12px;color:#374151;padding:6px 0;">'+cel.obs+'</div>':'')
+    +hist;
   d.classList.remove('hidden');
 }
 function closeCelDetail(){var d=document.getElementById('overlay-cel-detail');if(d)d.classList.add('hidden');}
 
-var celFilter={q:'',marca:'',plaza:'',area:''};
+// ── RENDER CELULARES ────────────────────────────────────────
+var celFilter={q:'',marca:'',plaza:'',area:'',status:''};
 
 function renderCelulares(){
   var w=document.getElementById('view-celulares');if(!w)return;
+
+  // ── Métricas globales ──
+  var totalMPE=celulares.reduce(function(a,c){return a+(parseFloat(c.mpe)||0);},0);
+  var totalEq=celulares.reduce(function(a,c){return a+(parseFloat(c.total_iva)||0);},0);
+  var marcas=[...new Set(celulares.map(function(c){return c.marca;}).filter(Boolean))].sort();
+  var plazas=[...new Set(celulares.map(function(c){return c.plaza;}).filter(Boolean))].sort();
+  var areas=[...new Set(celulares.map(function(c){return c.area;}).filter(Boolean))].sort();
+  var asignados=celulares.filter(function(c){return (c.status||'Asignado')==='Asignado';}).length;
+  var libres=celulares.filter(function(c){return c.status==='Libre';}).length;
+
+  // ── Datos por área (para dashboard) ──
+  var porArea={};
+  celulares.forEach(function(cel){
+    var a=cel.area||'Sin area';
+    if(!porArea[a]) porArea[a]={count:0,mpe:0,eq:0};
+    porArea[a].count++;
+    porArea[a].mpe+=parseFloat(cel.mpe)||0;
+    porArea[a].eq+=parseFloat(cel.total_iva)||0;
+  });
+  var areasSorted=Object.keys(porArea).sort(function(a,b){return porArea[b].mpe-porArea[a].mpe;});
+  var maxMPE=areasSorted.length?porArea[areasSorted[0]].mpe:1;
+
+  // ── Filtrado ──
   var data=celulares.filter(function(c){
     var q=celFilter.q.toLowerCase();
     if(q&&!(c.marca+c.modelo+c.imei+c.dn+c.numero_personal+c.departamento+c.plaza+c.area).toLowerCase().includes(q))return false;
     if(celFilter.marca&&c.marca!==celFilter.marca)return false;
     if(celFilter.plaza&&c.plaza!==celFilter.plaza)return false;
     if(celFilter.area&&c.area!==celFilter.area)return false;
+    if(celFilter.status&&(c.status||'Asignado')!==celFilter.status)return false;
     return true;
   });
-  var marcas=[...new Set(celulares.map(function(c){return c.marca;}).filter(Boolean))].sort();
-  var plazas=[...new Set(celulares.map(function(c){return c.plaza;}).filter(Boolean))].sort();
-  var areas=[...new Set(celulares.map(function(c){return c.area;}).filter(Boolean))].sort();
-  var totalMPE=celulares.reduce(function(a,c){return a+(parseFloat(c.mpe)||0);},0);
-  var totalCosto=celulares.reduce(function(a,c){return a+(parseFloat(c.total_iva)||0);},0);
 
+  // ── Barras de área ──
+  var areaBarras=areasSorted.slice(0,8).map(function(a){
+    var pct=Math.round(porArea[a].mpe/maxMPE*100);
+    var cnt=porArea[a].count;
+    var mpe=porArea[a].mpe;
+    var aEsc=a.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return '<div onclick="celFilter.area=\''+aEsc+'\';renderCelulares();" '
+      +'style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:0.5px solid #f3f4f6;cursor:pointer;transition:background .12s;'
+      +(celFilter.area===a?'background:#eff6ff;':'')+'" '
+      +'onmouseover="this.style.background=\'#f9fafb\'" onmouseout="this.style.background=\''+(celFilter.area===a?'#eff6ff':'')+'\';">'
+      +'<span style="font-size:11px;color:#374151;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+a+'</span>'
+      +'<span style="font-size:10px;color:#9ca3af;min-width:24px;text-align:center;">'+cnt+'</span>'
+      +'<div style="width:80px;height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden;flex-shrink:0;">'
+      +'<div style="height:100%;background:#1d4ed8;border-radius:3px;width:'+pct+'%;"></div></div>'
+      +'<span style="font-size:10px;font-weight:500;color:#1d4ed8;min-width:56px;text-align:right;">$'+mpe.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>'
+      +'</div>';
+  }).join('');
+
+  // ── Filas tabla ──
   var rows=data.map(function(cel){
     var ini=(cel.numero_personal||'??').split(' ').map(function(x){return x[0]||'';}).join('').toUpperCase().slice(0,2);
     var cols=[['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],['#fce7f3','#be185d'],['#ede9fe','#6d28d9']];
     var col=cols[Math.abs((ini.charCodeAt(0)||65))%5];
     var cid=String(cel.id);
+    var st=cel.status||'Asignado';
+    var scol=st==='Asignado'?'#16a34a':st==='Libre'?'#1d4ed8':st==='En reparacion'?'#d97706':'#6b7280';
     return '<tr data-cid="'+cid+'" ondblclick="openCelDetail(this.dataset.cid)" style="cursor:pointer;">'
       +'<td style="padding:8px 12px;font-family:monospace;font-size:10px;color:#9ca3af;">'+cid+'</td>'
       +'<td style="padding:8px 12px;font-family:monospace;font-size:11px;">'+(cel.dn||'—')+'</td>'
       +'<td style="padding:8px 12px;"><b style="color:#111827;">'+cel.marca+'</b><br><span style="font-size:10px;color:#9ca3af;">'+cel.modelo+'</span></td>'
       +'<td style="padding:8px 12px;font-family:monospace;font-size:10px;color:#6b7280;">'+(cel.imei||'—')+'</td>'
-      +'<td style="padding:8px 12px;font-size:11px;color:#1d4ed8;font-weight:500;">'+(cel.mpe?'$'+parseFloat(cel.mpe).toFixed(2):'—')+'</td>'
+      +'<td style="padding:8px 12px;font-size:11px;color:#1d4ed8;font-weight:600;">'+(cel.mpe?'$'+parseFloat(cel.mpe).toLocaleString('es-MX',{minimumFractionDigits:2}):'—')+'</td>'
       +'<td style="padding:8px 12px;"><div style="display:flex;align-items:center;gap:6px;">'
       +'<div style="width:26px;height:26px;border-radius:50%;background:'+col[0]+';color:'+col[1]+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0;">'+ini+'</div>'
       +'<div><div style="font-size:11px;font-weight:500;color:#111827;">'+(cel.numero_personal||'Sin asignar')+'</div>'
       +'<div style="font-size:10px;color:#9ca3af;">'+(cel.puesto||'')+'</div></div></div></td>'
       +'<td style="padding:8px 12px;font-size:11px;color:#6b7280;">'+(cel.departamento||'—')+'</td>'
       +'<td style="padding:8px 12px;font-size:11px;color:#6b7280;">'+(cel.plaza||'—')+'</td>'
+      +'<td style="padding:8px 12px;"><span style="background:'+scol+'22;color:'+scol+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">'+st+'</span></td>'
       +'<td style="padding:8px 12px;"><div style="display:flex;gap:3px;">'
-      +'<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openCelDetail(this.dataset.cid)" title="Ver">&#128065;</button>'
+      +'<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openCelDetail(this.dataset.cid)" title="Ver detalle" style="color:#1d4ed8;">&#128065;</button>'
       +'<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();openFormCelular(this.dataset.cid)" title="Editar">&#9999;&#65039;</button>'
       +'<button class="icon-btn" data-cid="'+cid+'" onclick="event.stopPropagation();deleteCelular(this.dataset.cid)" title="Eliminar" style="color:#dc2626;">&#128465;</button>'
       +'</div></td>'
@@ -35478,32 +35553,137 @@ function renderCelulares(){
 
   var filM='<option value="">Todas las marcas</option>'+marcas.map(function(m){return '<option value="'+m+'"'+(celFilter.marca===m?' selected':'')+'>'+m+'</option>';}).join('');
   var filP='<option value="">Todas las plazas</option>'+plazas.map(function(p){return '<option value="'+p+'"'+(celFilter.plaza===p?' selected':'')+'>'+p+'</option>';}).join('');
-  var filA='<option value="">Todas las áreas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(celFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('');
+  var filA='<option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(celFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('');
+  var filS='<option value="">Todos los estados</option>'+['Asignado','Libre','En reparacion','Baja'].map(function(s){return '<option value="'+s+'"'+(celFilter.status===s?' selected':'')+'>'+s+'</option>';}).join('');
+
+  // Calcular totales filtrados
+  var filtMPE=data.reduce(function(a,c){return a+(parseFloat(c.mpe)||0);},0);
 
   w.innerHTML=
-    '<div class="dash-title">Celulares</div>'
-    +'<div class="dash-sub">Teléfonos asignados al personal Cafiver — '+celulares.length+' registros</div>'
-    +'<div class="stats-grid" style="margin-bottom:16px;">'
-    +'<div class="stat-card"><div class="lbl">Total celulares</div><div class="val blue">'+celulares.length+'</div></div>'
-    +'<div class="stat-card"><div class="lbl">MPE mensual total</div><div class="val green" style="font-size:15px;">$'+totalMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>'
-    +'<div class="stat-card"><div class="lbl">Costo total (c/IVA)</div><div class="val blue" style="font-size:15px;">$'+totalCosto.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>'
-    +'<div class="stat-card"><div class="lbl">Marcas</div><div class="val amber">'+marcas.length+'</div></div>'
+    // ── ESTILOS ──
+    '<style>'
+    +'.cel-dash{padding:20px 24px;font-family:\'Inter\',sans-serif;}'
+    +'.cel-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;}'
+    +'.cel-h1{font-size:20px;font-weight:500;color:#111827;}'
+    +'.cel-sub{font-size:11px;color:#6b7280;margin-top:2px;}'
+    +'.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;}'
+    +'.kc{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:14px 16px;}'
+    +'.kc-lbl{font-size:10px;color:#6b7280;margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;}'
+    +'.kc-val{font-size:24px;font-weight:500;color:#111827;line-height:1;}'
+    +'.kc-sub{font-size:10px;color:#9ca3af;margin-top:4px;}'
+    +'.cel-body{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-bottom:14px;}'
+    +'.pnl{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
+    +'.pnl-hd{padding:11px 14px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
+    +'.pnl-hd h3{font-size:11px;font-weight:500;color:#374151;margin:0;display:flex;align-items:center;gap:5px;}'
+    +'.pnl-hd .clr{font-size:10px;color:#2563eb;cursor:pointer;}'
+    +'.tbl-cel{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
+    +'.tbl-cel-hd{padding:11px 14px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}'
+    +'table.ct{width:100%;border-collapse:collapse;}'
+    +'table.ct th{font-size:9px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af;padding:8px 12px;border-bottom:0.5px solid #f3f4f6;text-align:left;background:#fafafa;}'
+    +'table.ct td{border-bottom:0.5px solid #f9fafb;color:#374151;vertical-align:middle;}'
+    +'table.ct tr:last-child td{border-bottom:none;}'
+    +'table.ct tr:hover td{background:#f9fafb;}'
+    +'@media(max-width:900px){.kpi4{grid-template-columns:repeat(2,1fr);}.cel-body{grid-template-columns:1fr;}}'
+    +'</style>'
+
+    // ── HEADER ──
+    +'<div class="cel-dash">'
+    +'<div class="cel-hdr">'
+    +'<div><div class="cel-h1">Celulares Cafiver</div>'
+    +'<div class="cel-sub">'+celulares.length+' teléfonos registrados · gestión de líneas corporativas</div></div>'
+    +'<button onclick="openFormCelular()" style="display:flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:6px;background:#1d4ed8;font-size:12px;font-weight:500;color:#fff;cursor:pointer;"><i class="ti ti-plus"></i> Nuevo celular</button>'
     +'</div>'
-    +'<div class="tbl-box"><div class="tbl-hdr">'
-    +'<span class="tbl-hdr-title">'+data.length+' celular'+(data.length!==1?'es':'')+'</span>'
-    +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar..." value="'+celFilter.q+'" oninput="celFilter.q=this.value;renderCelulares()" style="width:160px;">'
+
+    // ── KPIs ──
+    +'<div class="kpi4">'
+    +'<div class="kc"><div class="kc-lbl">Total celulares</div><div class="kc-val">'+celulares.length+'</div>'
+    +'<div class="kc-sub">'+asignados+' asignados · '+libres+' libres</div></div>'
+    +'<div class="kc"><div class="kc-lbl">Renta mensual total</div>'
+    +'<div class="kc-val" style="color:#1d4ed8;font-size:20px;">$'+totalMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+    +'<div class="kc-sub">MPE mensual Cafiver</div></div>'
+    +'<div class="kc"><div class="kc-lbl">Renta anual proyectada</div>'
+    +'<div class="kc-val" style="color:#7c3aed;font-size:18px;">$'+(totalMPE*12).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+    +'<div class="kc-sub">'+celulares.length+' líneas × 12 meses</div></div>'
+    +'<div class="kc"><div class="kc-lbl">Costo equipos (c/IVA)</div>'
+    +'<div class="kc-val" style="color:#d97706;font-size:18px;">$'+totalEq.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+    +'<div class="kc-sub">Valor total de equipo</div></div>'
+    +'</div>'
+
+    // ── DASHBOARD: barras área + distribución marcas ──
+    +'<div class="cel-body">'
+    +'<div class="pnl">'
+    +'<div class="pnl-hd"><h3><i class="ti ti-building" style="color:#6b7280;font-size:13px;"></i> Renta mensual por área</h3>'
+    +(celFilter.area?'<span class="clr" onclick="celFilter.area=\'\';renderCelulares()">✕ Limpiar filtro</span>':'<span style="font-size:10px;color:#9ca3af;">Clic para filtrar</span>')
+    +'</div>'
+    +'<div style="max-height:240px;overflow-y:auto;">'
+    +'<div style="display:flex;padding:6px 14px 4px;border-bottom:0.5px solid #f3f4f6;">'
+    +'<span style="font-size:9px;color:#9ca3af;flex:1;text-transform:uppercase;letter-spacing:.04em;">Área</span>'
+    +'<span style="font-size:9px;color:#9ca3af;min-width:24px;text-align:center;text-transform:uppercase;letter-spacing:.04em;">#</span>'
+    +'<span style="font-size:9px;color:#9ca3af;width:80px;text-transform:uppercase;letter-spacing:.04em;margin:0 8px;">Proporción</span>'
+    +'<span style="font-size:9px;color:#9ca3af;min-width:56px;text-align:right;text-transform:uppercase;letter-spacing:.04em;">MPE/mes</span>'
+    +'</div>'
+    +areaBarras
+    +'</div>'
+    +'<div style="padding:10px 14px;background:#f8f9ff;border-top:0.5px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:10px;color:#6b7280;">Total '+celulares.length+' celulares</span>'
+    +'<span style="font-size:12px;font-weight:500;color:#1d4ed8;">$'+totalMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>'
+    +'</div>'
+    +'</div>'
+
+    // ── Panel derecho: distribución por marca ──
+    +'<div class="pnl">'
+    +'<div class="pnl-hd"><h3><i class="ti ti-device-mobile" style="color:#6b7280;font-size:13px;"></i> Distribución por marca</h3></div>'
+    +'<div style="padding:14px;">'
+    +marcas.map(function(m){
+      var cnt=celulares.filter(function(c){return c.marca===m;}).length;
+      var mpe=celulares.filter(function(c){return c.marca===m;}).reduce(function(a,c){return a+(parseFloat(c.mpe)||0);},0);
+      var pct=celulares.length?Math.round(cnt/celulares.length*100):0;
+      var color=m==='IPHONE'?'#374151':m==='HONOR'?'#1d4ed8':'#6b7280';
+      return '<div style="margin-bottom:12px;">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+        +'<span style="font-size:12px;font-weight:500;color:#111827;">'+m+'</span>'
+        +'<span style="font-size:11px;color:#6b7280;">'+cnt+' equipos · $'+mpe.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>'
+        +'</div>'
+        +'<div style="height:8px;background:#f3f4f6;border-radius:4px;overflow:hidden;">'
+        +'<div style="height:100%;background:'+color+';border-radius:4px;width:'+pct+'%;"></div></div>'
+        +'<div style="font-size:10px;color:#9ca3af;margin-top:2px;">'+pct+'% del parque</div>'
+        +'</div>';
+    }).join('')
+    +'</div>'
+    // Estado libre/asignado
+    +'<div style="padding:0 14px 14px;">'
+    +'<div style="background:#f8f9ff;border-radius:8px;padding:10px 12px;">'
+    +'<div style="font-size:10px;color:#6b7280;margin-bottom:6px;font-weight:500;">ESTADO DE ASIGNACIÓN</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<span onclick="celFilter.status=\'Asignado\';renderCelulares()" style="cursor:pointer;background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;">'+asignados+' Asignados</span>'
+    +(libres?'<span onclick="celFilter.status=\'Libre\';renderCelulares()" style="cursor:pointer;background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;">'+libres+' Libres</span>':'')
+    +'</div></div></div>'
+    +'</div>'
+    +'</div>'
+
+    // ── TABLA ──
+    +'<div class="tbl-cel">'
+    +'<div class="tbl-cel-hd">'
+    +'<div>'
+    +'<span style="font-size:13px;font-weight:500;color:#111827;">'+data.length+' celular'+(data.length!==1?'es':'')+' </span>'
+    +(celFilter.area||celFilter.marca||celFilter.plaza||celFilter.status?'<span style="font-size:11px;color:#6b7280;">— filtrado</span>':'')
+    +(data.length<celulares.length?'<span style="font-size:11px;color:#1d4ed8;margin-left:4px;">MPE: $'+filtMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>':'')
+    +'</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar..." value="'+celFilter.q+'" oninput="celFilter.q=this.value;renderCelulares()" style="width:150px;">'
     +'<select class="fi-sm" onchange="celFilter.marca=this.value;renderCelulares()">'+filM+'</select>'
     +'<select class="fi-sm" onchange="celFilter.plaza=this.value;renderCelulares()">'+filP+'</select>'
     +'<select class="fi-sm" onchange="celFilter.area=this.value;renderCelulares()">'+filA+'</select>'
-    +'<button class="btn btn-blue btn-sm" onclick="openFormCelular()">+ Nuevo</button>'
+    +'<select class="fi-sm" onchange="celFilter.status=this.value;renderCelulares()">'+filS+'</select>'
+    +(celFilter.area||celFilter.marca||celFilter.plaza||celFilter.status||celFilter.q?'<button class="btn btn-sm" onclick="celFilter={q:\'\',marca:\'\',plaza:\'\',area:\'\',status:\'\'};renderCelulares()" style="font-size:11px;">✕ Limpiar</button>':'')
     +'</div></div>'
-    +'<div style="overflow-x:auto;"><table><thead><tr>'
-    +'<th>ID</th><th>DN</th><th>Marca / Modelo</th><th>IMEI</th><th>MPE</th>'
-    +'<th>Asignado a</th><th>Departamento</th><th>Plaza</th><th>Acciones</th>'
+    +'<div style="overflow-x:auto;"><table class="ct"><thead><tr>'
+    +'<th>ID</th><th>DN</th><th>Marca / Modelo</th><th>IMEI</th><th>Renta/mes</th>'
+    +'<th>Asignado a</th><th>Departamento</th><th>Plaza</th><th>Estado</th><th>Acciones</th>'
     +'</tr></thead><tbody>'
-    +(rows||'<tr><td colspan="9" class="empty-state">Sin celulares. Ejecuta el importador.</td></tr>')
-    +'</tbody></table></div></div>';
+    +(rows||'<tr><td colspan="10" class="empty-state">Sin resultados.</td></tr>')
+    +'</tbody></table></div></div>'
+    +'</div>';
 }
 
 
@@ -36391,33 +36571,46 @@ auth.onAuthStateChanged(function(user){
         <div class="af"><label>Marca *</label><input type="text" id="cel-f-marca" placeholder="IPHONE, HONOR, SAMSUNG..."></div>
         <div class="af"><label>Modelo</label><input type="text" id="cel-f-modelo" placeholder="IPHONE 16 PRO 256 GB"></div>
       </div>
-      <div class="form-section">Costo</div>
-      <div class="af-g3">
-        <div class="af"><label>MPE mensualidad ($)</label><input type="number" id="cel-f-mpe" placeholder="0.00" step="0.01"></div>
-        <div class="af"><label>Total con IVA ($)</label><input type="number" id="cel-f-total_iva" placeholder="0.00" step="0.01"></div>
+      <div class="form-section">Costo mensual</div>
+      <div class="af-g2">
+        <div class="af"><label>Renta mensual / MPE ($)</label><input type="number" id="cel-f-mpe" placeholder="238.24" step="0.01"></div>
+        <div class="af"><label>Total con IVA — precio del equipo ($)</label><input type="number" id="cel-f-total_iva" placeholder="0.00" step="0.01"></div>
+      </div>
+      <div class="af-g2">
         <div class="af"><label>Precio sin IVA ($)</label><input type="number" id="cel-f-precio_sin_iva" placeholder="0.00" step="0.01"></div>
+        <div class="af"><label>IVA ($)</label><input type="number" id="cel-f-iva" placeholder="0.00" step="0.01"></div>
       </div>
-      <div class="af" style="max-width:180px;"><label>IVA ($)</label><input type="number" id="cel-f-iva" placeholder="0.00" step="0.01"></div>
-      <div class="form-section">Asignacion al personal</div>
+      <div class="form-section">Estado y asignacion</div>
       <div class="af-g2">
+        <div class="af"><label>Estado</label>
+          <select id="cel-f-status">
+            <option value="Asignado">Asignado</option>
+            <option value="Libre">Libre</option>
+            <option value="En reparacion">En reparacion</option>
+            <option value="Baja">Baja</option>
+          </select>
+        </div>
         <div class="af"><label>N Pers (SAP)</label><input type="text" id="cel-f-num_pers" placeholder="50001"></div>
+      </div>
+      <div class="af-g2">
         <div class="af"><label>Numero de personal (Nombre)</label><input type="text" id="cel-f-numero_personal" placeholder="APELLIDO NOMBRE"></div>
-      </div>
-      <div class="af-g2">
         <div class="af"><label>Puesto</label><input type="text" id="cel-f-puesto" placeholder="Gerente de..."></div>
+      </div>
+      <div class="af-g2">
         <div class="af"><label>Departamento</label><input type="text" id="cel-f-departamento" placeholder="Direccion General"></div>
-      </div>
-      <div class="af-g2">
         <div class="af"><label>Plaza</label><input type="text" id="cel-f-plaza" placeholder="Direccion General"></div>
-        <div class="af"><label>Area</label><input type="text" id="cel-f-area" placeholder="Direccion General"></div>
       </div>
       <div class="af-g2">
+        <div class="af"><label>Area</label><input type="text" id="cel-f-area" placeholder="Direccion General"></div>
         <div class="af"><label>Centro de costo</label><input type="text" id="cel-f-centro_coste" placeholder="KF01001"></div>
+      </div>
+      <div class="af-g2">
         <div class="af"><label>Denominacion</label><input type="text" id="cel-f-denominacion" placeholder="Veracruz"></div>
+        <div class="af"><label>Sexo</label>
+          <select id="cel-f-sexo"><option value="">...</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option></select>
+        </div>
       </div>
-      <div class="af"><label>Sexo</label>
-        <select id="cel-f-sexo"><option value="">...</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option></select>
-      </div>
+      <div class="af"><label>Observaciones</label><textarea id="cel-f-obs" placeholder="Notas, danos, accesorios incluidos..." style="min-height:70px;"></textarea></div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeFormCelular()">Cancelar</button>
