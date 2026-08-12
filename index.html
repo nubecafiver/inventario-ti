@@ -33924,7 +33924,7 @@ table.mts tr:hover td{background:#f9fafb;}
       </div>
       <div class="form-section">Equipo</div>
       <div class="af-g2">
-        <div class="af"><label>Marca *</label><input type="text" id="cel-f-marca" placeholder="IPHONE, HONOR..."></div>
+        <div class="af"><label>Marca *</label><input type="text" id="cel-f-marca" list="dl-cel-marca" placeholder="IPHONE, HONOR..." autocomplete="off"><datalist id="dl-cel-marca"></datalist></div>
         <div class="af"><label>Modelo</label><input type="text" id="cel-f-modelo" placeholder="IPHONE 16 PRO 256 GB"></div>
       </div>
       <div class="form-section">Costo</div>
@@ -33946,18 +33946,18 @@ table.mts tr:hover td{background:#f9fafb;}
       </div>
       <div class="af-g2">
         <div class="af"><label>Nombre del empleado</label><input type="text" id="cel-f-numero_personal" placeholder="APELLIDO NOMBRE"></div>
-        <div class="af"><label>Puesto</label><input type="text" id="cel-f-puesto" placeholder="Gerente de..."></div>
+        <div class="af"><label>Puesto</label><input type="text" id="cel-f-puesto" list="dl-cel-puesto" placeholder="Gerente de..." autocomplete="off"><datalist id="dl-cel-puesto"></datalist></div>
       </div>
       <div class="af-g2">
-        <div class="af"><label>Departamento</label><input type="text" id="cel-f-departamento" placeholder="Direccion General"></div>
-        <div class="af"><label>Plaza</label><input type="text" id="cel-f-plaza" placeholder="Oficina Veracruz"></div>
+        <div class="af"><label>Departamento</label><input type="text" id="cel-f-departamento" list="dl-cel-depto" placeholder="Direccion General" autocomplete="off"><datalist id="dl-cel-depto"></datalist></div>
+        <div class="af"><label>Plaza</label><input type="text" id="cel-f-plaza" list="dl-cel-plaza" placeholder="Oficina Veracruz" autocomplete="off"><datalist id="dl-cel-plaza"></datalist></div>
       </div>
       <div class="af-g2">
-        <div class="af"><label>Area</label><input type="text" id="cel-f-area" placeholder="Direccion CoffeeServ"></div>
-        <div class="af"><label>Centro de costo</label><input type="text" id="cel-f-centro_coste" placeholder="KF01001"></div>
+        <div class="af"><label>Area</label><input type="text" id="cel-f-area" list="dl-cel-area" placeholder="Direccion CoffeeServ" autocomplete="off"><datalist id="dl-cel-area"></datalist></div>
+        <div class="af"><label>Centro de costo</label><input type="text" id="cel-f-centro_coste" list="dl-cel-cc" placeholder="KF01001" autocomplete="off"><datalist id="dl-cel-cc"></datalist></div>
       </div>
       <div class="af-g2">
-        <div class="af"><label>Denominacion</label><input type="text" id="cel-f-denominacion" placeholder="Veracruz"></div>
+        <div class="af"><label>Denominacion</label><input type="text" id="cel-f-denominacion" list="dl-cel-den" placeholder="Veracruz" autocomplete="off"><datalist id="dl-cel-den"></datalist></div>
         <div class="af"><label>Sexo</label>
           <select id="cel-f-sexo"><option value="">...</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option></select>
         </div>
@@ -34065,6 +34065,7 @@ function enterApp(){
   document.getElementById('login-btn').textContent='Iniciar sesión';
   document.getElementById('login-btn').disabled=false;
   document.getElementById('login-btn').style.opacity='1';
+  switchView('dashboard');
   loadAppData();
 }
 function doLogout(){
@@ -34084,7 +34085,7 @@ function loadAppData(){
   setSyncUI('saving','Cargando...');
   db.collection('equipos').onSnapshot(function(s){
     equipos=s.docs.map(function(d){return d.data();});
-    if(curView==='dashboard')renderDashboard();
+    if(curView==='dashboard'||curView==='')renderDashboard();
     if(curView==='inventario')renderInventario();
     if(curView==='qr')renderQR();
     setSyncUI('ok','En línea ✓');
@@ -35460,6 +35461,18 @@ function openFormCelular(id){
   if(ss) ss.value=cel?(cel.status||'Asignado'):'Asignado';
   var sx=document.getElementById('cel-f-sexo');
   if(sx) sx.value=cel?(cel.sexo||''):'';
+  // Rellenar datalists con valores únicos existentes
+  function fillList(listId, arr){
+    var dl=document.getElementById(listId); if(!dl) return;
+    dl.innerHTML=arr.map(function(v){return '<option value="'+v+'">';}).join('');
+  }
+  fillList('dl-cel-area',   [...new Set(celulares.map(function(x){return x.area||'';}).filter(Boolean))].sort());
+  fillList('dl-cel-plaza',  [...new Set(celulares.map(function(x){return x.plaza||'';}).filter(Boolean))].sort());
+  fillList('dl-cel-depto',  [...new Set(celulares.map(function(x){return x.departamento||'';}).filter(Boolean))].sort());
+  fillList('dl-cel-marca',  [...new Set(celulares.map(function(x){return x.marca||'';}).filter(Boolean))].sort());
+  fillList('dl-cel-puesto', [...new Set(celulares.map(function(x){return x.puesto||'';}).filter(Boolean))].sort());
+  fillList('dl-cel-cc',     [...new Set(celulares.map(function(x){return x.centro_coste||'';}).filter(Boolean))].sort());
+  fillList('dl-cel-den',    [...new Set(celulares.map(function(x){return x.denominacion||'';}).filter(Boolean))].sort());
   m.classList.remove('hidden');
 }
 function closeFormCelular(){
