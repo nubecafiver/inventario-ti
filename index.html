@@ -34065,7 +34065,6 @@ function enterApp(){
   document.getElementById('login-btn').textContent='Iniciar sesión';
   document.getElementById('login-btn').disabled=false;
   document.getElementById('login-btn').style.opacity='1';
-  switchView('dashboard');
   loadAppData();
 }
 function doLogout(){
@@ -34083,12 +34082,14 @@ function doLogout(){
 // LOAD DATA
 function loadAppData(){
   setSyncUI('saving','Cargando...');
+  var _primeraVez=true;
   db.collection('equipos').onSnapshot(function(s){
     equipos=s.docs.map(function(d){return d.data();});
-    if(curView==='dashboard'||curView==='')renderDashboard();
+    if(_primeraVez){_primeraVez=false;switchView('dashboard');}
+    else if(curView==='dashboard')renderDashboard();
     if(curView==='inventario')renderInventario();
     if(curView==='qr')renderQR();
-    setSyncUI('ok','En línea ✓');
+    setSyncUI('ok','En linea');
   },function(){setSyncUI('error','Error');});
   // Real-time transferencias
   db.collection('transferencias').onSnapshot(function(s){
@@ -34103,7 +34104,7 @@ function loadAppData(){
   loadCelulares();
   loadCatalogo();
   loadPersonal();
-  switchView('dashboard');checkQRHash();
+  checkQRHash();
 }
 function fbSave(e){
   setSyncUI('saving','Guardando...');
@@ -35438,6 +35439,38 @@ function closeScanSuccess(){
 // CELULARES
 var celulares=[],editingCelId=null,currentCelId=null;
 var celFilter={q:'',estado:'',area:'',plaza:'',estado_asig:''};
+
+function exportCSV(){
+  var data=equipos.filter(function(e){
+    if(invFilter.tipo&&e.tipo!==invFilter.tipo)return false;
+    if(invFilter.estado&&e.estado!==invFilter.estado)return false;
+    if(invFilter.plaza&&e.plaza!==invFilter.plaza)return false;
+    if(invFilter.area&&e.area!==invFilter.area)return false;
+    if(invFilter.empleadoId){var m=e.responsable?findPersonal(e.responsable):null;if(!m||m.id!==invFilter.empleadoId)return false;}
+    else if(invFilter.responsable&&(e.responsable||'').trim()!==invFilter.responsable)return false;
+    if(invFilter.q){var q=invFilter.q.toLowerCase();if(!(e.nombre+e.modelo+e.marca+e.plaza+e.area+e.serie+e.ip+e.so+(e.responsable||'')).toLowerCase().includes(q))return false;}
+    return true;
+  });
+  var headers=['ID','Tipo','Marca','Modelo','Serie','Responsable','Area','Plaza','Estado','S.O.','RAM','IP','Procesador','Fecha Compra','Precio'];
+  var rows=[headers];
+  data.forEach(function(e){
+    rows.push([e.id,e.tipo,e.marca,e.modelo,e.serie,e.responsable,e.area,e.plaza,e.estado,e.so,e.ram,e.ip,e.procesador,e.fecha,e.precio||'']);
+  });
+  var csv='﻿'+rows.map(function(r){
+    return r.map(function(v){
+      var s=String(v===null||v===undefined?'':v);
+      if(s.indexOf(',')>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0) s='"'+s.replace(/"/g,'""')+'"';
+      return s;
+    }).join(',');
+  }).join('\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download='Inventario_Cafiver_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();URL.revokeObjectURL(url);
+  toast('CSV descargado: '+data.length+' equipos');
+}
+
 function loadCelulares(){
   db.collection('celulares').onSnapshot(function(s){
     celulares=s.docs.map(function(d){return d.data();});
@@ -35687,13 +35720,13 @@ function renderCelulares(){
   w.innerHTML=
     '<style>'
     +'.cel-dash{padding:14px 20px;font-family:\'Inter\',sans-serif;}'
-    +'.cel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;}'
+    +'.cel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;}'
     +'.cel-h1{font-size:18px;font-weight:500;color:#111827;}'
-    +'.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px;}'
-    +'.kc{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;}'
-    +'.kc-lbl{font-size:9px;color:#9ca3af;margin-bottom:3px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;}'
-    +'.kc-val{font-size:20px;font-weight:500;color:#111827;line-height:1;}'
-    +'.kc-sub{font-size:10px;color:#9ca3af;margin-top:3px;}'
+    +'.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:6px;}'
+    +'.kc{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:7px 11px;}'
+    +'.kc-lbl{font-size:9px;color:#9ca3af;margin-bottom:2px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;}'
+    +'.kc-val{font-size:18px;font-weight:500;color:#111827;line-height:1;}'
+    +'.kc-sub{font-size:10px;color:#9ca3af;margin-top:2px;}'
     +'.cel-body{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:10px;margin-bottom:8px;}'
     +'.pnl{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
     +'.pnl-hd{padding:8px 12px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
