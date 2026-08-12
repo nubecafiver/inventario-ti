@@ -33986,6 +33986,42 @@ table.mts tr:hover td{background:#f9fafb;}
   </div>
 </div>
 
+<!-- MODAL PERSONAL -->
+<div id="overlay-personal" class="hidden" onclick="if(event.target===this)closeFormPersonal()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
+  <div class="modal-card" style="max-width:520px;width:100%;margin:auto;">
+    <div class="modal-hd"><h3 id="per-modal-title">Empleado</h3><button class="icon-btn" onclick="closeFormPersonal()">&#x2715;</button></div>
+    <div class="modal-body">
+      <div class="form-section">Datos del empleado</div>
+      <div class="af-g2">
+        <div class="af"><label>N° Empleado</label><input type="text" id="per-numero" placeholder="00050001"></div>
+        <div class="af"><label>Nombre(s) *</label><input type="text" id="per-nombre" placeholder="JUAN ROBERTO"></div>
+      </div>
+      <div class="af-g2">
+        <div class="af"><label>Apellido paterno *</label><input type="text" id="per-ap1" placeholder="AMAYA"></div>
+        <div class="af"><label>Apellido materno</label><input type="text" id="per-ap2" placeholder="RODRIGUEZ"></div>
+      </div>
+      <div class="form-section">Posición</div>
+      <div class="af"><label>Puesto</label><input type="text" id="per-puesto" placeholder="Jefe de TI"></div>
+      <div class="af-g2">
+        <div class="af"><label>Departamento</label><input type="text" id="per-depto" placeholder="Tecnologia de Información"></div>
+        <div class="af"><label>Dirección</label><input type="text" id="per-dire" placeholder="Direccion Admiva"></div>
+      </div>
+      <div class="form-section">Contacto</div>
+      <div class="af-g2">
+        <div class="af"><label>Correo</label><input type="email" id="per-email" placeholder="ejemplo@cafiver.com.mx"></div>
+        <div class="af"><label>Teléfono</label><input type="text" id="per-tel" placeholder="271-123-4567"></div>
+      </div>
+      <div class="af"><label>Activo</label>
+        <select id="per-activo"><option value="true">Sí — Activo</option><option value="false">No — Baja</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeFormPersonal()">Cancelar</button>
+      <button class="btn btn-blue" onclick="savePersonal()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 firebase.initializeApp({
   apiKey:"AIzaSyDsiHm_ifFkGbEUmFJYY4ida7cD1JPBnU8",
@@ -34137,6 +34173,195 @@ function switchView(v){
 }
 
 // DASHBOARD
+
+// ═══ PERSONAL ═══
+var personal = [], personalFilter = {q:'',direccion:'',departamento:''};
+var _personalCache = {}, _personalCacheBuilt = false;
+
+function normStr(s){
+  if(!s) return '';
+  s = s.toUpperCase();
+  try{ s = s.normalize('NFD').replace(/[̀-ͯ]/g,''); }catch(e){}
+  return s.replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+}
+
+function buildPersonalCache(){
+  _personalCache = {};
+  personal.forEach(function(p){
+    _personalCache[normStr(p.nombre_completo)] = p;
+  });
+  _personalCacheBuilt = true;
+}
+
+function findPersonal(nombreResp){
+  if(!nombreResp || !personal.length) return null;
+  if(!_personalCacheBuilt) buildPersonalCache();
+  var busca = normStr(nombreResp);
+  if(_personalCache[busca]) return _personalCache[busca];
+  var palabras = busca.split(' ').filter(function(x){return x.length>2;});
+  if(!palabras.length) return null;
+  var scores = [];
+  var keys = Object.keys(_personalCache);
+  for(var i=0;i<keys.length;i++){
+    var nc = keys[i], score = 0;
+    for(var j=0;j<palabras.length;j++){if(nc.indexOf(palabras[j])>=0)score++;}
+    if(score>0) scores.push({score:score,p:_personalCache[keys[i]]});
+  }
+  if(!scores.length) return null;
+  scores.sort(function(a,b){return b.score-a.score;});
+  var bestScore = scores[0].score;
+  var minScore = Math.max(2, Math.ceil(palabras.length/2));
+  if(bestScore < minScore) return null;
+  var winners = scores.filter(function(s){return s.score===bestScore;});
+  if(winners.length > 1) return null;
+  return winners[0].p;
+}
+
+function loadPersonal(){
+  db.collection('personal').onSnapshot(function(s){
+    personal = s.docs.map(function(d){return d.data();});
+    _personalCacheBuilt = false;
+    if(curView==='personal') renderPersonal();
+  },function(e){console.warn('personal:',e.message);});
+}
+
+function getAvatarStyle(nombre){
+  var colors=[['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],
+    ['#fce7f3','#be185d'],['#ede9fe','#6d28d9'],['#ffedd5','#c2410c'],['#f0fdf4','#166534']];
+  var idx = Math.abs((nombre||'').charCodeAt(0)||0) % colors.length;
+  return colors[idx];
+}
+
+function verEqBtn(pid, cnt){
+  return '<button class="btn btn-sm" data-vpid="'+pid+'" '
+    +'onclick="event.stopPropagation();verEquiposEmpleado(this.dataset.vpid)" '
+    +'style="font-size:10px;padding:2px 8px;background:#eff6ff;color:#1d4ed8;border:none;border-radius:4px;cursor:pointer;">'
+    +'Ver equipos ('+cnt+')</button>';
+}
+
+function verEquiposEmpleado(pid){
+  invFilter.q='';invFilter.tipo='';invFilter.estado='';
+  invFilter.area='';invFilter.plaza='';invFilter.responsable='';
+  invFilter.empleadoId = pid;
+  switchView('inventario');
+}
+
+function openFormPersonal(id){
+  var m = document.getElementById('overlay-personal'); if(!m) return;
+  var p = id ? personal.find(function(x){return x.id===id;}) : null;
+  m._editId = id||null;
+  document.getElementById('per-modal-title').textContent = id?'Editar empleado':'Nuevo empleado';
+  ['numero','nombre','ap1','ap2','puesto','depto','dire','email','tel'].forEach(function(f){
+    var el = document.getElementById('per-'+f); if(el) el.value = p?(p[f==='ap1'?'apellido1':f==='ap2'?'apellido2':f==='depto'?'departamento':f==='dire'?'direccion':f]||''):'';
+  });
+  var act = document.getElementById('per-activo'); if(act) act.value = String(p?p.activo!==false:true);
+  m.classList.remove('hidden');
+}
+
+function closeFormPersonal(){
+  var m = document.getElementById('overlay-personal'); if(m) m.classList.add('hidden');
+}
+
+function savePersonal(){
+  var m = document.getElementById('overlay-personal');
+  var nombre = (document.getElementById('per-nombre')||{value:''}).value.trim().toUpperCase();
+  var ap1 = (document.getElementById('per-ap1')||{value:''}).value.trim().toUpperCase();
+  if(!nombre||!ap1){alert('Nombre y Apellido paterno son obligatorios.');return;}
+  var ap2 = (document.getElementById('per-ap2')||{value:''}).value.trim().toUpperCase();
+  var numero = (document.getElementById('per-numero')||{value:''}).value.trim();
+  var nc = (nombre+' '+ap1+(ap2?' '+ap2:'')).trim();
+  var id = m._editId||(numero||'EMP'+Date.now().toString(36).toUpperCase());
+  var item = {
+    id:id, numero:numero, nombre:nombre, apellido1:ap1, apellido2:ap2,
+    nombre_completo:nc,
+    puesto:(document.getElementById('per-puesto')||{value:''}).value.trim(),
+    departamento:(document.getElementById('per-depto')||{value:''}).value.trim(),
+    direccion:(document.getElementById('per-dire')||{value:''}).value.trim(),
+    email:(document.getElementById('per-email')||{value:''}).value.trim(),
+    telefono:(document.getElementById('per-tel')||{value:''}).value.trim(),
+    activo:(document.getElementById('per-activo')||{value:'true'}).value==='true'
+  };
+  setSyncUI('saving','Guardando...');
+  db.collection('personal').doc(item.id).set(item)
+    .then(function(){setSyncUI('ok','En linea');closeFormPersonal();toast(m._editId?'Empleado actualizado':'Empleado agregado');})
+    .catch(function(e){setSyncUI('error','Error');toast('Error: '+e.message);});
+}
+
+function deletePersonal(id){
+  var p = personal.find(function(x){return x.id===id;}); if(!p) return;
+  if(!confirm('Eliminar a '+p.nombre_completo+'?')) return;
+  db.collection('personal').doc(id).delete().then(function(){toast('Empleado eliminado');});
+}
+
+function renderPersonal(){
+  var w = document.getElementById('view-personal'); if(!w) return;
+  // Indice precalculado
+  var eqPorPersona = {};
+  equipos.forEach(function(e){
+    if(!e.responsable) return;
+    var m = findPersonal(e.responsable);
+    if(m) eqPorPersona[m.id] = (eqPorPersona[m.id]||0)+1;
+  });
+  var q = personalFilter.q.toLowerCase();
+  var data = personal.filter(function(p){
+    if(q&&!(p.nombre_completo+p.puesto+p.departamento+p.numero).toLowerCase().includes(q))return false;
+    if(personalFilter.direccion&&p.direccion!==personalFilter.direccion)return false;
+    if(personalFilter.departamento&&p.departamento!==personalFilter.departamento)return false;
+    return true;
+  });
+  var dirs = [...new Set(personal.map(function(p){return p.direccion;}).filter(Boolean))].sort();
+  var deptos = [...new Set(personal.map(function(p){return p.departamento;}).filter(Boolean))].sort();
+  var conEquipo = Object.keys(eqPorPersona).length;
+  var filDir = '<option value="">Todas las direcciones</option>'+dirs.map(function(d){
+    return '<option value="'+d+'"'+(personalFilter.direccion===d?' selected':'')+'>'+d+'</option>';}).join('');
+  var filDep = '<option value="">Todos los departamentos</option>'+deptos.slice(0,30).map(function(d){
+    return '<option value="'+d+'"'+(personalFilter.departamento===d?' selected':'')+'>'+d+'</option>';}).join('');
+  var rows = data.map(function(p){
+    var av = getAvatarStyle(p.nombre||'');
+    var ini = (p.nombre||'??').split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2);
+    var activo = p.activo!==false;
+    var eqCount = eqPorPersona[p.id]||0;
+    return '<tr style="cursor:pointer;" data-pid="'+p.id+'" ondblclick="openFormPersonal(this.dataset.pid)">'
+      +'<td style="padding:9px 14px;"><div style="display:flex;align-items:center;gap:10px;">'
+      +'<div style="width:32px;height:32px;border-radius:50%;background:'+av[0]+';color:'+av[1]+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">'+ini+'</div>'
+      +'<div><div style="font-weight:500;color:#111827;font-size:12px;">'+p.nombre_completo+'</div>'
+      +'<div style="font-size:10px;color:#9ca3af;">N° '+p.numero+'</div></div></div></td>'
+      +'<td style="padding:9px 14px;font-size:12px;color:#374151;">'+p.puesto+'</td>'
+      +'<td style="padding:9px 14px;font-size:11px;color:#6b7280;">'+p.departamento+'</td>'
+      +'<td style="padding:9px 14px;font-size:11px;color:#6b7280;">'+p.direccion+'</td>'
+      +'<td style="padding:9px 14px;">'+(eqCount>0?verEqBtn(p.id,eqCount):'<span style="color:#d1d5db;font-size:10px;">—</span>')+'</td>'
+      +'<td style="padding:9px 14px;">'+(activo
+        ?'<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">Activo</span>'
+        :'<span style="background:#f1f5f9;color:#6b7280;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">Baja</span>')+'</td>'
+      +'<td style="padding:9px 14px;"><div style="display:flex;gap:3px;">'
+      +'<button class="icon-btn" data-pid="'+p.id+'" onclick="event.stopPropagation();openFormPersonal(this.dataset.pid)">&#9999;&#65039;</button>'
+      +'<button class="icon-btn" data-pid="'+p.id+'" onclick="event.stopPropagation();deletePersonal(this.dataset.pid)" style="color:#dc2626;">&#128465;</button>'
+      +'</div></td>'
+      +'</tr>';
+  }).join('');
+  w.innerHTML =
+    '<div class="dash-title">Personal</div>'
+    +'<div class="dash-sub">Catálogo de empleados Cafiver — '+personal.length+' registros</div>'
+    +'<div class="stats-grid" style="margin-bottom:16px;">'
+    +'<div class="stat-card"><div class="lbl">Total empleados</div><div class="val blue">'+personal.length+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Con equipo asignado</div><div class="val green">'+conEquipo+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Activos</div><div class="val blue">'+personal.filter(function(p){return p.activo!==false;}).length+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Direcciones</div><div class="val amber">'+dirs.length+'</div></div>'
+    +'</div>'
+    +'<div class="tbl-box"><div class="tbl-hdr">'
+    +'<span class="tbl-hdr-title">'+data.length+' empleados</span>'
+    +'<div class="tbl-tools">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar por nombre, puesto..." value="'+personalFilter.q+'" oninput="personalFilter.q=this.value;renderPersonal()" style="width:200px;">'
+    +'<select class="fi-sm" onchange="personalFilter.direccion=this.value;renderPersonal()">'+filDir+'</select>'
+    +'<select class="fi-sm" onchange="personalFilter.departamento=this.value;renderPersonal()">'+filDep+'</select>'
+    +'<button class="btn btn-blue btn-sm" onclick="openFormPersonal()">+ Nuevo empleado</button>'
+    +'</div></div>'
+    +'<div style="overflow-x:auto;"><table>'
+    +'<thead><tr><th>Empleado</th><th>Puesto</th><th>Departamento</th><th>Dirección</th><th>Equipos</th><th>Estado</th><th>Acciones</th></tr></thead>'
+    +'<tbody>'+(rows||'<tr><td colspan="7" class="empty-state">Sin empleados. Ejecuta el importador primero.</td></tr>')+'</tbody>'
+    +'</table></div></div>';
+}
+
 function renderDashboard(){
   var w=document.getElementById('view-dashboard');if(!w)return;
   var total=equipos.length;
