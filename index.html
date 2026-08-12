@@ -33621,6 +33621,7 @@ table.mts tr:hover td{background:#f9fafb;}
     <button class="tnav"    id="tnav-reparaciones" onclick="switchView('reparaciones')"><span class='tnav-icon'>🔧</span><span class='tnav-txt'> Reparaciones</span></button>
     <button class="tnav"    id="tnav-celulares" onclick="switchView('celulares')"><span class='tnav-icon'>📱</span><span class='tnav-txt'> Celulares</span></button>
     <button class="tnav"    id="tnav-simulador" onclick="switchView('simulador')"><span class='tnav-icon'>📊</span><span class='tnav-txt'> Simulador</span></button>
+    <button class="tnav"    id="tnav-licencias" onclick="switchView('licencias')"><span class='tnav-icon'>🔑</span><span class='tnav-txt'> Licencias</span></button>
     <button class="tnav"    id="tnav-personal" onclick="switchView('personal')"><span class='tnav-icon'>👥</span><span class='tnav-txt'> Personal</span></button>
     <div class="topbar-right">
       <div class="sync-pill ok" id="topbar-sync">
@@ -33645,6 +33646,7 @@ table.mts tr:hover td{background:#f9fafb;}
   <div id="view-etiquetas" class="hidden" style="flex:1;overflow:auto;background:#e8eaed;"></div>
   <div id="view-celulares" class="view-wrap hidden"></div>
   <div id="view-simulador" class="view-wrap hidden"></div>
+  <div id="view-licencias" class="view-wrap hidden"></div>
   <div id="view-personal" class="view-wrap hidden"></div>
 </div>
 
@@ -33673,7 +33675,8 @@ table.mts tr:hover td{background:#f9fafb;}
     <button class="dp-tab on" id="dpt-info"      onclick="dpTab('info')">Información</button>
     <button class="dp-tab"    id="dpt-red"       onclick="dpTab('red')">Red</button>
     <button class="dp-tab"    id="dpt-compra"    onclick="dpTab('compra')">Compra</button>
-    <button class="dp-tab"    id="dpt-historial"    onclick="dpTab('historial')">Historial</button>
+    <button class="dp-tab"    id="dpt-historial"    onclick="dpTab('software')" id="dpt-software"><i class='ti ti-key'></i> Software</button>
+        <button class="dp-tab"    onclick="dpTab('historial')">Historial</button>
     <button class="dp-tab"    id="dpt-asignaciones" onclick="dpTab('asignaciones')">👤 Asignaciones</button>
   </div>
   <div class="dp-body" id="dp-body"></div>
@@ -34022,6 +34025,72 @@ table.mts tr:hover td{background:#f9fafb;}
   </div>
 </div>
 
+<!-- MODAL LICENCIA -->
+<div id="overlay-licencia" class="hidden" onclick="if(event.target===this)closeFormLicencia()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
+  <div class="modal-card wide">
+    <div class="modal-hd"><h3 id="lic-modal-title">Nueva licencia</h3><button class="icon-btn" onclick="closeFormLicencia()">&#x2715;</button></div>
+    <div class="modal-body">
+      <div class="form-section">Identificación</div>
+      <div class="af-g2">
+        <div class="af"><label>Nombre del software *</label><input type="text" id="lic-f-nombre" placeholder="Microsoft Office 365"></div>
+        <div class="af"><label>Proveedor</label><input type="text" id="lic-f-proveedor" placeholder="Microsoft, SAP, Adobe..."></div>
+      </div>
+      <div class="af-g2">
+        <div class="af"><label>N° de licencia / Clave</label><input type="text" id="lic-f-num_licencia" placeholder="XXXXX-XXXXX-XXXXX"></div>
+        <div class="af"><label>Categoría</label>
+          <input type="text" id="lic-f-categoria" list="dl-lic-cat" placeholder="Productividad, Seguridad, ERP..." autocomplete="off">
+          <datalist id="dl-lic-cat">
+            <option value="Productividad"><option value="Seguridad"><option value="ERP / SAP">
+            <option value="Diseño"><option value="Comunicación"><option value="Sistema Operativo">
+            <option value="Base de datos"><option value="Desarrollo"><option value="Otro">
+          </datalist>
+        </div>
+      </div>
+      <div class="form-section">Control de licencias</div>
+      <div class="af-g3">
+        <div class="af"><label>Total de licencias</label><input type="number" id="lic-f-total_licencias" placeholder="0 = sin límite" min="0"></div>
+        <div class="af"><label>Fecha de vencimiento</label><input type="date" id="lic-f-vencimiento"></div>
+        <div class="af"><label>Costo anual ($)</label><input type="number" id="lic-f-costo_anual" placeholder="0.00" step="0.01"></div>
+      </div>
+      <div class="af"><label>Estado</label>
+        <select id="lic-f-status">
+          <option value="Activa">Activa</option>
+          <option value="Por renovar">Por renovar</option>
+          <option value="Baja">Baja / No usar</option>
+        </select>
+      </div>
+      <div class="af"><label>Observaciones</label>
+        <textarea id="lic-f-obs" placeholder="Notas, condiciones de uso, contacto del proveedor..." style="min-height:60px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeFormLicencia()">Cancelar</button>
+      <button class="btn btn-blue" onclick="saveLicencia()">Guardar licencia</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ASIGNAR SOFTWARE A EQUIPO -->
+<div id="overlay-asignar-sw" class="hidden" onclick="if(event.target===this)closeAsignarSoftware()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
+  <div class="modal-card" style="max-width:520px;width:100%;margin:auto;">
+    <div class="modal-hd">
+      <div>
+        <h3>Software instalado</h3>
+        <div id="asw-eq-nombre" style="font-size:11px;color:#6b7280;margin-top:2px;"></div>
+      </div>
+      <button class="icon-btn" onclick="closeAsignarSoftware()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:10px;">Selecciona el software instalado en este equipo. Solo puedes marcar licencias con disponibilidad.</div>
+      <div id="asw-lista" style="max-height:360px;overflow-y:auto;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeAsignarSoftware()">Cancelar</button>
+      <button class="btn btn-blue" onclick="saveAsignarSoftware()">Guardar asignación</button>
+    </div>
+  </div>
+</div>
+
 <script>
 firebase.initializeApp({
   apiKey:"AIzaSyDsiHm_ifFkGbEUmFJYY4ida7cD1JPBnU8",
@@ -34138,6 +34207,7 @@ function loadAppData(){
   });
   loadEscaneos();
   loadCelulares();
+  loadLicencias();
   loadCatalogo();
   loadPersonal();
   checkQRHash();
@@ -34156,7 +34226,7 @@ function switchView(v){
   var db=document.getElementById('view-dashboard');
   if(db) db.style.display=(v==='dashboard')?'block':'none';
   // El resto usa clase hidden
-  ['inventario','qr','reparaciones','etiquetas','celulares','simulador','personal'].forEach(function(x){
+  ['inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias'].forEach(function(x){
     var el=document.getElementById('view-'+x);
     if(el) el.classList.toggle('hidden',x!==v);
     var b=document.getElementById('tnav-'+x);if(b)b.classList.toggle('on',x===v);
@@ -34170,11 +34240,14 @@ function switchView(v){
   if(v==='celulares')renderCelulares();
   if(v==='simulador')renderSimulador();
   if(v==='personal')renderPersonal();
+  if(v==='licencias')renderLicencias();
 }
 
 // DASHBOARD
 
 // ═══ PERSONAL ═══
+var licencias = [], softwareEquipos = {};
+var licFilter = {q:'',categoria:'',estado:''};
 var personal = [], personalFilter = {q:'',direccion:'',departamento:''};
 var _personalCache = {}, _personalCacheBuilt = false;
 
@@ -34215,6 +34288,313 @@ function findPersonal(nombreResp){
   var winners = scores.filter(function(s){return s.score===bestScore;});
   if(winners.length > 1) return null;
   return winners[0].p;
+}
+
+
+// ═══ LICENCIAS ═══
+function loadLicencias(){
+  db.collection('licencias').onSnapshot(function(s){
+    licencias = s.docs.map(function(d){return d.data();});
+    if(curView==='licencias') renderLicencias();
+  }, function(e){console.warn('licencias:',e.message);});
+  // Software por equipo (subcolección o colección aparte)
+  db.collection('software_equipos').onSnapshot(function(s){
+    softwareEquipos = {};
+    s.docs.forEach(function(d){
+      var data = d.data();
+      if(!softwareEquipos[data.equipo_id]) softwareEquipos[data.equipo_id] = [];
+      softwareEquipos[data.equipo_id].push(data);
+    });
+  }, function(e){console.warn('software_equipos:',e.message);});
+}
+
+function openFormLicencia(id){
+  var m = document.getElementById('overlay-licencia'); if(!m) return;
+  var lic = id ? licencias.find(function(x){return x.id===id;}) : null;
+  m._editId = id||null;
+  document.getElementById('lic-modal-title').textContent = id?'Editar licencia':'Nueva licencia';
+  var campos = ['nombre','proveedor','num_licencia','categoria','total_licencias','costo_anual','obs'];
+  campos.forEach(function(f){
+    var el = document.getElementById('lic-f-'+f);
+    if(el) el.value = lic?(lic[f]||''):'';
+  });
+  var fv = document.getElementById('lic-f-vencimiento');
+  if(fv) fv.value = lic?(lic.vencimiento||''):'';
+  var fs = document.getElementById('lic-f-status');
+  if(fs) fs.value = lic?(lic.status||'Activa'):'Activa';
+  m.classList.remove('hidden');
+}
+
+function closeFormLicencia(){
+  var m = document.getElementById('overlay-licencia'); if(m) m.classList.add('hidden');
+}
+
+function saveLicencia(){
+  var m = document.getElementById('overlay-licencia');
+  function gv(f){var el=document.getElementById('lic-f-'+f);return el?el.value.trim():'';}
+  function gn(f){return parseFloat(gv(f))||0;}
+  if(!gv('nombre')){alert('El nombre es obligatorio.');return;}
+  var id = m._editId||('LIC'+Date.now().toString(36).toUpperCase());
+  // Calcular uso actual (cuántos equipos tienen esta licencia)
+  var usoActual = 0;
+  Object.values(softwareEquipos).forEach(function(arr){
+    arr.forEach(function(sw){if(sw.licencia_id===id)usoActual++;});
+  });
+  var doc = {
+    id:id, nombre:gv('nombre'), proveedor:gv('proveedor'),
+    num_licencia:gv('num_licencia'), categoria:gv('categoria'),
+    total_licencias:gn('total_licencias'),
+    vencimiento:gv('vencimiento'),
+    costo_anual:gn('costo_anual'),
+    status:gv('status')||'Activa',
+    obs:gv('obs'),
+    updBy:curUser?curUser.name:'', updTs:nowStr()
+  };
+  setSyncUI('saving','Guardando...');
+  db.collection('licencias').doc(id).set(doc)
+    .then(function(){setSyncUI('ok','En linea');closeFormLicencia();toast(m._editId?'Licencia actualizada':'Licencia agregada');})
+    .catch(function(e){setSyncUI('error','Error');toast('Error: '+e.message);});
+}
+
+function deleteLicencia(id){
+  var lic = licencias.find(function(x){return x.id===id;}); if(!lic) return;
+  if(!confirm('Eliminar licencia: '+lic.nombre+'?')) return;
+  db.collection('licencias').doc(id).delete().then(function(){toast('Licencia eliminada');});
+}
+
+// Asignar/quitar software a un equipo
+function openAsignarSoftware(equipoId){
+  var m = document.getElementById('overlay-asignar-sw'); if(!m) return;
+  m._equipoId = equipoId;
+  var eq = equipos.find(function(x){return x.id===equipoId;});
+  document.getElementById('asw-eq-nombre').textContent = eq?(eq.marca+' '+eq.modelo+' — '+eq.responsable):'Equipo';
+  // Mostrar catálogo de licencias con checkboxes
+  var swActual = softwareEquipos[equipoId]||[];
+  var swIds = swActual.map(function(s){return s.licencia_id;});
+  var rows = licencias.filter(function(l){return l.status!=='Baja';}).map(function(lic){
+    var checked = swIds.indexOf(lic.id)>=0;
+    var uso = 0;
+    Object.values(softwareEquipos).forEach(function(arr){arr.forEach(function(s){if(s.licencia_id===lic.id)uso++;});});
+    var disponibles = (lic.total_licencias||0) - uso;
+    var bloqueado = !checked && disponibles<=0 && lic.total_licencias>0;
+    return '<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid #f3f4f6;cursor:'+(bloqueado?'not-allowed':'pointer')+';">'
+      +'<input type="checkbox" data-licid="'+lic.id+'" '+(checked?'checked':'')+(bloqueado?' disabled':'')+' style="width:15px;height:15px;">'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:12px;font-weight:500;color:'+(bloqueado?'#9ca3af':'#111827')+';">'+lic.nombre+'</div>'
+      +'<div style="font-size:10px;color:#9ca3af;">'+lic.proveedor+(lic.categoria?' · '+lic.categoria:'')+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;font-size:10px;">'
+      +(lic.total_licencias?'<span style="color:'+(disponibles>0?'#16a34a':checked?'#1d4ed8':'#dc2626')+';">'+uso+'/'+lic.total_licencias+'</span>':'<span style="color:#9ca3af;">Sin límite</span>')
+      +(bloqueado?'<div style="color:#dc2626;font-size:9px;">Sin disponibles</div>':'')
+      +'</div>'
+      +'</label>';
+  }).join('');
+  document.getElementById('asw-lista').innerHTML = rows||'<div style="color:#9ca3af;font-size:12px;padding:10px 0;">No hay licencias en el catálogo. Agrégalas primero.</div>';
+  m.classList.remove('hidden');
+}
+
+function closeAsignarSoftware(){
+  var m = document.getElementById('overlay-asignar-sw'); if(m) m.classList.add('hidden');
+}
+
+function saveAsignarSoftware(){
+  var m = document.getElementById('overlay-asignar-sw');
+  var equipoId = m._equipoId; if(!equipoId) return;
+  var checks = document.querySelectorAll('#asw-lista input[type=checkbox]');
+  var seleccionados = [];
+  checks.forEach(function(ch){if(ch.checked)seleccionados.push(ch.dataset.licid);});
+  // Borrar asignaciones anteriores de este equipo y crear las nuevas
+  var batch = db.batch();
+  // Primero obtener docs existentes de este equipo
+  db.collection('software_equipos').where('equipo_id','==',equipoId).get().then(function(snap){
+    snap.docs.forEach(function(d){batch.delete(d.ref);});
+    seleccionados.forEach(function(licId){
+      var lic = licencias.find(function(x){return x.id===licId;});
+      var ref = db.collection('software_equipos').doc(equipoId+'_'+licId);
+      batch.set(ref,{
+        id:equipoId+'_'+licId, equipo_id:equipoId, licencia_id:licId,
+        software_nombre:lic?lic.nombre:'', instalado_en:nowStr(),
+        por:curUser?curUser.name:''
+      });
+    });
+    return batch.commit();
+  }).then(function(){
+    closeAsignarSoftware();
+    toast('Software actualizado: '+seleccionados.length+' licencia(s) asignada(s)');
+    // Refresh panel si está abierto
+    if(openEquipoId===equipoId) dpTab('software');
+  }).catch(function(e){toast('Error: '+e.message);});
+}
+
+function renderSoftwareEquipo(equipoId){
+  var sw = softwareEquipos[equipoId]||[];
+  if(!sw.length) return '<div style="text-align:center;padding:24px;color:#9ca3af;">'
+    +'<div style="font-size:32px;margin-bottom:8px;">💿</div>'
+    +'<div style="font-size:13px;font-weight:500;margin-bottom:4px;">Sin software registrado</div>'
+    +'<div style="font-size:11px;margin-bottom:12px;">Agrega el software instalado en este equipo</div>'
+    +'<button class="btn btn-blue btn-sm" onclick="openAsignarSoftware(\''+equipoId+'\')">+ Asignar software</button>'
+    +'</div>';
+  var today = new Date();
+  var rows = sw.map(function(s){
+    var lic = licencias.find(function(x){return x.id===s.licencia_id;})||{};
+    var dias = lic.vencimiento ? Math.round((new Date(lic.vencimiento)-today)/(1000*60*60*24)) : null;
+    var vcol = dias===null?'#9ca3af':dias<0?'#dc2626':dias<30?'#f59e0b':dias<90?'#d97706':'#16a34a';
+    var vtxt = dias===null?'Sin vencimiento':dias<0?'Vencida':'Vence en '+dias+' días';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:0.5px solid #f3f4f6;">'
+      +'<div style="width:32px;height:32px;border-radius:6px;background:#f0f9ff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">💿</div>'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:12px;font-weight:500;color:#111827;">'+s.software_nombre+'</div>'
+      +'<div style="font-size:10px;color:#9ca3af;">'+(lic.proveedor||'')+(lic.num_licencia?' · N° '+lic.num_licencia:'')+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;">'
+      +'<span style="font-size:10px;font-weight:500;color:'+vcol+';">'+vtxt+'</span>'
+      +(lic.costo_anual?'<div style="font-size:10px;color:#9ca3af;">$'+parseFloat(lic.costo_anual).toLocaleString('es-MX')+'/año</div>':'')
+      +'</div>'
+      +'</div>';
+  }).join('');
+  return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:0.5px solid #f3f4f6;">'
+    +'<span style="font-size:11px;font-weight:500;color:#374151;">'+sw.length+' programa(s) instalado(s)</span>'
+    +'<button class="btn btn-sm btn-blue" onclick="openAsignarSoftware(\''+equipoId+'\')">✎ Editar</button>'
+    +'</div>'
+    +rows;
+}
+
+function renderLicencias(){
+  var w = document.getElementById('view-licencias'); if(!w) return;
+  var today = new Date();
+
+  // Calcular uso de cada licencia
+  function getUso(licId){
+    var uso=0;
+    Object.values(softwareEquipos).forEach(function(arr){
+      arr.forEach(function(s){if(s.licencia_id===licId)uso++;});
+    });
+    return uso;
+  }
+
+  // KPIs
+  var totalLic = licencias.length;
+  var costoAnual = licencias.reduce(function(a,l){return a+(parseFloat(l.costo_anual)||0);},0);
+  var porVencer30 = licencias.filter(function(l){
+    if(!l.vencimiento) return false;
+    var d = Math.round((new Date(l.vencimiento)-today)/(1000*60*60*24));
+    return d>=0 && d<=30;
+  }).length;
+  var vencidas = licencias.filter(function(l){
+    if(!l.vencimiento) return false;
+    return new Date(l.vencimiento)<today;
+  }).length;
+
+  // Filtrado
+  var data = licencias.filter(function(l){
+    var q = licFilter.q.toLowerCase();
+    if(q&&!(l.nombre+l.proveedor+l.categoria+l.num_licencia).toLowerCase().includes(q))return false;
+    if(licFilter.categoria&&l.categoria!==licFilter.categoria)return false;
+    if(licFilter.estado){
+      if(licFilter.estado==='Vencida'&&(!l.vencimiento||new Date(l.vencimiento)>=today))return false;
+      if(licFilter.estado==='Por vencer'){
+        var d=Math.round((new Date(l.vencimiento)-today)/(1000*60*60*24));
+        if(!l.vencimiento||d<0||d>90)return false;
+      }
+      if(licFilter.estado==='Activa'&&l.status!=='Activa')return false;
+    }
+    return true;
+  });
+
+  var categorias = [...new Set(licencias.map(function(l){return l.categoria;}).filter(Boolean))].sort();
+
+  var rows = data.map(function(lic){
+    var uso = getUso(lic.id);
+    var total = lic.total_licencias||0;
+    var pctUso = total?Math.round(uso/total*100):null;
+    var dias = lic.vencimiento?Math.round((new Date(lic.vencimiento)-today)/(1000*60*60*24)):null;
+    var vcol = dias===null?'#9ca3af':dias<0?'#dc2626':dias<30?'#f59e0b':dias<90?'#d97706':'#16a34a';
+    var vtxt = dias===null?'—':dias<0?'Vencida hace '+Math.abs(dias)+'d':'En '+dias+' días';
+    var vbg = dias===null?'#f9fafb':dias<0?'#fef2f2':dias<30?'#fffbeb':dias<90?'#fff7ed':'#f0fdf4';
+    var lid = lic.id;
+    return '<tr ondblclick="openFormLicencia(\''+lid+'\')" style="cursor:pointer;">'
+      +'<td style="padding:8px 12px;">'
+      +'<div style="font-size:12px;font-weight:500;color:#111827;">'+lic.nombre+'</div>'
+      +'<div style="font-size:10px;color:#9ca3af;">'+(lic.categoria||'General')+'</div>'
+      +'</td>'
+      +'<td style="padding:8px 12px;font-size:11px;color:#374151;">'+(lic.proveedor||'—')+'</td>'
+      +'<td style="padding:8px 12px;font-family:monospace;font-size:10px;color:#6b7280;">'+(lic.num_licencia||'—')+'</td>'
+      +'<td style="padding:8px 12px;">'
+      +(total?'<div style="font-size:11px;font-weight:500;color:#111827;">'+uso+'/'+total+'</div>'
+        +'<div style="height:4px;background:#f3f4f6;border-radius:2px;margin-top:3px;width:60px;overflow:hidden;">'
+        +'<div style="height:100%;background:'+(pctUso>90?'#dc2626':pctUso>70?'#f59e0b':'#1d4ed8')+';border-radius:2px;width:'+pctUso+'%;"></div></div>'
+        :'<span style="font-size:10px;color:#9ca3af;">Sin límite</span>')
+      +'</td>'
+      +'<td style="padding:8px 12px;">'
+      +'<span style="background:'+vbg+';color:'+vcol+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;">'+vtxt+'</span>'
+      +'</td>'
+      +'<td style="padding:8px 12px;font-size:11px;color:#374151;">'+(lic.costo_anual?'$'+parseFloat(lic.costo_anual).toLocaleString('es-MX',{minimumFractionDigits:2}):' —')+'</td>'
+      +'<td style="padding:8px 12px;"><div style="display:flex;gap:3px;">'
+      +'<button class="icon-btn" data-lid="'+lid+'" onclick="event.stopPropagation();openFormLicencia(this.dataset.lid)" title="Editar">&#9999;&#65039;</button>'
+      +'<button class="icon-btn" data-lid="'+lid+'" onclick="event.stopPropagation();deleteLicencia(this.dataset.lid)" title="Eliminar" style="color:#dc2626;">&#128465;</button>'
+      +'</div></td>'
+      +'</tr>';
+  }).join('');
+
+  var filCat = '<option value="">Todas las categorías</option>'+categorias.map(function(cat){
+    return '<option value="'+cat+'"'+(licFilter.categoria===cat?' selected':'')+'>'+cat+'</option>';}).join('');
+  var filEst = '<option value="">Todos los estados</option>'
+    +'<option value="Activa"'+(licFilter.estado==='Activa'?' selected':'')+'>Activa</option>'
+    +'<option value="Por vencer"'+(licFilter.estado==='Por vencer'?' selected':'')+'>Por vencer (90 días)</option>'
+    +'<option value="Vencida"'+(licFilter.estado==='Vencida'?' selected':'')+'>Vencida</option>';
+
+  w.innerHTML =
+    '<div class="dash-title">Software y Licencias</div>'
+    +'<div class="dash-sub">Control de licencias de software — Cafiver TI</div>'
+
+    // KPIs
+    +'<div class="stats-grid" style="margin-bottom:14px;grid-template-columns:repeat(4,1fr);">'
+    +'<div class="stat-card">'
+    +'<div class="lbl">Total licencias</div>'
+    +'<div class="val blue">'+totalLic+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:2px;">en catálogo</div>'
+    +'</div>'
+    +'<div class="stat-card">'
+    +'<div class="lbl">Costo anual total</div>'
+    +'<div class="val green" style="font-size:16px;">$'+costoAnual.toLocaleString('es-MX',{minimumFractionDigits:2})+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:2px;">inversión en software</div>'
+    +'</div>'
+    +'<div class="stat-card" onclick="licFilter.estado=\'Por vencer\';renderLicencias();" style="cursor:pointer;">'
+    +'<div class="lbl">Por vencer (30 días)</div>'
+    +'<div class="val" style="color:'+(porVencer30?'#f59e0b':'#16a34a')+';">'+porVencer30+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:2px;">'+(porVencer30?'¡Atención requerida!':'Ninguna por ahora')+'</div>'
+    +'</div>'
+    +'<div class="stat-card" onclick="licFilter.estado=\'Vencida\';renderLicencias();" style="cursor:pointer;">'
+    +'<div class="lbl">Vencidas</div>'
+    +'<div class="val" style="color:'+(vencidas?'#dc2626':'#16a34a')+';">'+vencidas+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:2px;">'+(vencidas?'Renovar urgente':'Todo al día')+'</div>'
+    +'</div>'
+    +'</div>'
+
+    // Banner alerta si hay vencidas o por vencer
+    +(vencidas||porVencer30?
+      '<div style="background:'+(vencidas?'#fef2f2':'#fffbeb')+';border:1px solid '+(vencidas?'#fecaca':'#fde68a')+';border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;">'
+      +'<span style="font-size:18px;">'+(vencidas?'🚨':'⚠️')+'</span>'
+      +'<div><b style="font-size:12px;color:'+(vencidas?'#dc2626':'#d97706')+';">'
+      +(vencidas?vencidas+' licencia(s) vencida(s) — renovar urgente':porVencer30+' licencia(s) vencen en menos de 30 días')+'</b>'
+      +'<div style="font-size:11px;color:#6b7280;">Haz clic en la tarjeta correspondiente para filtrar</div></div>'
+      +'</div>':'')
+
+    // Tabla
+    +'<div class="tbl-box"><div class="tbl-hdr">'
+    +'<span class="tbl-hdr-title">'+data.length+' licencia'+(data.length!==1?'s':'')+'</span>'
+    +'<div class="tbl-tools">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar software..." value="'+licFilter.q+'" oninput="licFilter.q=this.value;renderLicencias()" style="width:160px;">'
+    +'<select class="fi-sm" onchange="licFilter.categoria=this.value;renderLicencias()">'+filCat+'</select>'
+    +'<select class="fi-sm" onchange="licFilter.estado=this.value;renderLicencias()">'+filEst+'</select>'
+    +(licFilter.q||licFilter.categoria||licFilter.estado?'<button class="btn btn-sm" onclick="licFilter={q:\'\',categoria:\'\',estado:\'\'};renderLicencias()">✕ Limpiar</button>':'')
+    +'<button class="btn btn-blue btn-sm" onclick="openFormLicencia()">+ Nueva licencia</button>'
+    +'</div></div>'
+    +'<div style="overflow-x:auto;"><table><thead><tr>'
+    +'<th>Software</th><th>Proveedor</th><th>N° Licencia</th><th>Uso</th><th>Vencimiento</th><th>Costo anual</th><th>Acciones</th>'
+    +'</tr></thead><tbody>'
+    +(rows||'<tr><td colspan="7" class="empty-state" style="padding:40px;"><div style="font-size:32px;margin-bottom:8px;">🔑</div><div>Sin licencias registradas</div><div style="margin-top:8px;"><button class="btn btn-blue btn-sm" onclick="openFormLicencia()">+ Agregar primera licencia</button></div></td></tr>')
+    +'</tbody></table></div></div>';
 }
 
 function loadPersonal(){
@@ -34716,7 +35096,7 @@ function deleteFromPanel(){deleteEquipo(openEquipoId);}
 
 function dpTab(tab){
   dpCurTab=tab;
-  ['info','red','compra','historial','asignaciones'].forEach(function(x){var el=document.getElementById('dpt-'+x);if(el)el.classList.toggle('on',x===tab);});
+  ['info','red','compra','software','historial','asignaciones'].forEach(function(x){var el=document.getElementById('dpt-'+x);if(el)el.classList.toggle('on',x===tab);});
   var e=equipos.find(function(x){return x.id===openEquipoId;});if(!e)return;
   var body=document.getElementById('dp-body');
   var reps=reparaciones.filter(function(r){return r.equipo_id===openEquipoId;});
@@ -34779,6 +35159,8 @@ function dpTab(tab){
         }).join('')
         :'<div style="font-size:12px;color:#9aa0a6;padding:8px 0;">Sin reparaciones registradas.</div>'
       );
+  } else if(tab==='software'){
+    body.innerHTML=renderSoftwareEquipo(openEquipoId);
   } else if(tab==='historial'){
     var scans = escaneos.filter(function(s){return s.equipo_id===openEquipoId;})
       .sort(function(a,b){return a.ts>b.ts?-1:1;});
