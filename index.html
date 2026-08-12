@@ -33912,6 +33912,80 @@ table.mts tr:hover td{background:#f9fafb;}
   </div>
 </div>
 
+<!-- MODAL CELULAR -->
+<div id="overlay-celular" class="hidden" onclick="if(event.target===this)closeFormCelular()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
+  <div class="modal-card wide">
+    <div class="modal-hd"><h3 id="cel-modal-title">Nuevo celular</h3><button class="icon-btn" onclick="closeFormCelular()">&#x2715;</button></div>
+    <div class="modal-body">
+      <div class="form-section">Linea</div>
+      <div class="af-g2">
+        <div class="af"><label>DN (Numero telefonico)</label><input type="text" id="cel-f-dn" placeholder="2721234567"></div>
+        <div class="af"><label>IMEI</label><input type="text" id="cel-f-imei" placeholder="15 digitos"></div>
+      </div>
+      <div class="form-section">Equipo</div>
+      <div class="af-g2">
+        <div class="af"><label>Marca *</label><input type="text" id="cel-f-marca" placeholder="IPHONE, HONOR..."></div>
+        <div class="af"><label>Modelo</label><input type="text" id="cel-f-modelo" placeholder="IPHONE 16 PRO 256 GB"></div>
+      </div>
+      <div class="form-section">Costo</div>
+      <div class="af" style="max-width:220px;">
+        <label>Renta mensual ($)</label>
+        <input type="number" id="cel-f-mpe" placeholder="238.24" step="0.01">
+      </div>
+      <div class="form-section">Estado y asignacion</div>
+      <div class="af-g2">
+        <div class="af"><label>Estado</label>
+          <select id="cel-f-status">
+            <option value="Asignado">Asignado</option>
+            <option value="Libre">Libre</option>
+            <option value="En reparacion">En reparacion</option>
+            <option value="Baja">Baja</option>
+          </select>
+        </div>
+        <div class="af"><label>N Pers (SAP)</label><input type="text" id="cel-f-num_pers" placeholder="50001"></div>
+      </div>
+      <div class="af-g2">
+        <div class="af"><label>Nombre del empleado</label><input type="text" id="cel-f-numero_personal" placeholder="APELLIDO NOMBRE"></div>
+        <div class="af"><label>Puesto</label><input type="text" id="cel-f-puesto" placeholder="Gerente de..."></div>
+      </div>
+      <div class="af-g2">
+        <div class="af"><label>Departamento</label><input type="text" id="cel-f-departamento" placeholder="Direccion General"></div>
+        <div class="af"><label>Plaza</label><input type="text" id="cel-f-plaza" placeholder="Oficina Veracruz"></div>
+      </div>
+      <div class="af-g2">
+        <div class="af"><label>Area</label><input type="text" id="cel-f-area" placeholder="Direccion CoffeeServ"></div>
+        <div class="af"><label>Centro de costo</label><input type="text" id="cel-f-centro_coste" placeholder="KF01001"></div>
+      </div>
+      <div class="af-g2">
+        <div class="af"><label>Denominacion</label><input type="text" id="cel-f-denominacion" placeholder="Veracruz"></div>
+        <div class="af"><label>Sexo</label>
+          <select id="cel-f-sexo"><option value="">...</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option></select>
+        </div>
+      </div>
+      <div class="af"><label>Observaciones</label><textarea id="cel-f-obs" placeholder="Notas, danos, accesorios..." style="min-height:60px;"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeFormCelular()">Cancelar</button>
+      <button class="btn btn-blue" onclick="saveCelular()">Guardar celular</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE CELULAR -->
+<div id="overlay-cel-detail" class="hidden" onclick="if(event.target===this)closeCelDetail()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
+  <div class="modal-card" style="max-width:560px;width:100%;margin:auto;">
+    <div class="modal-hd">
+      <h3 id="cel-detail-title">Detalle del celular</h3>
+      <div style="display:flex;gap:6px;">
+        <button class="icon-btn" id="cel-edit-btn" title="Editar">&#9999;&#65039;</button>
+        <button class="icon-btn" id="cel-del-btn" title="Eliminar" style="color:#ea4335;">&#128465;</button>
+        <button class="icon-btn" onclick="closeCelDetail()">&#x2715;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="cel-detail-body"></div>
+  </div>
+</div>
+
 <script>
 firebase.initializeApp({
   apiKey:"AIzaSyDsiHm_ifFkGbEUmFJYY4ida7cD1JPBnU8",
@@ -35602,12 +35676,12 @@ function renderCelulares(){
     +'.cel-dash{padding:14px 20px;font-family:\'Inter\',sans-serif;}'
     +'.cel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;}'
     +'.cel-h1{font-size:18px;font-weight:500;color:#111827;}'
-    +'.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px;}'
-    +'.kc{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:10px 14px;}'
+    +'.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px;}'
+    +'.kc{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;}'
     +'.kc-lbl{font-size:9px;color:#9ca3af;margin-bottom:3px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;}'
     +'.kc-val{font-size:20px;font-weight:500;color:#111827;line-height:1;}'
     +'.kc-sub{font-size:10px;color:#9ca3af;margin-top:3px;}'
-    +'.cel-body{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:10px;margin-bottom:10px;}'
+    +'.cel-body{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:10px;margin-bottom:8px;}'
     +'.pnl{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;overflow:hidden;}'
     +'.pnl-hd{padding:8px 12px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;}'
     +'.pnl-hd h3{font-size:11px;font-weight:500;color:#374151;margin:0;}'
