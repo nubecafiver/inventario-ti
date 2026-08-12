@@ -33644,7 +33644,7 @@ table.mts tr:hover td{background:#f9fafb;}
   <div id="view-qr"           class="hidden" style="flex:1;overflow:auto;background:#eef2f7;"></div>
   <div id="view-reparaciones" class="view-wrap hidden"></div>
   <div id="view-etiquetas" class="hidden" style="flex:1;overflow:auto;background:#e8eaed;"></div>
-  <div id="view-celulares" class="view-wrap hidden"></div>
+  <div id="view-celulares" class="view-wrap hidden" style="padding:0;"></div>
   <div id="view-simulador" class="view-wrap hidden"></div>
   <div id="view-licencias" class="view-wrap hidden"></div>
   <div id="view-personal" class="view-wrap hidden"></div>
@@ -36326,10 +36326,10 @@ function renderCelulares(){
 
   w.innerHTML=
     '<style>'
-    +'.cel-dash{padding:14px 20px;font-family:\'Inter\',sans-serif;}'
-    +'.cel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;}'
+    +'.cel-dash{padding:12px 18px;font-family:\'Inter\',sans-serif;}'
+    +'.cel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:6px;}'
     +'.cel-h1{font-size:18px;font-weight:500;color:#111827;}'
-    +'.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:6px;}'
+    +'.kpi4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:6px;margin-top:0;}'
     +'.kc{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:7px 11px;}'
     +'.kc-lbl{font-size:9px;color:#9ca3af;margin-bottom:2px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;}'
     +'.kc-val{font-size:18px;font-weight:500;color:#111827;line-height:1;}'
