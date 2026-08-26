@@ -34254,6 +34254,7 @@ function switchView(v){
 
 // ═══ PERSONAL ═══
 var licencias = [], softwareEquipos = {};
+var invModoVista = 'cards';
 var licFilter = {q:'',categoria:'',estado:''};
 var personal = [], personalFilter = {q:'',direccion:'',departamento:''};
 var _personalCache = {}, _personalCacheBuilt = false;
@@ -35771,59 +35772,83 @@ function renderInventario(){
     }).join(''):'<tr><td colspan="13" class="empty-state">No hay equipos que coincidan</td></tr>')
     +'</tbody></table></div></div>'
     ;
-  if(isMobile()){
-    // En móvil reemplazar tabla por cards
-    w.querySelector('.tbl-box').innerHTML=
-      '<div class="tbl-hdr">'
-      +'<span class="tbl-hdr-title">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
+  var esMobile=isMobile();
+  var modoActual=esMobile?'cards':invModoVista;
+  var toggleBtn='';
+  if(!esMobile){
+    toggleBtn='<div style="display:flex;border:0.5px solid #e5e7eb;border-radius:8px;overflow:hidden;">'
+      +'<button onclick="invModoVista=\'cards\';renderInventario()" title="Tarjetas" style="padding:5px 10px;border:none;cursor:pointer;font-size:13px;background:'+(invModoVista==='cards'?'#1d4ed8':'#fff')+';color:'+(invModoVista==='cards'?'#fff':'#9ca3af')+';line-height:1;">&#9638;</button>'
+      +'<button onclick="invModoVista=\'tabla\';renderInventario()" title="Tabla" style="padding:5px 10px;border:none;cursor:pointer;font-size:13px;background:'+(invModoVista==='tabla'?'#1d4ed8':'#fff')+';color:'+(invModoVista==='tabla'?'#fff':'#9ca3af')+';line-height:1;">&#9776;</button>'
+      +'</div>';
+  }
+  if(modoActual==='cards'){
+    var filAreas='<select class="fi-sm" onchange="invFilter.area=this.value;renderInventario()"><option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
+    var filTipos='<select class="fi-sm" onchange="invFilter.tipo=this.value;renderInventario()"><option value="">Todos los tipos</option>'+tipos.map(function(t){return '<option value="'+t+'"'+(invFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>';
+    var filEstados='<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()"><option value="">Todos los estados</option>'+['Bueno','Regular','Malo','Baja','Obsoleto'].map(function(s){return '<option value="'+s+'"'+(invFilter.estado===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
+    w.innerHTML='<div style="padding:0 0 8px;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;flex-wrap:wrap;gap:8px;">'
+      +'<span style="font-size:13px;font-weight:500;color:#111827;">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
+      +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
+      +'<input class="fi-sm" type="text" placeholder="Buscar..." value="'+invFilter.q+'" oninput="invFilter.q=this.value;renderInventario()" style="width:150px;">'
+      +filAreas+filTipos+filEstados+toggleBtn
       +'<button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Nuevo</button>'
-      +'</div>'
-      +'<div style="padding:6px 12px 2px;">'
-      +'<input class="fi-sm" type="text" placeholder="🔍 Buscar..." value="'+invFilter.q+'" oninput="invFilter.q=this.value;renderInventario()" style="width:100%;margin-bottom:6px;">'
-      +'<div style="display:flex;gap:6px;margin-bottom:8px;">'
-      +'<select class="fi-sm" style="flex:1;" onchange="invFilter.area=this.value;renderInventario()">'
-      +'<option value="">Todas las áreas</option>'
-      +areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')
-      +'</select>'
-      +'<select class="fi-sm" style="flex:1;" onchange="invFilter.estado=this.value;renderInventario()">'
-      +'<option value="">Todos los estados</option>'
-      +['Bueno','Regular','Malo','Baja'].map(function(t){return '<option value="'+t+'"'+(invFilter.estado===t?' selected':'')+'>'+t+'</option>';}).join('')
-      +'</select>'
       +'</div></div>'
-      +'<div style="padding:0 12px 12px;">'
       +renderInventarioCards(data)
       +'</div>';
+  } else {
+    var tblBox=w.querySelector('.tbl-box');
+    if(tblBox){
+      var tools=tblBox.querySelector('.tbl-tools');
+      if(tools && toggleBtn){
+        var td=document.createElement('div');
+        td.innerHTML=toggleBtn;
+        tools.appendChild(td.firstChild);
+      }
+    }
   }
 }
 
-// CARDS MÓVIL para inventario
 function renderInventarioCards(data){
   if(!data.length) return '<div class="empty-state">No hay equipos que coincidan</div>';
-  return data.map(function(e){
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:12px;">'+data.map(function(e){
+    var anios=calcAnios(e.fecha);
+    var vc=vidaClass(anios);
+    var vcol=vc==='rojo'?'#dc2626':vc==='amarillo'?'#d97706':'#16a34a';
+    var vtxt=vc==='rojo'?'Cambio':vc==='amarillo'?'Proximo':'OK';
+    var ini=(e.responsable||'??').split(' ').map(function(x){return x[0]||'';}).join('').toUpperCase().slice(0,2);
+    var cols=[['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],['#fce7f3','#be185d'],['#ede9fe','#6d28d9']];
+    var col=cols[Math.abs((ini.charCodeAt(0)||65))%5];
     var eid=e.id;
-  return '<div style="background:#fff;border:1px solid #e8eaed;border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);" onclick="openPanel(this.dataset.eid)" data-eid="'+eid+'">'
-      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
-      +'<div style="flex:1;">'
-      +'<div style="font-size:14px;font-weight:700;color:#1c1e21;">'+(e.nombre||e.modelo)+'</div>'
-      +'<div style="font-size:12px;color:#9aa0a6;margin-top:2px;">'+e.marca+' '+e.modelo+'</div>'
+    return '<div class="inv-eq-card" data-id="'+eid+'" style="background:#fff;border:0.5px solid #e5e7eb;border-radius:12px;overflow:hidden;cursor:pointer;transition:box-shadow .15s;">'
+      +'<div style="height:3px;background:'+vcol+';"></div>'
+      +'<div style="padding:12px 14px;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+      +'<span style="font-family:monospace;font-size:10px;color:#9ca3af;">'+eid+'</span>'
+      +tipoPill(e.tipo)
       +'</div>'
-      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">'
-      +tipoPill(e.tipo)+estadoPill(e.estado)
-      +'</div></div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;color:#9aa0a6;margin-bottom:10px;">'
-      +'<div>📍 '+e.plaza+'</div>'
-      +'<div>🏢 '+(e.area||'—')+'</div>'
-      +'<div>💻 '+(e.cpu||'—')+'</div>'
-      +'<div>💾 '+(e.ram||'—')+'</div>'
-      +(e.ip?'<div>🌐 '+e.ip+'</div>':'')
-      +(e.so?'<div>🖥 '+e.so+'</div>':'')
+      +'<div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:2px;"><b>'+e.marca+'</b> <span style="color:#6b7280;font-weight:400;">'+e.modelo+'</span></div>'
+      +'<div style="font-size:11px;color:#9ca3af;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(e.area||'Sin area')+'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:0.5px solid #f3f4f6;border-bottom:0.5px solid #f3f4f6;margin-bottom:8px;">'
+      +'<div style="width:24px;height:24px;border-radius:50%;background:'+col[0]+';color:'+col[1]+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0;">'+ini+'</div>'
+      +'<div style="font-size:11px;color:#374151;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(e.responsable||'Sin asignar')+'</div>'
       +'</div>'
-      +'<div style="display:flex;gap:6px;">'
-      +'<button class="btn btn-sm" style="flex:1;justify-content:center;" onclick="event.stopPropagation();editEquipo(this.closest(\"[data-eid]\").dataset.eid)">✏️ Editar</button>'
-      +'<button class="btn btn-sm" style="flex:1;justify-content:center;" onclick="event.stopPropagation();openFormRepFor(this.closest(\"[data-eid]\").dataset.eid)">🔧 Reparación</button>'
-      +'<button class="btn btn-sm" onclick="event.stopPropagation();printFichaId(this.closest(\"[data-eid]\").dataset.eid)">🖨</button>'
-      +'</div></div>';
-  }).join('');
+      +'<div style="display:flex;align-items:center;justify-content:space-between;">'
+      +estadoPill(e.estado)
+      +'<span style="font-size:10px;font-weight:500;color:'+vcol+';">'+anios.toFixed(1)+'a · '+vtxt+'</span>'
+      +'</div>'
+      +'<div style="display:flex;gap:4px;margin-top:10px;" class="inv-card-btns">'
+      +'<button class="btn btn-sm" style="flex:1;font-size:11px;" data-act="ver" data-id="'+eid+'">Ver</button>'
+      +'<button class="btn btn-sm" style="font-size:11px;" data-act="edit" data-id="'+eid+'">&#9999;</button>'
+      +'<button class="btn btn-sm" style="font-size:11px;" data-act="res" data-id="'+eid+'">&#128196;</button>'
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('')+'</div>';
+}
+
+function generarResguardoDePanel2(id){
+  var e=equipos.find(function(x){return x.id===id;}); if(!e) return;
+  generarResguardo(e);
 }
 
 
@@ -36628,6 +36653,25 @@ function exportCelularesExcel(){
   URL.revokeObjectURL(url);
   toast('Excel descargado: '+data.length+' celulares');
 }
+
+// Delegacion de eventos para tarjetas de inventario
+document.addEventListener('click', function(ev){
+  var btn=ev.target.closest('[data-act]');
+  if(btn){
+    ev.stopPropagation();
+    var act=btn.dataset.act;
+    var id=btn.dataset.id;
+    if(act==='ver') openPanel(id);
+    else if(act==='edit') editEquipo(id);
+    else if(act==='res') generarResguardoDePanel2(id);
+    return;
+  }
+  var card=ev.target.closest('.inv-eq-card');
+  if(card && !ev.target.closest('.inv-card-btns')){
+    openPanel(card.dataset.id);
+  }
+});
+
 </script>
 </body>
 </html>
