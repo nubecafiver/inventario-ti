@@ -35559,7 +35559,7 @@ function renderQR(){
     +'<div class="qr-grid">'
     +data.map(function(e){
       var qrUrl='https://nubecafiver.github.io/inventario-ti/#'+e.id;
-      return '<div class="qr-card">'        +makeQR(qrUrl,150)        +'<div class="qr-id">'+e.id+'</div>'        +'<div class="qr-lbl">'+(e.modelo||e.marca||'')+'</div>'        +(e.serie?'<div class="qr-sub">S/N: '+e.serie+'</div>':'')+'<div style="display:flex;gap:4px;width:100%;">'
+      return '<div class="qr-card">'        +makeQR(qrUrl,150)        +'<div class="qr-id">'+(e.af||e.id)+'</div>'        +'<div class="qr-lbl">'+(e.modelo||e.marca||'')+'</div>'        +(e.serie?'<div class="qr-sub">S/N: '+e.serie+'</div>':'')+'<div style="display:flex;gap:4px;width:100%;">'
         +'<button class="btn btn-sm" style="flex:1;justify-content:center;" onclick="openPanel(\''+e.id+'\')">👁 Ver</button>'
         +'<button class="btn btn-sm" style="flex:1;justify-content:center;" onclick="printFichaId(\''+e.id+'\')">🖨</button>'
         +'</div>'
@@ -35915,7 +35915,7 @@ function makeQRUrl(id){
 }
 
 function etiqHTML(e){
-  return '<img class="elogo" src="'+LOGO_B64+'" alt="CAFIVER">'    +'<div class="einfo">'    +'<img class="eqr" src="'+makeQRUrl(e.id)+'" alt="QR">'    +'<div class="edata">'    +'<div class="eid">'+e.id+'</div>'    +'<div class="emod">'+(e.modelo||e.marca||'')+'</div>'    +(e.serie?'<div class="eser">S/N: '+e.serie+'</div>':'')    +'</div>'    +'</div>';
+  return '<img class="elogo" src="'+LOGO_B64+'" alt="CAFIVER">'    +'<div class="einfo">'    +'<img class="eqr" src="'+makeQRUrl(e.id)+'" alt="QR">'    +'<div class="edata">'    +'<div class="eid">'+(e.af||e.id)+'</div>'    +'<div class="emod">'+(e.modelo||e.marca||'')+'</div>'    +(e.serie?'<div class="eser">S/N: '+e.serie+'</div>':'')    +'</div>'    +'</div>';
 }
 
 
