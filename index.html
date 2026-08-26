@@ -33447,11 +33447,13 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
 .etiq-hoja{background:#fff;width:21.59cm;margin:0 auto 20px;padding:1cm;box-shadow:0 4px 20px rgba(0,0,0,.15);display:grid;grid-template-columns:repeat(3,5cm);grid-auto-rows:2.5cm;gap:0;}
 .etiq{width:5cm;height:2.5cm;border:.5pt solid #ddd;display:flex;align-items:center;padding:1.5mm 2mm;gap:2mm;background:#fff;overflow:hidden;position:relative;cursor:pointer;transition:box-shadow .15s;}
 .etiq:hover{box-shadow:inset 0 0 0 2px #1a73e8;}
-.etiq .elogo{width:14mm;height:14mm;flex-shrink:0;object-fit:contain;}
-.etiq .einfo{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5mm;}
-.etiq .eqr{width:13mm;height:13mm;}
-.etiq .eid{font-size:6pt;font-weight:700;letter-spacing:.3px;text-align:center;font-family:Arial,sans-serif;color:#000;}
-.etiq .enombre{font-size:4.5pt;color:#555;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:20mm;font-family:Arial,sans-serif;}
+.etiq .elogo{width:12mm;height:12mm;flex-shrink:0;object-fit:contain;}
+.etiq .einfo{flex:1;display:flex;flex-direction:row;align-items:center;gap:1.5mm;}
+.etiq .eqr{width:14mm;height:14mm;flex-shrink:0;}
+.etiq .edata{display:flex;flex-direction:column;justify-content:center;gap:.3mm;overflow:hidden;}
+.etiq .eid{font-size:6.5pt;font-weight:800;letter-spacing:.3px;font-family:Arial,sans-serif;color:#000;white-space:nowrap;}
+.etiq .emod{font-size:5pt;color:#222;font-family:Arial,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22mm;font-weight:600;}
+.etiq .eser{font-size:4.5pt;color:#555;font-family:Arial,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22mm;}
 .etiq.vacia{border:.5pt dashed #eee;background:#fafafa;cursor:default;}
 .etiq.vacia:hover{box-shadow:none;}
 
@@ -33465,11 +33467,13 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
     overflow:hidden;position:fixed;top:1cm;left:1cm;
     font-family:Arial,sans-serif;
   }
-  .print-etiq-single .elogo{width:14mm;height:14mm;object-fit:contain;}
-  .print-etiq-single .einfo{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5mm;}
-  .print-etiq-single .eqr{width:13mm;height:13mm;}
-  .print-etiq-single .eid{font-size:6pt;font-weight:700;letter-spacing:.3px;}
-  .print-etiq-single .enombre{font-size:4.5pt;color:#555;text-align:center;}
+  .print-etiq-single .elogo{width:12mm;height:12mm;object-fit:contain;flex-shrink:0;}
+  .print-etiq-single .einfo{flex:1;display:flex;flex-direction:row;align-items:center;gap:1.5mm;}
+  .print-etiq-single .eqr{width:14mm;height:14mm;flex-shrink:0;}
+  .print-etiq-single .edata{display:flex;flex-direction:column;justify-content:center;gap:.3mm;}
+  .print-etiq-single .eid{font-size:6.5pt;font-weight:800;letter-spacing:.3px;}
+  .print-etiq-single .emod{font-size:5pt;color:#222;font-weight:600;white-space:nowrap;overflow:hidden;}
+  .print-etiq-single .eser{font-size:4.5pt;color:#555;white-space:nowrap;overflow:hidden;}
   @page{size:5cm 2.5cm;margin:0;}
 }
 @media print {
@@ -33678,6 +33682,8 @@ table.mts tr:hover td{background:#f9fafb;}
     <button class="dp-tab"    id="dpt-historial"    onclick="dpTab('software')" id="dpt-software"><i class='ti ti-key'></i> Software</button>
         <button class="dp-tab"    onclick="dpTab('historial')">Historial</button>
     <button class="dp-tab"    id="dpt-asignaciones" onclick="dpTab('asignaciones')">👤 Asignaciones</button>
+  <button class="dp-tab" id="dpt-fotos"     onclick="dpTab('fotos')">📷 Fotos</button>
+  <button class="dp-tab" id="dpt-resguardo" onclick="dpTab('resguardo')">📄 Resguardo</button>
   </div>
   <div class="dp-body" id="dp-body"></div>
 </div>
@@ -33943,6 +33949,7 @@ table.mts tr:hover td{background:#f9fafb;}
             <option value="Libre">Libre</option>
             <option value="En reparacion">En reparacion</option>
             <option value="Baja">Baja</option>
+      <option value="Obsoleto">Obsoleto</option>
           </select>
         </div>
         <div class="af"><label>N Pers (SAP)</label><input type="text" id="cel-f-num_pers" placeholder="50001"></div>
@@ -34601,8 +34608,9 @@ function loadPersonal(){
   db.collection('personal').onSnapshot(function(s){
     personal = s.docs.map(function(d){return d.data();});
     _personalCacheBuilt = false;
+    console.log('Personal cargado:', personal.length, 'empleados');
     if(curView==='personal') renderPersonal();
-  },function(e){console.warn('personal:',e.message);});
+  },function(e){console.error('ERROR personal:',e.code, e.message);toast('Error cargando personal: '+e.message);});
 }
 
 function getAvatarStyle(nombre){
@@ -34740,6 +34748,235 @@ function renderPersonal(){
     +'<thead><tr><th>Empleado</th><th>Puesto</th><th>Departamento</th><th>Dirección</th><th>Equipos</th><th>Estado</th><th>Acciones</th></tr></thead>'
     +'<tbody>'+(rows||'<tr><td colspan="7" class="empty-state">Sin empleados. Ejecuta el importador primero.</td></tr>')+'</tbody>'
     +'</table></div></div>';
+}
+
+
+// ═══ CATÁLOGO Y SIMULADOR ═══
+function loadCatalogo(){
+  db.collection('catalogo').onSnapshot(function(s){
+    catalogo=s.docs.map(function(d){return d.data();});
+    if(curView==='simulador') renderSimulador();
+  },function(e){console.warn('catalogo:',e.message);});
+}
+
+function renderSimulador(){
+  var w=document.getElementById('view-simulador');if(!w)return;
+  var vidaUtil=parseInt(localStorage.getItem('sim_vida')||'4');
+  var presupuesto=parseFloat(localStorage.getItem('sim_presupuesto')||'500000');
+  var precioDesk=parseFloat(localStorage.getItem('sim_desk')||'18000');
+  var precioLap=parseFloat(localStorage.getItem('sim_lap')||'25000');
+  var modo=localStorage.getItem('sim_modo')||'ambos';
+
+  // Calcular
+  var candidatos=equipos.filter(function(e){
+    var anios=calcAnios(e.fecha);
+    var isViejo=anios>=vidaUtil;
+    var isMalo=e.estado==='Malo'||e.estado==='Regular';
+    if(modo==='edad') return isViejo;
+    if(modo==='estado') return isMalo;
+    return isViejo||isMalo;
+  });
+
+  var costoTotal=candidatos.reduce(function(a,e){
+    return a+(e.tipo==='Laptop'?precioLap:precioDesk);
+  },0);
+
+  var catItems=catalogo.length?catalogo.map(function(item){
+    return '<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px;">'
+      +'<div style="flex:1;"><div style="font-size:12px;font-weight:500;">'+item.tipo+' '+item.marca+' '+item.modelo+'</div>'
+      +'<div style="font-size:10px;color:#9ca3af;">'+item.descripcion+'</div></div>'
+      +'<div style="text-align:right;"><div style="font-weight:600;color:#1d4ed8;font-size:13px;">$'+parseFloat(item.precio||0).toLocaleString('es-MX')+'</div>'
+      +'<div style="font-size:10px;color:#9ca3af;">'+item.tipo+'</div></div>'
+      +'</div>';
+  }).join(''):'<div style="color:#9ca3af;font-size:12px;padding:10px;">Sin equipos en catálogo.</div>';
+
+  var rows=candidatos.slice(0,20).map(function(e){
+    var anios=calcAnios(e.fecha).toFixed(1);
+    var precio=e.tipo==='Laptop'?precioLap:precioDesk;
+    return '<tr><td style="padding:7px 12px;font-size:11px;font-weight:500;">'+e.id+'</td>'
+      +'<td style="padding:7px 12px;font-size:11px;">'+e.marca+' '+e.modelo+'</td>'
+      +'<td style="padding:7px 12px;"><span class="pill '+vidaClass(parseFloat(anios))+'">'+anios+' años</span></td>'
+      +'<td style="padding:7px 12px;"><span class="'+estadoPill(e.estado)+'">'+e.estado+'</span></td>'
+      +'<td style="padding:7px 12px;font-size:11px;color:#6b7280;">'+e.responsable+'</td>'
+      +'<td style="padding:7px 12px;font-size:11px;font-weight:500;color:#1d4ed8;">$'+precio.toLocaleString('es-MX')+'</td>'
+      +'</tr>';
+  }).join('');
+
+  w.innerHTML=
+    '<div class="dash-title">Simulador de Reemplazo</div>'
+    +'<div class="dash-sub">Planifica el presupuesto de renovación de equipos</div>'
+    +'<div style="display:grid;grid-template-columns:300px 1fr;gap:16px;">'
+    // Panel izquierdo parámetros
+    +'<div>'
+    +'<div class="tbl-box" style="padding:16px;margin-bottom:12px;">'
+    +'<div style="font-size:12px;font-weight:600;margin-bottom:12px;">⚙️ Parámetros</div>'
+    +'<label style="font-size:11px;color:#6b7280;display:block;margin-bottom:4px;">Vida útil (años)</label>'
+    +'<input type="range" min="2" max="8" value="'+vidaUtil+'" style="width:100%;" oninput="this.nextElementSibling.textContent=this.value+\' años\';localStorage.setItem(\'sim_vida\',this.value);renderSimulador()">'
+    +'<span style="font-size:11px;color:#374151;">'+vidaUtil+' años</span>'
+    +'<label style="font-size:11px;color:#6b7280;display:block;margin-top:10px;margin-bottom:4px;">Precio Desktop ($)</label>'
+    +'<input type="number" value="'+precioDesk+'" style="width:100%;padding:6px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;" onchange="localStorage.setItem(\'sim_desk\',this.value);renderSimulador()">'
+    +'<label style="font-size:11px;color:#6b7280;display:block;margin-top:8px;margin-bottom:4px;">Precio Laptop ($)</label>'
+    +'<input type="number" value="'+precioLap+'" style="width:100%;padding:6px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;" onchange="localStorage.setItem(\'sim_lap\',this.value);renderSimulador()">'
+    +'<label style="font-size:11px;color:#6b7280;display:block;margin-top:8px;margin-bottom:4px;">Criterio de selección</label>'
+    +'<select style="width:100%;padding:6px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;" onchange="localStorage.setItem(\'sim_modo\',this.value);renderSimulador()">'
+    +'<option value="ambos"'+(modo==='ambos'?' selected':'')+'>Edad + Estado</option>'
+    +'<option value="edad"'+(modo==='edad'?' selected':'')+'>Solo edad</option>'
+    +'<option value="estado"'+(modo==='estado'?' selected':'')+'>Solo estado</option>'
+    +'</select>'
+    +'</div>'
+    +'<div class="tbl-box" style="padding:16px;">'
+    +'<div style="font-size:12px;font-weight:600;margin-bottom:10px;">📋 Catálogo de equipos</div>'
+    +catItems
+    +'</div>'
+    +'</div>'
+    // Panel derecho resultados
+    +'<div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">'
+    +'<div class="stat-card"><div class="lbl">Para reemplazar</div><div class="val" style="color:#dc2626;">'+candidatos.length+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Costo estimado</div><div class="val" style="color:#1d4ed8;font-size:16px;">$'+costoTotal.toLocaleString('es-MX')+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Presupuesto disponible</div><div class="val" style="color:'+(presupuesto>=costoTotal?'#16a34a':'#dc2626')+';font-size:16px;">$'+presupuesto.toLocaleString('es-MX')+'</div><input type="number" value="'+presupuesto+'" style="width:100%;margin-top:6px;padding:4px;border:1px solid #e5e7eb;border-radius:4px;font-size:11px;" onchange="localStorage.setItem(\'sim_presupuesto\',this.value);renderSimulador()"></div>'
+    +'</div>'
+    +(costoTotal>presupuesto?'<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#dc2626;">⚠️ El costo de reemplazo supera el presupuesto por $'+(costoTotal-presupuesto).toLocaleString('es-MX')+'</div>':'')
+    +(costoTotal<=presupuesto&&candidatos.length?'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#16a34a;">✅ Presupuesto suficiente para renovar los '+candidatos.length+' equipos</div>':'')
+    +'<div class="tbl-box"><div style="overflow-x:auto;"><table><thead><tr><th>ID</th><th>Equipo</th><th>Antigüedad</th><th>Estado</th><th>Responsable</th><th>Precio</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></div>'
+    +(candidatos.length>20?'<div style="text-align:center;padding:8px;font-size:11px;color:#9ca3af;">Mostrando 20 de '+candidatos.length+' equipos</div>':'')
+    +'</div>'
+    +'</div>'
+    +'</div>';
+}
+
+// ═══ ELIMINAR REPARACIÓN ═══
+function deleteReparacion(id){
+  if(!id){toast('ID de reparación no válido');return;}
+  if(!confirm('¿Eliminar esta reparación? Esta acción no se puede deshacer.')) return;
+  db.collection('reparaciones').doc(id).delete()
+    .then(function(){toast('Reparación eliminada');})
+    .catch(function(e){toast('Error al eliminar: '+e.message);});
+}
+
+
+// ═══ FOTOS DEL EQUIPO ═══
+function renderFotosEquipo(equipoId){
+  var e=equipos.find(function(x){return x.id===equipoId;}); if(!e)return '';
+  var fotos=e.fotos||[];
+  var fotosHTML=fotos.length?fotos.map(function(f,i){
+    return '<div style="position:relative;display:inline-block;margin:4px;">'
+      +'<img src="'+f.url+'" alt="Foto '+(i+1)+'" style="width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open(\''+f.url+'\',\'_blank\')">'
+      +'<div style="font-size:9px;color:#9ca3af;text-align:center;margin-top:2px;">'+f.fecha+'</div>'
+      +'<button onclick="deleteFotoEquipo(\''+equipoId+'\','+i+')" style="position:absolute;top:2px;right:2px;background:rgba(220,38,38,.85);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;line-height:1;">×</button>'
+      +'</div>';
+  }).join('')
+  :'<div style="text-align:center;padding:20px;color:#9ca3af;"><div style="font-size:32px;margin-bottom:8px;">📷</div><div style="font-size:13px;">Sin fotos registradas</div></div>';
+
+  return '<div style="padding:12px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+    +'<span style="font-size:12px;font-weight:500;color:#374151;">Fotos del equipo</span>'
+    +'<div style="display:flex;gap:6px;">'
+    // Botón tomar foto con cámara (funciona en móvil y PC con cámara)
+    +'<label class="btn btn-sm btn-blue" style="cursor:pointer;font-size:11px;">'
+    +'📷 Tomar/subir foto'
+    +'<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="subirFotoEquipo(\''+equipoId+'\',this)">'
+    +'</label>'
+    +'</div></div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:0;">'+fotosHTML+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:8px;">Las fotos se guardan como URL en Firebase. Tamaño máximo recomendado: 2MB.</div>'
+    +'</div>';
+}
+
+function subirFotoEquipo(equipoId, input){
+  var file=input.files[0]; if(!file) return;
+  if(file.size>3*1024*1024){toast('La foto es muy grande. Máximo 3MB.');return;}
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var dataUrl=ev.target.result;
+    var e=equipos.find(function(x){return x.id===equipoId;}); if(!e) return;
+    var fotos=(e.fotos||[]).concat([{
+      url:dataUrl,
+      fecha:nowStr(),
+      por:curUser?curUser.name:''
+    }]);
+    setSyncUI('saving','Guardando foto...');
+    db.collection('equipos').doc(equipoId).update({fotos:fotos})
+      .then(function(){setSyncUI('ok','En linea');toast('Foto guardada');dpTab('fotos');})
+      .catch(function(err){setSyncUI('error','Error');toast('Error: '+err.message);});
+  };
+  reader.readAsDataURL(file);
+}
+
+function deleteFotoEquipo(equipoId, idx){
+  if(!confirm('¿Eliminar esta foto?')) return;
+  var e=equipos.find(function(x){return x.id===equipoId;}); if(!e) return;
+  var fotos=(e.fotos||[]).filter(function(_,i){return i!==idx;});
+  db.collection('equipos').doc(equipoId).update({fotos:fotos})
+    .then(function(){toast('Foto eliminada');dpTab('fotos');})
+    .catch(function(err){toast('Error: '+err.message);});
+}
+
+// ═══ RESGUARDO FIRMADO ═══
+function renderResguardoTab(equipoId){
+  var e=equipos.find(function(x){return x.id===equipoId;}); if(!e) return '';
+  var docs=e.resguardos||[];
+
+  var docsHTML=docs.length?docs.map(function(d,i){
+    var ext=(d.url||'').split('.').pop().toLowerCase();
+    var esImg=['jpg','jpeg','png','gif','webp'].indexOf(ext)>=0;
+    var esPDF=ext==='pdf';
+    return '<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">'
+      +'<span style="font-size:24px;">'+(esImg?'🖼':esPDF?'📋':'📄')+'</span>'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:12px;font-weight:500;color:#111827;">'+(d.nombre||'Resguardo '+(i+1))+'</div>'
+      +'<div style="font-size:10px;color:#9ca3af;">Subido: '+d.fecha+(d.por?' por '+d.por:'')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:4px;">'
+      +'<a href="'+d.url+'" target="_blank" class="btn btn-sm" style="font-size:11px;text-decoration:none;">👁 Ver</a>'
+      +'<button onclick="deleteResguardo(\''+equipoId+'\','+i+')" class="btn btn-sm" style="font-size:11px;background:#fee2e2;color:#dc2626;border:none;cursor:pointer;">🗑</button>'
+      +'</div>'
+      +'</div>';
+  }).join('')
+  :'<div style="text-align:center;padding:20px;color:#9ca3af;"><div style="font-size:32px;margin-bottom:8px;">📋</div><div style="font-size:13px;margin-bottom:4px;">Sin resguardos subidos</div><div style="font-size:11px;">Sube el resguardo firmado por el empleado</div></div>';
+
+  return '<div style="padding:12px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+    +'<span style="font-size:12px;font-weight:500;color:#374151;">Resguardos firmados</span>'
+    +'<label class="btn btn-sm btn-blue" style="cursor:pointer;font-size:11px;">'
+    +'📎 Subir resguardo firmado'
+    +'<input type="file" accept="image/*,.pdf" capture="environment" style="display:none;" onchange="subirResguardo(\''+equipoId+'\',this)">'
+    +'</label>'
+    +'</div>'
+    +'<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#92400e;">💡 Puedes subir una foto del resguardo firmado tomada con tu celular, o un PDF escaneado.</div>'
+    +docsHTML
+    +'</div>';
+}
+
+function subirResguardo(equipoId, input){
+  var file=input.files[0]; if(!file) return;
+  if(file.size>5*1024*1024){toast('Archivo muy grande. Máximo 5MB.');return;}
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var dataUrl=ev.target.result;
+    var e=equipos.find(function(x){return x.id===equipoId;}); if(!e) return;
+    var resguardos=(e.resguardos||[]).concat([{
+      url:dataUrl,
+      nombre:'Resguardo_'+equipoId+'_'+nowStr().replace(/[^0-9]/g,''),
+      fecha:nowStr(),
+      por:curUser?curUser.name:''
+    }]);
+    setSyncUI('saving','Guardando resguardo...');
+    db.collection('equipos').doc(equipoId).update({resguardos:resguardos})
+      .then(function(){setSyncUI('ok','En linea');toast('Resguardo guardado');dpTab('resguardo');})
+      .catch(function(err){setSyncUI('error','Error');toast('Error: '+err.message);});
+  };
+  reader.readAsDataURL(file);
+}
+
+function deleteResguardo(equipoId, idx){
+  if(!confirm('¿Eliminar este resguardo?')) return;
+  var e=equipos.find(function(x){return x.id===equipoId;}); if(!e) return;
+  var resguardos=(e.resguardos||[]).filter(function(_,i){return i!==idx;});
+  db.collection('equipos').doc(equipoId).update({resguardos:resguardos})
+    .then(function(){toast('Resguardo eliminado');dpTab('resguardo');})
+    .catch(function(err){toast('Error: '+err.message);});
 }
 
 function renderDashboard(){
@@ -35096,7 +35333,7 @@ function deleteFromPanel(){deleteEquipo(openEquipoId);}
 
 function dpTab(tab){
   dpCurTab=tab;
-  ['info','red','compra','software','historial','asignaciones'].forEach(function(x){var el=document.getElementById('dpt-'+x);if(el)el.classList.toggle('on',x===tab);});
+  ['info','red','compra','software','historial','asignaciones','fotos','resguardo'].forEach(function(x){var el=document.getElementById('dpt-'+x);if(el)el.classList.toggle('on',x===tab);});
   var e=equipos.find(function(x){return x.id===openEquipoId;});if(!e)return;
   var body=document.getElementById('dp-body');
   var reps=reparaciones.filter(function(r){return r.equipo_id===openEquipoId;});
@@ -35244,6 +35481,10 @@ function dpTab(tab){
         :'<div style="font-size:12px;color:#9aa0a6;padding:8px 0;">Sin movimientos registrados.</div>'
         +'<button class="btn btn-sm" style="margin-top:6px;" onclick="openTransfer(this.dataset.id)" data-id="'+openEquipoId+'">🔄 Registrar primera asignación</button>'
       );
+  } else if(tab==='fotos'){
+    body.innerHTML=renderFotosEquipo(openEquipoId);
+  } else if(tab==='resguardo'){
+    body.innerHTML=renderResguardoTab(openEquipoId);
   }
 }
 function togglePass(sid,enc){var s=document.getElementById(sid);if(!s)return;if(s.style.display==='none'){s.textContent=decodeURIComponent(enc);s.style.display='inline';}else s.style.display='none';}
@@ -35378,6 +35619,10 @@ function renderReparaciones(){
         +'</div></div>'
         +(r.desc?'<div style="font-size:12px;color:#5f6368;margin-top:6px;">'+r.desc+'</div>':'')
         +(r.tecnico?'<div style="font-size:11px;margin-top:4px;color:#9aa0a6;">Técnico: <b>'+r.tecnico+'</b></div>':'')
+        +'<div style="display:flex;justify-content:flex-end;margin-top:8px;gap:6px;">'
+        +'<button class="btn btn-sm" style="font-size:11px;background:#f1f5f9;color:#374151;" data-rid="'+r.id+'" onclick="openFormRepFor(this.dataset.rid)">✎ Editar</button>'
+        +'<button class="btn btn-sm" style="font-size:11px;background:#fee2e2;color:#dc2626;" data-rid="'+r.id+'" onclick="deleteReparacion(this.dataset.rid)">🗑 Eliminar</button>'
+        +'</div>'
         +'</div>';
     }).join('')
     +(!data.length?'<div class="tbl-box"><div class="empty-state">Sin reparaciones registradas.</div></div>':'');
@@ -35642,109 +35887,7 @@ function makeQRUrl(id){
 }
 
 function etiqHTML(e){
-  return '<div class="elogo-wrap" style="width:14mm;height:14mm;flex-shrink:0;display:flex;align-items:center;justify-content:center;">'
-    +'<img class="elogo" src="'+LOGO_B64+'" alt="CAFIVER">'
-    +'</div>'
-    +'<div class="einfo">'
-    +'<img class="eqr" src="'+makeQRUrl(e.id)+'" alt="QR">'
-    +'<div class="eid">'+e.id+'</div>'
-    +'<div class="enombre">'+(e.nombre||e.modelo||'')+'</div>'
-    +'</div>';
-}
-
-function renderEtiquetas(){
-  var w=document.getElementById('view-etiquetas');if(!w)return;
-  var areas2=[],plazas2=[];
-  equipos.forEach(function(e){
-    if(areas2.indexOf(e.area)<0&&e.area)areas2.push(e.area);
-    if(plazas2.indexOf(e.plaza)<0&&e.plaza)plazas2.push(e.plaza);
-  });
-  areas2.sort();plazas2.sort();
-
-  var data=equipos.filter(function(e){
-    if(etiqFilter.area&&e.area!==etiqFilter.area)return false;
-    if(etiqFilter.plaza&&e.plaza!==etiqFilter.plaza)return false;
-    if(etiqFilter.tipo&&e.tipo!==etiqFilter.tipo)return false;
-    if(etiqFilter.estado&&e.estado!==etiqFilter.estado)return false;
-    if(etiqFilter.q&&!(e.id+e.nombre+e.modelo+e.marca).toLowerCase().includes(etiqFilter.q.toLowerCase()))return false;
-    return true;
-  }).sort(function(a,b){return a.id<b.id?-1:1;});
-
-  var hojas=[];
-  for(var i=0;i<data.length;i+=ETIQ_POR_HOJA) hojas.push(data.slice(i,i+ETIQ_POR_HOJA));
-  if(!hojas.length) hojas.push([]);
-
-  w.innerHTML=
-    '<div style="background:#fff;border-bottom:1px solid #e8eaed;padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.07);">'
-    +'<select class="fi-sm" onchange="etiqFilter.area=this.value;renderEtiquetas()">'
-    +'<option value="">Todas las áreas</option>'
-    +areas2.map(function(a){return '<option value="'+a+'"'+(etiqFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')
-    +'</select>'
-    +'<select class="fi-sm" onchange="etiqFilter.plaza=this.value;renderEtiquetas()">'
-    +'<option value="">Todas las plazas</option>'
-    +plazas2.map(function(p){return '<option value="'+p+'"'+(etiqFilter.plaza===p?' selected':'')+'>'+p+'</option>';}).join('')
-    +'</select>'
-    +'<select class="fi-sm" onchange="etiqFilter.tipo=this.value;renderEtiquetas()">'
-    +'<option value="">Todos los tipos</option>'
-    +['Desktop','Laptop','Servidor','Impresora','Celular','Otro'].map(function(t){return '<option value="'+t+'"'+(etiqFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')
-    +'</select>'
-    +'<select class="fi-sm" onchange="etiqFilter.estado=this.value;renderEtiquetas()">'
-    +'<option value="">Todos los estados</option>'
-    +['Bueno','Regular','Malo','Baja'].map(function(t){return '<option value="'+t+'"'+(etiqFilter.estado===t?' selected':'')+'>'+t+'</option>';}).join('')
-    +'</select>'
-    +'<input class="fi-sm" type="text" placeholder="🔍 Buscar equipo..." style="width:180px;" value="'+etiqFilter.q+'" oninput="etiqFilter.q=this.value;renderEtiquetas()">'
-    +'<span style="font-size:12px;color:#9aa0a6;margin-left:4px;">'+data.length+' etiqueta'+(data.length!==1?'s':'')+' · '+Math.ceil(data.length/ETIQ_POR_HOJA)+' hoja'+(Math.ceil(data.length/ETIQ_POR_HOJA)!==1?'s':'')+'</span>'
-    +'<button class="btn btn-blue btn-sm" style="margin-left:auto;" onclick="printTodasEtiquetas()">🖨 Imprimir todas</button>'
-    +'</div>'
-    +'<div style="padding:20px;background:#e8eaed;">'
-    +hojas.map(function(hoja){
-      var items='';
-      for(var j=0;j<ETIQ_POR_HOJA;j++){
-        var e=hoja[j];
-        if(!e){
-          items+='<div class="etiq vacia"></div>';
-        } else {
-          items+='<div class="etiq" onclick="printEtiqueta(this.dataset.id)" data-id="'+e.id+'" title="Clic para imprimir esta etiqueta">'+etiqHTML(e)+'</div>';
-        }
-      }
-      return '<div class="etiq-hoja">'+items+'</div>';
-    }).join('')
-    +'<div style="text-align:center;font-size:11px;color:#9aa0a6;margin-top:8px;">Clic en una etiqueta para imprimirla individualmente</div>'
-    +'</div>';
-}
-
-function printEtiqueta(id){
-  var e=equipos.find(function(x){return x.id===id;});if(!e)return;
-  var div=document.createElement('div');
-  div.className='print-etiq-single';
-  div.style.cssText='position:fixed;top:-9999px;left:-9999px;width:5cm;height:2.5cm;display:flex;align-items:center;padding:1.5mm 2mm;gap:2mm;font-family:Arial,sans-serif;background:#fff;border:.5pt solid #999;z-index:9999;';
-  div.innerHTML=etiqHTML(e);
-  document.body.appendChild(div);
-  // Esperar a que cargue el QR
-  setTimeout(function(){
-    var style=document.createElement('style');
-    style.id='print-etiq-style';
-    style.textContent='@media print{body>*:not(.print-etiq-single){display:none!important;}.print-etiq-single{position:fixed!important;top:0!important;left:0!important;display:flex!important;}@page{size:5cm 2.5cm;margin:0;}}';
-    document.head.appendChild(style);
-    window.print();
-    setTimeout(function(){
-      document.body.removeChild(div);
-      var s=document.getElementById('print-etiq-style');
-      if(s)document.head.removeChild(s);
-    },500);
-  },800);
-}
-
-function printTodasEtiquetas(){
-  var style=document.createElement('style');
-  style.id='print-hoja-style';
-  style.textContent='@media print{body>*{display:none!important;}#view-etiquetas{display:block!important;overflow:visible!important;background:#fff!important;}.etiq-hoja{box-shadow:none!important;page-break-after:always;}.etiq{border:.5pt solid #999!important;}@page{size:letter;margin:1cm;}}';
-  document.head.appendChild(style);
-  window.print();
-  setTimeout(function(){
-    var s=document.getElementById('print-hoja-style');
-    if(s)document.head.removeChild(s);
-  },500);
+  return '<img class="elogo" src="'+LOGO_B64+'" alt="CAFIVER">'    +'<div class="einfo">'    +'<img class="eqr" src="'+makeQRUrl(e.id)+'" alt="QR">'    +'<div class="edata">'    +'<div class="eid">'+e.id+'</div>'    +'<div class="emod">'+(e.modelo||e.marca||'')+'</div>'    +(e.serie?'<div class="eser">S/N: '+e.serie+'</div>':'')    +'</div>'    +'</div>';
 }
 
 
@@ -36367,6 +36510,16 @@ function renderCelulares(){
     +(celFilter.areas.length?'<div class="kc-sub" style="color:#7c3aed;">Selección: $'+(selMPE*12).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>':'<div class="kc-sub">Proyección 12 meses</div>')
     +'</div>'
     +'<div class="kc"><div class="kc-lbl">Marcas</div><div class="kc-val" style="color:#d97706;">'+marcas.length+'</div><div class="kc-sub">'+marcas.join(' · ')+'</div></div>'
+    +'</div>'
+
+    // BARRA RÁPIDA de estado entre KPIs y área
+    +'<div style="display:flex;gap:8px;align-items:center;padding:6px 0;margin-bottom:8px;flex-wrap:wrap;">'
+    +'<span style="font-size:10px;color:#6b7280;font-weight:500;">RESUMEN:</span>'
+    +'<span style="background:#eff6ff;color:#1d4ed8;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:500;cursor:pointer;" onclick="celFilter.areas=[];renderCelulares()">📱 '+celulares.length+' líneas totales</span>'
+    +'<span style="background:#dcfce7;color:#15803d;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:500;">💰 $'+totalMPE.toLocaleString('es-MX',{minimumFractionDigits:2})+'/mes</span>'
+    +'<span style="background:#fef3c7;color:#d97706;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:500;">📅 $'+(totalMPE*12).toLocaleString('es-MX',{minimumFractionDigits:2})+'/año</span>'
+    +marcas.map(function(m){var cnt=celulares.filter(function(x){return x.marca===m;}).length;return '<span style="background:#f5f3ff;color:#7c3aed;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:500;">'+m+': '+cnt+'</span>';}).join('')
+    +(celFilter.areas.length?'<span style="background:#1d4ed8;color:#fff;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:500;cursor:pointer;" onclick="celFilter.areas=[];renderCelulares()">✕ Limpiar selección</span>':'')
     +'</div>'
 
     // BODY: barras + marcas
