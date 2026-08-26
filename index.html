@@ -35754,14 +35754,9 @@ function renderInventario(){
         +'<td>'+estadoPill(e.estado)+'</td>'
         +'<td>'+vidaPill(e.fecha)+'</td>'
         +'<td><div style="display:flex;gap:3px;">'
-        +'<button class="icon-btn" title="Ver" onclick="event.stopPropagation();openPanel(\''+e.id+'\')">👁</button>'
-        +'<button class="icon-btn" title="Editar" onclick="event.stopPropagation();editEquipo(\''+e.id+'\')">✏️</button>'
-        +'<button class="icon-btn" title="Reparación" onclick="event.stopPropagation();openFormRepFor(\''+e.id+'\')">🔧</button>'
-        +'<button class="icon-btn" title="Imprimir ficha" onclick="event.stopPropagation();printFichaId(\''+e.id+'\')">🖨</button>'
-        +'<button class="icon-btn" title="Imprimir etiqueta" onclick="event.stopPropagation();printEtiqueta(\''+e.id+'\')">🏷</button>'
-        +'<button class="icon-btn" title="Transferir" onclick="event.stopPropagation();openTransfer(\''+e.id+'\')">🔄</button>'
-        +'<button class="icon-btn" title="Eliminar" onclick="event.stopPropagation();deleteEquipo(\''+e.id+'\')" style="color:#ea4335;">🗑</button>'
-        +'</div></td>'
+        +'<button class="icon-btn" data-act="ver" data-bid="'+e.id+'" onclick="event.stopPropagation();openPanel(this.dataset.bid)" title="Ver">&#128065;</button>'
+        +'<button class="icon-btn" data-act="edit" data-bid="'+e.id+'" onclick="event.stopPropagation();editEquipo(this.dataset.bid)" title="Editar">&#9999;&#65039;</button>'
+        +'<button class="icon-btn" data-act="del" data-bid="'+e.id+'" onclick="event.stopPropagation();deleteEquipo(this.dataset.bid)" title="Eliminar" style="color:#ea4335;">&#128465;</button>'+'</div></td>'
         +'</tr>';
     }).join(''):'<tr><td colspan="13" class="empty-state">No hay equipos que coincidan</td></tr>')
     +'</tbody></table></div></div>'
@@ -35776,6 +35771,7 @@ function renderInventario(){
       +'</div>';
   }
   if(modoActual==='cards'){
+    var tipos=[...new Set(equipos.map(function(e){return e.tipo;}).filter(Boolean))].sort();
     var filAreas='<select class="fi-sm" onchange="invFilter.area=this.value;renderInventario()"><option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
     var filTipos='<select class="fi-sm" onchange="invFilter.tipo=this.value;renderInventario()"><option value="">Todos los tipos</option>'+tipos.map(function(t){return '<option value="'+t+'"'+(invFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>';
     var filEstados='<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()"><option value="">Todos los estados</option>'+['Bueno','Regular','Malo','Baja','Obsoleto'].map(function(s){return '<option value="'+s+'"'+(invFilter.estado===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
