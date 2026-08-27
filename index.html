@@ -33682,6 +33682,82 @@ table.mts tr:hover td{background:#f9fafb;}
 .fab-scan:active{transform:scale(.93);}
 
 
+/* ── VISTA CAMPO MÓVIL ── */
+.campo-toggle{
+  display:none;
+  position:fixed;top:10px;right:10px;
+  background:rgba(15,20,35,.85);color:#fff;
+  border:none;border-radius:20px;
+  padding:5px 12px;font-size:10px;font-weight:500;
+  cursor:pointer;z-index:500;
+  backdrop-filter:blur(4px);
+  gap:5px;align-items:center;
+}
+@media(max-width:900px){
+  .campo-toggle{display:flex;}
+
+  /* En modo campo: ocultar pestañas no esenciales */
+  body.modo-campo #sidebar .tnav-section:nth-of-type(2),
+  body.modo-campo #sidebar .tnav-section:nth-of-type(3){display:none;}
+  body.modo-campo #tnav-simulador,
+  body.modo-campo #tnav-licencias,
+  body.modo-campo #tnav-personal,
+  body.modo-campo #tnav-obsoletos,
+  body.modo-campo #tnav-dashboard{display:none;}
+
+  /* En modo campo: ocultar botones secundarios topbar */
+  body.modo-campo .main-topbar .btn-sm:last-child{display:none;}
+  
+  /* Cards campo más grandes */
+  body.modo-campo .inv-eq-card{
+    border-radius:12px;
+  }
+  body.modo-campo .inv-eq-card .btn-sm{
+    padding:10px 8px!important;
+    font-size:12px!important;
+    justify-content:center;
+  }
+
+  /* Vista campo: panel detalle simplificado */
+  body.modo-campo .dp-tab:not([data-campo]){
+    display:none;
+  }
+}
+
+/* Vista campo: tarjeta de equipo escaneado */
+.campo-card{
+  background:#fff;border-radius:14px;
+  padding:18px;width:100%;
+}
+.campo-equipo-header{
+  display:flex;align-items:center;gap:14px;margin-bottom:16px;
+}
+.campo-equipo-icon{
+  width:52px;height:52px;border-radius:10px;
+  background:#eff6ff;display:flex;align-items:center;
+  justify-content:center;font-size:24px;flex-shrink:0;
+}
+.campo-acciones{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  margin-top:14px;
+}
+.campo-btn{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:6px;padding:14px 8px;
+  border-radius:10px;border:1px solid #e2e8f0;
+  background:#fff;cursor:pointer;transition:all .15s;
+  font-size:11px;font-weight:500;color:#374151;
+}
+.campo-btn:active{transform:scale(.97);background:#f8fafc;}
+.campo-btn i{font-size:22px;}
+.campo-btn.prim{background:#4f46e5;color:#fff;border-color:#4f46e5;}
+.campo-btn.danger{border-color:#fecaca;color:#dc2626;}
+.campo-semaforo{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;
+}
+
+
 </style>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -34337,6 +34413,110 @@ table.mts tr:hover td{background:#f9fafb;}
   </div>
 </div>
 
+<!-- ESCÁNER QR -->
+<div id="scanner-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:600;display:none;flex-direction:column;align-items:center;justify-content:center;">
+  <div style="position:relative;width:min(90vw,400px);aspect-ratio:1;border-radius:16px;overflow:hidden;background:#000;">
+    <video id="scanner-video" style="width:100%;height:100%;object-fit:cover;" playsinline autoplay muted></video>
+    <canvas id="scanner-canvas" style="display:none;"></canvas>
+    <!-- Marco de escaneo -->
+    <div style="position:absolute;inset:0;pointer-events:none;">
+      <div style="position:absolute;top:15%;left:15%;width:70%;height:70%;border:2px solid rgba(255,255,255,.5);border-radius:8px;"></div>
+      <div style="position:absolute;top:15%;left:15%;width:24px;height:24px;border-top:3px solid #1a73e8;border-left:3px solid #1a73e8;border-radius:4px 0 0 0;"></div>
+      <div style="position:absolute;top:15%;right:15%;width:24px;height:24px;border-top:3px solid #1a73e8;border-right:3px solid #1a73e8;border-radius:0 4px 0 0;"></div>
+      <div style="position:absolute;bottom:15%;left:15%;width:24px;height:24px;border-bottom:3px solid #1a73e8;border-left:3px solid #1a73e8;border-radius:0 0 0 4px;"></div>
+      <div style="position:absolute;bottom:15%;right:15%;width:24px;height:24px;border-bottom:3px solid #1a73e8;border-right:3px solid #1a73e8;border-radius:0 0 4px 0;"></div>
+    </div>
+  </div>
+  <div id="scanner-status" style="color:#fff;margin-top:16px;font-size:14px;text-align:center;padding:0 20px;">Apunta al código QR del equipo</div>
+  <button class="scanner-close" onclick="closeScanner()" style="margin-top:20px;padding:10px 28px;border-radius:10px;border:2px solid rgba(255,255,255,.3);background:transparent;color:#fff;font-size:14px;cursor:pointer;">✕ Cancelar</button>
+</div>
+
+<!-- SCAN SUCCESS -->
+<div id="scan-success-popup" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:601;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:14px;padding:20px;max-width:360px;width:100%;max-height:90vh;overflow-y:auto;">
+    <div id="scan-success-content"></div>
+  </div>
+</div>
+
+
+<!-- TOGGLE VISTA CAMPO / COMPLETA -->
+<button class="campo-toggle" id="campo-toggle-btn" onclick="toggleModoCampo()">
+  <i class="ti ti-layout-sidebar" style="font-size:12px;"></i>
+  <span id="campo-toggle-txt">Vista completa</span>
+</button>
+
+<!-- VISTA CAMPO: pantalla de bienvenida móvil -->
+<div id="view-campo" style="display:none;flex:1;flex-direction:column;background:#f0f2f5;overflow:auto;">
+  <!-- Header campo -->
+  <div style="background:#1a1f2e;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:30px;height:30px;border-radius:7px;background:#4f46e5;display:flex;align-items:center;justify-content:center;">
+        <i class="ti ti-device-laptop" style="color:#fff;font-size:15px;" aria-hidden="true"></i>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#f8fafc;">Cafiver TI</div>
+        <div style="font-size:9px;color:#64748b;">Modo campo</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div class="sync-pill ok" id="campo-sync" style="background:transparent;border:none;padding:0;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;"></span>
+        <span style="font-size:10px;color:#22c55e;margin-left:3px;">En linea</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Acciones rápidas -->
+  <div style="padding:16px;">
+    <div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:12px;">Acciones rápidas</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <button class="campo-btn prim" onclick="openScanner()">
+        <i class="ti ti-qrcode" aria-hidden="true"></i>
+        Escanear QR
+      </button>
+      <button class="campo-btn" onclick="switchViewCampo('inventario')">
+        <i class="ti ti-server" aria-hidden="true"></i>
+        Inventario
+      </button>
+      <button class="campo-btn" onclick="switchViewCampo('reparaciones')">
+        <i class="ti ti-tool" aria-hidden="true"></i>
+        Reparaciones
+      </button>
+      <button class="campo-btn" onclick="openFormEquipo()">
+        <i class="ti ti-plus" aria-hidden="true"></i>
+        Nuevo equipo
+      </button>
+    </div>
+
+    <!-- Stats rápidos -->
+    <div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:10px;">Resumen hoy</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;" id="campo-stats">
+      <div style="background:#fff;border-radius:10px;padding:10px;text-align:center;border:0.5px solid #e2e8f0;">
+        <div style="font-size:18px;font-weight:600;color:#4f46e5;" id="campo-total">—</div>
+        <div style="font-size:9px;color:#9ca3af;margin-top:2px;">Equipos</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:10px;text-align:center;border:0.5px solid #e2e8f0;">
+        <div style="font-size:18px;font-weight:600;color:#dc2626;" id="campo-cambio">—</div>
+        <div style="font-size:9px;color:#9ca3af;margin-top:2px;">Para cambio</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:10px;text-align:center;border:0.5px solid #e2e8f0;">
+        <div style="font-size:18px;font-weight:600;color:#f59e0b;" id="campo-reps">—</div>
+        <div style="font-size:9px;color:#9ca3af;margin-top:2px;">Reparaciones</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Últimos escaneados -->
+  <div style="padding:0 16px 16px;">
+    <div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:10px;">Últimos equipos vistos</div>
+    <div id="campo-recientes" style="display:flex;flex-direction:column;gap:8px;">
+      <div style="background:#fff;border-radius:10px;padding:12px;text-align:center;color:#9ca3af;font-size:12px;border:0.5px solid #e2e8f0;">
+        Escanea un QR para empezar
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 firebase.initializeApp({
   apiKey:"AIzaSyDsiHm_ifFkGbEUmFJYY4ida7cD1JPBnU8",
@@ -34408,6 +34588,7 @@ function doLogin(){
 }
 function enterApp(){
   document.getElementById('login-screen').classList.add('hidden');
+  setTimeout(initModoCampo,200);
   document.getElementById('app').classList.remove('hidden');
   document.body.classList.add('app-mode');
   var av=document.getElementById('cur-av');
@@ -34437,6 +34618,7 @@ function loadAppData(){
   db.collection('equipos').onSnapshot(function(s){
     equipos=s.docs.map(function(d){return d.data();});
     if(_primeraVez){_primeraVez=false;switchView('dashboard');}
+    if(_modoCampo) actualizarStatsCampo();
     else if(curView==='dashboard')renderDashboard();
     if(curView==='inventario')renderInventario();
     if(curView==='qr')renderQR();
@@ -35650,6 +35832,7 @@ function deleteEquipo(id){var e=equipos.find(function(x){return x.id===id;});if(
 // DETAIL PANEL
 function openPanel(id){
   var e=equipos.find(function(x){return x.id===id;});if(!e)return;
+  if(typeof agregarRecienteCampo==='function'&&_modoCampo) agregarRecienteCampo(e);
   openEquipoId=id;
   document.getElementById('dp-title').textContent=(e.nombre||e.modelo)+' — '+e.marca;
   // Buscar datos del responsable en catálogo de personal
@@ -37094,6 +37277,111 @@ window.addEventListener('resize', function(){
   }
 });
 
+
+// ══ MODO CAMPO ══
+var _modoCampo = false;
+var _campoRecientes = [];
+
+function initModoCampo(){
+  var pref = localStorage.getItem('cafiver_modo');
+  if(pref === 'completo'){
+    _modoCampo = false;
+    activarModoCompleto();
+  } else if(isMobile()){
+    _modoCampo = true;
+    activarModoCampo();
+  } else {
+    _modoCampo = false;
+    activarModoCompleto();
+  }
+}
+
+function activarModoCampo(){
+  _modoCampo = true;
+  document.body.classList.add('modo-campo');
+  var t=document.getElementById('campo-toggle-txt');
+  if(t) t.textContent='Vista completa';
+  switchViewCampo('campo');
+  actualizarStatsCampo();
+}
+
+function activarModoCompleto(){
+  _modoCampo = false;
+  document.body.classList.remove('modo-campo');
+  var t=document.getElementById('campo-toggle-txt');
+  if(t) t.textContent='Vista campo';
+  if(curView==='campo') switchView('dashboard');
+}
+
+function toggleModoCampo(){
+  if(_modoCampo){
+    localStorage.setItem('cafiver_modo','completo');
+    activarModoCompleto();
+    switchView('dashboard');
+  } else {
+    localStorage.setItem('cafiver_modo','campo');
+    activarModoCampo();
+  }
+}
+
+function switchViewCampo(v){
+  var vc=document.getElementById('view-campo');
+  if(v==='campo'){
+    curView='campo';
+    if(vc) vc.style.display='flex';
+    ['dashboard','inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos'].forEach(function(x){
+      var el=document.getElementById('view-'+x);
+      if(el){if(x==='dashboard')el.style.display='none';else el.classList.add('hidden');}
+    });
+  } else {
+    if(vc) vc.style.display='none';
+    switchView(v);
+  }
+}
+
+function actualizarStatsCampo(){
+  var tot=document.getElementById('campo-total');
+  var cam=document.getElementById('campo-cambio');
+  var rep=document.getElementById('campo-reps');
+  if(tot) tot.textContent=equipos.length||'—';
+  if(cam) cam.textContent=equipos.filter(function(e){return calcAnios(e.fecha)>=4;}).length||'0';
+  if(rep) rep.textContent=reparaciones.length||'0';
+}
+
+function agregarRecienteCampo(eq){
+  if(!eq) return;
+  _campoRecientes=_campoRecientes.filter(function(r){return r.id!==eq.id;});
+  _campoRecientes.unshift(eq);
+  if(_campoRecientes.length>4) _campoRecientes=_campoRecientes.slice(0,4);
+  renderRecientesCampo();
+}
+
+function renderRecientesCampo(){
+  var el=document.getElementById('campo-recientes'); if(!el) return;
+  if(!_campoRecientes.length){
+    el.innerHTML='<div style="background:#fff;border-radius:10px;padding:12px;text-align:center;color:#9ca3af;font-size:12px;border:0.5px solid #e2e8f0;">Escanea un QR para empezar</div>';
+    return;
+  }
+  el.innerHTML=_campoRecientes.map(function(e){
+    var vc=vidaClass(calcAnios(e.fecha));
+    var vcol=vc==='rojo'?'#dc2626':vc==='amarillo'?'#d97706':'#16a34a';
+    var icon=e.tipo==='Laptop'?'device-laptop':'device-desktop';
+    return '<div style="background:#fff;border-radius:10px;padding:12px;border:0.5px solid #e2e8f0;display:flex;align-items:center;gap:12px;cursor:pointer;" class="campo-rec-item" data-eid="'+e.id+'">'
+      +'<div style="width:36px;height:36px;border-radius:8px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+      +'<i class="ti ti-'+icon+'" style="color:#4f46e5;font-size:18px;" aria-hidden="true"></i>'
+      +'</div>'
+      +'<div style="flex:1;min-width:0;">'
+      +'<div style="font-size:12px;font-weight:500;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+e.marca+' '+e.modelo+'</div>'
+      +'<div style="font-size:10px;color:#9ca3af;">'+(e.af||e.id)+'</div>'
+      +'</div>'
+      +'<span style="font-size:10px;font-weight:600;color:'+vcol+';background:'+vcol+'18;padding:2px 7px;border-radius:20px;">'+calcAnios(e.fecha).toFixed(1)+'a</span>'
+      +'</div>';
+  }).join('');
+  // Event delegation para recientes
+  el.querySelectorAll('.campo-rec-item').forEach(function(div){
+    div.onclick=function(){openPanel(this.dataset.eid);};
+  });
+}
 </script>
 
 <!-- FAB ESCANEAR MÓVIL -->
