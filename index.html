@@ -35003,8 +35003,13 @@ function saveObsoleto(){
     .then(function(){
       setSyncUI('ok','En linea');
       closeFormObsoleto();
+      // Agregar al array local inmediatamente sin esperar onSnapshot
+      var existe = equipos.findIndex(function(e){return e.id===doc.id;});
+      if(existe>=0) equipos[existe]=doc;
+      else equipos.push(doc);
       toast('✅ ' + (m._editId?'Equipo actualizado':'Equipo obsoleto registrado'));
-      if(!m._editId) switchView('obsoletos');
+      switchView('obsoletos');
+      renderObsoletos();
     })
     .catch(function(e){
       setSyncUI('error','Error');
@@ -35015,9 +35020,11 @@ function saveObsoleto(){
 
 function renderObsoletos(){
   var w = document.getElementById('view-obsoletos'); if(!w) return;
+  console.log('renderObsoletos: total equipos='+equipos.length, 'estados:', equipos.map(function(e){return e.id+':'+e.estado;}).slice(0,10));
   var data = equipos.filter(function(e){
     return e.estado === 'Obsoleto' || e.estado === 'Baja' || e._tipo === 'obsoleto';
   });
+  console.log('Obsoletos encontrados:', data.length, data.map(function(e){return e.id;}));
 
   // KPIs
   var totalObs = data.length;
