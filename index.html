@@ -33205,7 +33205,7 @@ body.app-mode{background:#eef2f7;}
 .fi:focus{border-color:#1a73e8;box-shadow:0 0 0 3px rgba(26,115,232,.12);}
 
 /* APP SHELL */
-#app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+#app{display:flex;flex-direction:row;height:100vh;overflow:hidden;background:#f0f2f5;}
 .topbar{height:56px;background:#fff;border-bottom:1px solid #e8eaed;display:flex;align-items:center;padding:0 20px;gap:10px;flex-shrink:0;z-index:50;box-shadow:0 1px 4px rgba(0,0,0,.08);}
 .logo-wrap{display:flex;align-items:center;gap:10px;margin-right:8px;}
 .logo-mark{width:32px;height:32px;background:linear-gradient(135deg,#1a73e8,#0d47a1);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;box-shadow:0 2px 6px rgba(26,115,232,.4);}
@@ -33574,6 +33574,36 @@ table.mts tr:last-child td{border-bottom:none;}
 table.mts tr:hover td{background:#f9fafb;}
 @media(max-width:768px){.g4s{grid-template-columns:repeat(2,minmax(0,1fr));}.g2s{grid-template-columns:1fr;}}
 
+
+.topbar{width:210px;flex-shrink:0;height:100vh;background:#1a1f2e;border-right:1px solid rgba(99,102,241,.15);display:flex;flex-direction:column;overflow:hidden;z-index:50;}
+.logo-wrap{display:flex;align-items:center;gap:10px;padding:18px 14px 14px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;}
+.logo-mark{width:32px;height:32px;border-radius:8px;background:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.proj-name{font-size:13px;font-weight:600;color:#f8fafc;letter-spacing:-.01em;}
+.proj-sub{font-size:9px;color:#64748b;letter-spacing:.04em;text-transform:uppercase;}
+.tnav-nav-area{flex:1;overflow-y:auto;padding:8px 0;}
+.tnav-section{font-size:9px;font-weight:500;color:#334155;text-transform:uppercase;letter-spacing:.08em;padding:12px 14px 4px;flex-shrink:0;}
+.tnav{display:flex;align-items:center;gap:9px;padding:8px 12px;margin:1px 8px;border-radius:8px;cursor:pointer;transition:all .15s;border:none;background:transparent;width:calc(100% - 16px);text-align:left;position:relative;}
+.tnav:hover{background:rgba(255,255,255,.05);}
+.tnav.on{background:rgba(99,102,241,.18);}
+.tnav.on::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:2px;background:#6366f1;border-radius:0 2px 2px 0;}
+.tnav-icon{font-size:15px;color:#475569;transition:color .15s;flex-shrink:0;}
+.tnav-txt{font-size:11.5px;color:#64748b;font-weight:400;transition:color .15s;flex:1;}
+.tnav.on .tnav-icon{color:#818cf8;}
+.tnav.on .tnav-txt{color:#e0e7ff;font-weight:500;}
+.tnav:hover .tnav-icon{color:#94a3b8;}
+.tnav:hover .tnav-txt{color:#cbd5e1;}
+.tnav-badge{background:#dc2626;color:#fff;font-size:8px;font-weight:600;padding:1px 5px;border-radius:20px;min-width:16px;text-align:center;margin-left:auto;}
+.tnav-badge-warn{background:#d97706;color:#fff;font-size:8px;font-weight:600;padding:1px 5px;border-radius:20px;margin-left:auto;}
+.sb-footer{padding:10px 8px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0;}
+.sb-user-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;}
+.sb-user-row:hover{background:rgba(255,255,255,.05);}
+.main-content{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden;min-width:0;}
+.main-topbar{height:46px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0;}
+.main-search{display:flex;align-items:center;gap:7px;background:#f5f7fa;border:1px solid #e8ecf0;border-radius:8px;padding:5px 11px;width:200px;}
+.main-search-txt{font-size:11px;color:#9ca3af;}
+.topbar-right{display:flex;align-items:center;gap:6px;margin-left:auto;}
+.view-wrap{flex:1;overflow:auto;padding:1.25rem 1.75rem;background:#f0f2f5;}
+
 </style>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -33616,34 +33646,82 @@ table.mts tr:hover td{background:#f9fafb;}
 <div id="app" class="hidden">
   <div class="topbar">
     <div class="logo-wrap">
-      <div class="logo-mark">🖥</div>
-      <div><div class="proj-name">APP CAFIVER</div><div class="proj-sub">Inventario de equipos</div></div>
+      <div class="logo-mark"><i class="ti ti-device-laptop" style="color:#fff;font-size:16px;" aria-hidden="true"></i></div>
+      <div>
+        <div class="proj-name">Cafiver TI</div>
+        <div class="proj-sub">Asset Manager</div>
+      </div>
     </div>
-    <button class="tnav on" id="tnav-dashboard"    onclick="switchView('dashboard')"><span class='tnav-icon'>📊</span><span class='tnav-txt'> Dashboard</span></button>
-    <button class="tnav"    id="tnav-inventario"   onclick="switchView('inventario')"><span class='tnav-icon'>🗃</span><span class='tnav-txt'> Inventario</span></button>
-    <button class="tnav"    id="tnav-qr"           onclick="switchView('qr')"><span class='tnav-icon'>⬛</span><span class='tnav-txt'> QR</span></button>
-    <button class="tnav"    id="tnav-reparaciones" onclick="switchView('reparaciones')"><span class='tnav-icon'>🔧</span><span class='tnav-txt'> Reparaciones</span></button>
-    <button class="tnav"    id="tnav-celulares" onclick="switchView('celulares')"><span class='tnav-icon'>📱</span><span class='tnav-txt'> Celulares</span></button>
-    <button class="tnav"    id="tnav-simulador" onclick="switchView('simulador')"><span class='tnav-icon'>📊</span><span class='tnav-txt'> Simulador</span></button>
-    <button class="tnav"    id="tnav-obsoletos" onclick="switchView('obsoletos')"><span class='tnav-icon'>📦</span><span class='tnav-txt'> Obsoletos</span></button>
-    <button class="tnav"    id="tnav-licencias" onclick="switchView('licencias')"><span class='tnav-icon'>🔑</span><span class='tnav-txt'> Licencias</span></button>
-    <button class="tnav"    id="tnav-personal" onclick="switchView('personal')"><span class='tnav-icon'>👥</span><span class='tnav-txt'> Personal</span></button>
-    <div class="topbar-right">
-      <div class="sync-pill ok" id="topbar-sync">
-        <span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;"></span>
-        <span id="topbar-sync-txt">En línea</span>
+    <div class="tnav-nav-area">
+      <div class="tnav-section">Principal</div>
+      <button class="tnav on" id="tnav-dashboard" onclick="switchView('dashboard')">
+        <i class="ti ti-layout-dashboard tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">Dashboard</span>
+      </button>
+      <button class="tnav" id="tnav-inventario" onclick="switchView('inventario')">
+        <i class="ti ti-server tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">Inventario</span>
+      </button>
+      <button class="tnav" id="tnav-qr" onclick="switchView('qr')">
+        <i class="ti ti-qrcode tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">QR</span>
+      </button>
+      <div class="tnav-section">Operaciones</div>
+      <button class="tnav" id="tnav-reparaciones" onclick="switchView('reparaciones')">
+        <i class="ti ti-tool tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">Reparaciones</span>
+      </button>
+      <button class="tnav" id="tnav-celulares" onclick="switchView('celulares')">
+        <i class="ti ti-device-mobile tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">Celulares</span>
+      </button>
+      <button class="tnav" id="tnav-simulador" onclick="switchView('simulador')">
+        <i class="ti ti-chart-bar tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">Simulador</span>
+      </button>
+      <div class="tnav-section">Control</div>
+      <button class="tnav" id="tnav-licencias" onclick="switchView('licencias')">
+        <i class="ti ti-key tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">Licencias</span>
+      </button>
+      <button class="tnav" id="tnav-personal" onclick="switchView('personal')">
+        <i class="ti ti-users tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">Personal</span>
+      </button>
+      <button class="tnav" id="tnav-obsoletos" onclick="switchView('obsoletos')">
+        <i class="ti ti-box tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">Obsoletos</span>
+      </button>
+    </div>
+    <div class="sb-footer">
+      <div class="sb-user-row">
+        <div class="cu-av" id="cur-av" style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+          <div id="cur-nm" style="font-size:11px;color:#cbd5e1;font-weight:500;"></div>
+          <div style="font-size:9px;color:#475569;">Admin TI</div>
+        </div>
+        <div class="sync-pill ok" id="topbar-sync" style="background:transparent;border:none;padding:0;">
+          <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;" title="En linea"></span>
+        </div>
       </div>
-      <div class="user-pill" onclick="openChPass()" title="Cambiar contraseña">
-        <div class="cu-av" id="cur-av"></div>
-        <span id="cur-nm"></span>
-        <span style="font-size:10px;color:#9aa0a6;">🔐</span>
+      <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="openScanner()" style="flex:1;background:rgba(255,255,255,.06);color:#94a3b8;border-color:rgba(255,255,255,.1);font-size:10px;"><i class="ti ti-qrcode" aria-hidden="true"></i> Escanear</button>
+        <button class="btn btn-sm" onclick="openChPass()" style="background:rgba(255,255,255,.06);color:#94a3b8;border-color:rgba(255,255,255,.1);font-size:10px;" title="Cambiar contraseña"><i class="ti ti-lock" aria-hidden="true"></i></button>
+        <button class="btn btn-sm" onclick="doLogout()" style="background:rgba(255,255,255,.06);color:#94a3b8;border-color:rgba(255,255,255,.1);font-size:10px;" title="Salir"><i class="ti ti-logout" aria-hidden="true"></i></button>
       </div>
-      <button class="btn btn-sm" onclick="openScanner()" style="background:#1c1e21;color:#fff;border-color:#1c1e21;" title="Escanear QR">📷 Escanear</button>
-      <button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Equipo</button>
-      <button class="btn btn-sm" onclick="exportCSV()">⬇ CSV</button>
-      <button class="btn btn-sm" onclick="doLogout()">Salir</button>
     </div>
   </div>
+  <div class="main-content">
+    <div class="main-topbar">
+      <div class="main-search">
+        <i class="ti ti-search" style="font-size:13px;color:#9ca3af;" aria-hidden="true"></i>
+        <span class="main-search-txt">Buscar activos, series...</span>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-blue btn-sm" onclick="openFormEquipo()"><i class="ti ti-plus" aria-hidden="true"></i> Equipo</button>
+        <button class="btn btn-sm" onclick="exportCSV()"><i class="ti ti-download" aria-hidden="true"></i> CSV</button>
+      </div>
+    </div>
   <div id="view-dashboard" style="display:none;flex:1;overflow:auto;background:#f0f2f7;"></div>
   <div id="view-inventario"   class="view-wrap hidden" style="padding:0;"></div>
   <div id="view-qr"           class="hidden" style="flex:1;overflow:auto;background:#eef2f7;"></div>
@@ -33800,6 +33878,8 @@ table.mts tr:hover td{background:#f9fafb;}
     </div>
   </div>
 </div>
+  </div>
+
 
 
 <!-- MODAL TRANSFERENCIA -->
@@ -34473,6 +34553,45 @@ function renderSoftwareEquipo(equipoId){
 
 
 // ═══ EQUIPOS OBSOLETOS ═══
+
+// ═══ FORMULARIO OBSOLETOS ═══
+function openFormObsoleto(id){
+  // Reusar el mismo modal de equipo pero con estado fijo en Obsoleto
+  var m = document.getElementById('overlay-equipo'); if(!m) return;
+  var eq = id ? (equipos.find(function(x){return x.id===id;}) ||
+                 obsoletosData.find(function(x){return x.id===id;})) : null;
+  m._editId = id||null;
+  m._esObsoleto = true;
+  document.getElementById('eq-modal-title').textContent = id?'Editar equipo obsoleto':'Registrar equipo obsoleto';
+  clearForm();
+  if(eq) fillForm(eq);
+  // Forzar estado Obsoleto
+  var sel = document.getElementById('f-estado');
+  if(sel) sel.value = eq?(eq.estado||'Obsoleto'):'Obsoleto';
+  m.classList.remove('hidden');
+}
+
+function saveObsoleto(){
+  var m = document.getElementById('overlay-equipo'); if(!m) return;
+  var vals = getFormValues();
+  if(!vals.marca){alert('La marca es obligatoria.');return;}
+  // Forzar estado Obsoleto si no tiene otro
+  if(!vals.estado || vals.estado==='Bueno') vals.estado='Obsoleto';
+  var id = m._editId||('OBS'+Date.now().toString(36).toUpperCase());
+  vals.id = id;
+  vals._tipo = 'obsoleto';
+  setSyncUI('saving','Guardando...');
+  db.collection('equipos').doc(id).set(vals)
+    .then(function(){
+      setSyncUI('ok','En linea');
+      closeFormEquipo();
+      toast(m._editId?'Equipo actualizado':'Equipo obsoleto registrado');
+      if(curView==='obsoletos') renderObsoletos();
+    })
+    .catch(function(e){setSyncUI('error','Error');toast('Error: '+e.message);});
+}
+var obsoletosData = [];
+
 function renderObsoletos(){
   var w = document.getElementById('view-obsoletos'); if(!w) return;
   var data = equipos.filter(function(e){
@@ -34516,7 +34635,7 @@ function renderObsoletos(){
       +'</div>'
       +'<div style="display:flex;gap:4px;padding-top:9px;border-top:0.5px solid #f3f4f6;">'
       +'<button class="btn btn-sm" data-act="ver" data-id="'+e.id+'" style="flex:1;font-size:11px;justify-content:center;">&#128065; Ver</button>'
-      +'<button class="btn btn-sm" data-act="edit" data-id="'+e.id+'" style="font-size:11px;" title="Editar">&#9999;</button>'
+      +'<button class="btn btn-sm" data-act="obs-edit" data-id="'+e.id+'" style="font-size:11px;" title="Editar">&#9999;</button>'
       +'<button class="btn btn-sm" data-act="del" data-id="'+e.id+'" style="font-size:11px;color:#dc2626;" title="Eliminar">&#128465;</button>'
       +'</div>'
       +'</div>'
@@ -34536,7 +34655,9 @@ function renderObsoletos(){
     +'<div style="font-size:16px;font-weight:500;color:#111827;">Equipos obsoletos y bajas</div>'
     +'<div style="font-size:12px;color:#9ca3af;margin-top:2px;">Equipos fuera de servicio — '+totalObs+' registros</div>'
     +'</div>'
-    +'<button class="btn btn-sm" onclick="switchView(\'inventario\')" style="font-size:11px;">&#8592; Ver inventario activo</button>'
+    +'<div style="display:flex;gap:6px;">'
+      +'<button class="btn btn-blue btn-sm" onclick="openFormObsoleto()"><i class="ti ti-plus" aria-hidden="true"></i> Nuevo obsoleto</button>'
+      +'<button class="btn btn-sm" onclick="switchView(\'inventario\')" style="font-size:11px;">&#8592; Ver inventario activo</button>'
     +'</div>'
     // KPIs
     +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px 16px;">'
@@ -36750,6 +36871,7 @@ document.addEventListener('click', function(ev){
     var id=btn.dataset.id;
     if(act==='ver') openPanel(id);
     else if(act==='edit') editEquipo(id);
+    else if(act==='obs-edit') openFormObsoleto(id);
     else if(act==='res') generarResguardoDePanel2(id);
     return;
   }
