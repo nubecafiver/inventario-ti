@@ -33604,6 +33604,36 @@ table.mts tr:hover td{background:#f9fafb;}
 .topbar-right{display:flex;align-items:center;gap:6px;margin-left:auto;}
 .view-wrap{flex:1;overflow:auto;padding:1.25rem 1.75rem;background:#f0f2f5;}
 
+
+/* ── SIDEBAR MÓVIL ── */
+.sb-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.5);z-index:99;
+}
+.sb-overlay.open{display:block;}
+.hamburger{
+  display:none;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:8px;
+  border:1px solid #e2e8f0;background:#fff;
+  cursor:pointer;flex-shrink:0;
+}
+.hamburger i{font-size:18px;color:#374151;}
+
+@media(max-width:768px){
+  .topbar{
+    position:fixed;left:0;top:0;bottom:0;
+    transform:translateX(-100%);
+    transition:transform .25s ease;
+    z-index:100;box-shadow:4px 0 20px rgba(0,0,0,.3);
+  }
+  .topbar.sb-open{transform:translateX(0);}
+  .main-content{width:100%;min-width:0;}
+  .hamburger{display:flex;}
+  .main-topbar{padding:0 12px;gap:8px;}
+  .main-search{width:150px;}
+  .view-wrap{padding:.875rem 1rem;}
+}
+
 </style>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -33644,7 +33674,8 @@ table.mts tr:hover td{background:#f9fafb;}
 
 <!-- APP -->
 <div id="app" class="hidden">
-  <div class="topbar">
+  <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+  <div class="topbar" id="sidebar">
     <div class="logo-wrap">
       <div class="logo-mark"><i class="ti ti-device-laptop" style="color:#fff;font-size:16px;" aria-hidden="true"></i></div>
       <div>
@@ -33713,6 +33744,7 @@ table.mts tr:hover td{background:#f9fafb;}
   </div>
   <div class="main-content">
     <div class="main-topbar">
+      <button class="hamburger" onclick="openSidebar()" aria-label="Abrir menu"><i class="ti ti-menu-2"></i></button>
       <div class="main-search">
         <i class="ti ti-search" style="font-size:13px;color:#9ca3af;" aria-hidden="true"></i>
         <span class="main-search-txt">Buscar activos, series...</span>
@@ -34180,6 +34212,82 @@ table.mts tr:hover td{background:#f9fafb;}
   </div>
 </div>
 
+<!-- MODAL OBSOLETO -->
+<div id="overlay-obsoleto" class="hidden" onclick="if(event.target===this)closeFormObsoleto()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
+  <div class="modal-card" style="max-width:560px;width:100%;margin:auto;">
+    <div class="modal-hd">
+      <h3 id="obs-modal-title">Registrar equipo obsoleto</h3>
+      <button class="icon-btn" onclick="closeFormObsoleto()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#faf5ff;border:1px solid #ddd6fe;border-radius:8px;padding:9px 12px;font-size:11px;color:#6d28d9;margin-bottom:14px;">
+        📦 Estos equipos ya no están en servicio activo. Solo se registran para control de inventario.
+      </div>
+      <div class="form-section">Identificación</div>
+      <div class="af-g2">
+        <div class="af"><label>No. Activo (AF)</label><input type="text" id="obs-f-af" placeholder="600196"></div>
+        <div class="af"><label>No. de serie</label><input type="text" id="obs-f-serie" placeholder="1JF6RL1"></div>
+      </div>
+      <div class="af-g2">
+        <div class="af"><label>Marca *</label><input type="text" id="obs-f-marca" placeholder="DELL, HP, Lenovo..."></div>
+        <div class="af"><label>Modelo *</label><input type="text" id="obs-f-modelo" placeholder="Vostro 230"></div>
+      </div>
+      <div class="af-g2">
+        <div class="af"><label>Tipo</label>
+          <select id="obs-f-tipo">
+            <option value="Desktop">Desktop</option>
+            <option value="Laptop">Laptop</option>
+            <option value="Servidor">Servidor</option>
+            <option value="Impresora">Impresora</option>
+            <option value="Monitor">Monitor</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="af"><label>Estado</label>
+          <select id="obs-f-estado">
+            <option value="Obsoleto">Obsoleto</option>
+            <option value="Baja">Baja</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-section">Baja</div>
+      <div class="af-g2">
+        <div class="af"><label>Fecha de baja</label><input type="date" id="obs-f-fechabaja"></div>
+        <div class="af"><label>Motivo de baja</label>
+          <select id="obs-f-motivo">
+            <option value="">Selecciona...</option>
+            <option value="Obsolescencia">Obsolescencia tecnologica</option>
+            <option value="Descompuesto">Descompuesto / irreparable</option>
+            <option value="Robo">Robo o extravío</option>
+            <option value="Siniestro">Siniestro / accidente</option>
+            <option value="Donacion">Donacion</option>
+            <option value="Venta">Venta</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+      </div>
+      <div class="af"><label>Observaciones</label>
+        <textarea id="obs-f-obs" placeholder="Descripcion del motivo, historial relevante..." style="min-height:70px;"></textarea>
+      </div>
+      <div class="form-section">Datos opcionales</div>
+      <div class="af-g2">
+        <div class="af"><label>Plaza de origen</label>
+          <input type="text" id="obs-f-plaza" list="dl-obs-plaza" placeholder="Ixtaczoquitlan" autocomplete="off">
+          <datalist id="dl-obs-plaza"></datalist>
+        </div>
+        <div class="af"><label>Area de origen</label>
+          <input type="text" id="obs-f-area" list="dl-obs-area" placeholder="Direccion Admiva" autocomplete="off">
+          <datalist id="dl-obs-area"></datalist>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeFormObsoleto()">Cancelar</button>
+      <button class="btn btn-blue" onclick="saveObsoleto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 firebase.initializeApp({
   apiKey:"AIzaSyDsiHm_ifFkGbEUmFJYY4ida7cD1JPBnU8",
@@ -34555,42 +34663,63 @@ function renderSoftwareEquipo(equipoId){
 // ═══ EQUIPOS OBSOLETOS ═══
 
 // ═══ FORMULARIO OBSOLETOS ═══
+var obsoletosData = [];
+
+function gvo(f){ var el=document.getElementById('obs-f-'+f); return el?el.value.trim():''; }
+
 function openFormObsoleto(id){
-  // Reusar el mismo modal de equipo pero con estado fijo en Obsoleto
-  var m = document.getElementById('overlay-equipo'); if(!m) return;
-  var eq = id ? (equipos.find(function(x){return x.id===id;}) ||
-                 obsoletosData.find(function(x){return x.id===id;})) : null;
+  var m = document.getElementById('overlay-obsoleto'); if(!m) return;
+  var eq = id ? equipos.find(function(x){return x.id===id;}) : null;
   m._editId = id||null;
-  m._esObsoleto = true;
-  document.getElementById('eq-modal-title').textContent = id?'Editar equipo obsoleto':'Registrar equipo obsoleto';
-  clearForm();
-  if(eq) fillForm(eq);
-  // Forzar estado Obsoleto
-  var sel = document.getElementById('f-estado');
-  if(sel) sel.value = eq?(eq.estado||'Obsoleto'):'Obsoleto';
+  document.getElementById('obs-modal-title').textContent = id?'Editar equipo obsoleto':'Registrar equipo obsoleto';
+  // Limpiar campos
+  ['af','serie','marca','modelo','obs','fechabaja'].forEach(function(f){
+    var el=document.getElementById('obs-f-'+f); if(el) el.value=eq?(eq[f]||''):'';
+  });
+  var et=document.getElementById('obs-f-tipo'); if(et) et.value=eq?(eq.tipo||'Desktop'):'Desktop';
+  var ee=document.getElementById('obs-f-estado'); if(ee) ee.value=eq?(eq.estado||'Obsoleto'):'Obsoleto';
+  var em=document.getElementById('obs-f-motivo'); if(em) em.value=eq?(eq.motivo_baja||''):'';
+  var ep=document.getElementById('obs-f-plaza'); if(ep) ep.value=eq?(eq.plaza||''):'';
+  var ea=document.getElementById('obs-f-area'); if(ea) ea.value=eq?(eq.area||''):'';
+  // Rellenar datalists con plazas y areas existentes
+  var dlP=document.getElementById('dl-obs-plaza');
+  if(dlP) dlP.innerHTML=[...new Set(equipos.map(function(e){return e.plaza||'';}).filter(Boolean))].sort().map(function(v){return '<option value="'+v+'">';}).join('');
+  var dlA=document.getElementById('dl-obs-area');
+  if(dlA) dlA.innerHTML=[...new Set(equipos.map(function(e){return e.area||'';}).filter(Boolean))].sort().map(function(v){return '<option value="'+v+'">';}).join('');
   m.classList.remove('hidden');
 }
 
+function closeFormObsoleto(){
+  var m=document.getElementById('overlay-obsoleto'); if(m) m.classList.add('hidden');
+}
+
 function saveObsoleto(){
-  var m = document.getElementById('overlay-equipo'); if(!m) return;
-  var vals = getFormValues();
-  if(!vals.marca){alert('La marca es obligatoria.');return;}
-  // Forzar estado Obsoleto si no tiene otro
-  if(!vals.estado || vals.estado==='Bueno') vals.estado='Obsoleto';
+  var m = document.getElementById('overlay-obsoleto'); if(!m) return;
+  var marca=gvo('marca'), modelo=gvo('modelo');
+  if(!marca){alert('La marca es obligatoria.');return;}
   var id = m._editId||('OBS'+Date.now().toString(36).toUpperCase());
-  vals.id = id;
-  vals._tipo = 'obsoleto';
+  var doc = {
+    id:id, af:gvo('af'), serie:gvo('serie'),
+    marca:marca, modelo:modelo,
+    tipo:gvo('tipo')||'Desktop',
+    estado:gvo('estado')||'Obsoleto',
+    motivo_baja:gvo('motivo'),
+    fecha_baja:gvo('fechabaja'),
+    obs:gvo('obs'),
+    plaza:gvo('plaza'), area:gvo('area'),
+    responsable:'', nombre:'',
+    updBy:curUser?curUser.name:'',
+    updTs:new Date().toISOString()
+  };
   setSyncUI('saving','Guardando...');
-  db.collection('equipos').doc(id).set(vals)
+  db.collection('equipos').doc(id).set(doc)
     .then(function(){
       setSyncUI('ok','En linea');
-      closeFormEquipo();
+      closeFormObsoleto();
       toast(m._editId?'Equipo actualizado':'Equipo obsoleto registrado');
-      if(curView==='obsoletos') renderObsoletos();
     })
     .catch(function(e){setSyncUI('error','Error');toast('Error: '+e.message);});
 }
-var obsoletosData = [];
 
 function renderObsoletos(){
   var w = document.getElementById('view-obsoletos'); if(!w) return;
@@ -36878,6 +37007,29 @@ document.addEventListener('click', function(ev){
   var card=ev.target.closest('.inv-eq-card');
   if(card && !ev.target.closest('.inv-card-btns')){
     openPanel(card.dataset.id);
+  }
+});
+
+
+// ── SIDEBAR MÓVIL ──
+function openSidebar(){
+  var sb=document.getElementById('sidebar');
+  var ov=document.getElementById('sb-overlay');
+  if(sb) sb.classList.add('sb-open');
+  if(ov) ov.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeSidebar(){
+  var sb=document.getElementById('sidebar');
+  var ov=document.getElementById('sb-overlay');
+  if(sb) sb.classList.remove('sb-open');
+  if(ov) ov.classList.remove('open');
+  document.body.style.overflow='';
+}
+// Cerrar sidebar al hacer click en un item del menú en móvil
+document.addEventListener('click',function(e){
+  if(e.target.closest('.tnav') && window.innerWidth<=768){
+    closeSidebar();
   }
 });
 
