@@ -34646,6 +34646,7 @@ function loadAppData(){
     else if(curView==='dashboard')renderDashboard();
     if(curView==='inventario')renderInventario();
     if(curView==='qr')renderQR();
+    if(curView==='obsoletos')renderObsoletos();
     setSyncUI('ok','En linea');
   },function(){setSyncUI('error','Error');});
   // Real-time transferencias
@@ -34979,8 +34980,9 @@ function closeFormObsoleto(){
 
 function saveObsoleto(){
   var m = document.getElementById('overlay-obsoleto'); if(!m) return;
-  var marca=gvo('marca'), modelo=gvo('modelo');
-  if(!marca){alert('La marca es obligatoria.');return;}
+  var marca=gvo('marca')||gvo('modelo')||'Sin marca';
+  var modelo=gvo('modelo');
+  if(!marca && !modelo){alert('Ingresa al menos la marca o el modelo.');return;}
   var id = m._editId||('OBS'+Date.now().toString(36).toUpperCase());
   var doc = {
     id:id, af:gvo('af'), serie:gvo('serie'),
@@ -35001,8 +35003,8 @@ function saveObsoleto(){
     .then(function(){
       setSyncUI('ok','En linea');
       closeFormObsoleto();
-      toast('✅ ' + (m._editId?'Equipo actualizado':'Equipo obsoleto registrado: '+id));
-      console.log('Guardado OK:', id);
+      toast('✅ ' + (m._editId?'Equipo actualizado':'Equipo obsoleto registrado'));
+      if(!m._editId) switchView('obsoletos');
     })
     .catch(function(e){
       setSyncUI('error','Error');
