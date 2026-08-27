@@ -33287,7 +33287,7 @@ tr:hover td{background:#f7f9ff;}
 .confirm-btns{display:flex;gap:8px;justify-content:flex-end;}
 
 /* DETAIL PANEL */
-#dp{position:fixed;top:0;right:0;width:520px;height:100vh;background:#fff;border-left:1px solid #e8eaed;z-index:200;display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.12);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);}
+#dp{position:fixed;top:0;right:0;width:520px;height:100vh;background:#fff;border-left:1px solid #e8eaed;z-index:200;display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.12);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);}@media(max-width:900px){#dp{width:100%;border-left:none;border-radius:0;}}
 #dp.open{transform:translateX(0);}
 #dp-overlay{position:fixed;inset:0;z-index:199;display:none;background:rgba(0,0,0,.1);}
 #dp-overlay.on{display:block;}
@@ -33633,6 +33633,54 @@ table.mts tr:hover td{background:#f9fafb;}
   .main-search{width:150px;}
   .view-wrap{padding:.875rem 1rem;}
 }
+
+@media(max-width:900px){
+  .modal-card{
+    max-width:100%!important;width:100%!important;
+    margin:0!important;border-radius:12px 12px 0 0!important;
+    min-height:70vh;
+  }
+  div[style*="display:flex;align-items:flex-start;justify-content:center"]{
+    align-items:flex-end!important;
+    padding:0!important;
+  }
+  .af-g2{grid-template-columns:1fr!important;}
+  .af-g3{grid-template-columns:1fr!important;}
+  .stats-grid{grid-template-columns:1fr 1fr!important;}
+  .dp-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap!important;padding:0 12px!important;}
+  .dp-tab{white-space:nowrap!important;font-size:11px!important;padding:8px 10px!important;flex-shrink:0!important;}
+  .dp-hd{padding:12px 14px 8px!important;}
+  #dp-title{font-size:14px!important;}
+}
+
+
+@media(max-width:900px){
+  .qr-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important;padding:10px!important;}
+  .qr-card{width:auto!important;padding:12px!important;}
+  .qr-card img[alt="QR"]{width:100px!important;height:100px!important;}
+  /* Topbar botones simplificados */
+  .topbar-right .btn-sm span{display:none;}
+  /* Inventario siempre cards en móvil */
+  .inv-toggle{display:none!important;}
+}
+
+
+@media(max-width:900px){
+  .fab-scan{
+    display:flex!important;
+  }
+}
+.fab-scan{
+  display:none;
+  position:fixed;bottom:20px;right:16px;
+  width:52px;height:52px;border-radius:50%;
+  background:#4f46e5;color:#fff;
+  align-items:center;justify-content:center;
+  font-size:22px;z-index:150;
+  border:none;cursor:pointer;
+  box-shadow:0 4px 16px rgba(79,70,229,.4);
+}
+
 
 </style>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
@@ -34210,6 +34258,8 @@ table.mts tr:hover td{background:#f9fafb;}
       <button class="btn btn-blue" onclick="saveAsignarSoftware()">Guardar asignación</button>
     </div>
   </div>
+
+  <button class="fab-scan" onclick="openScanner()" title="Escanear QR" aria-label="Escanear QR"><i class="ti ti-qrcode"></i></button>
 </div>
 
 <!-- MODAL OBSOLETO -->
@@ -35998,7 +36048,7 @@ function toggleCelularFields(){
 }
 
 // DETECTAR MÓVIL
-function isMobile(){ return window.innerWidth <= 768; }
+function isMobile(){ return window.innerWidth <= 900 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); }
 
 function renderInventario(){
   var w=document.getElementById('view-inventario');if(!w)return;
@@ -37030,6 +37080,18 @@ function closeSidebar(){
 document.addEventListener('click',function(e){
   if(e.target.closest('.tnav') && window.innerWidth<=768){
     closeSidebar();
+  }
+});
+
+
+// Re-renderizar inventario si cambia el tamaño de pantalla
+var _lastMobile = isMobile();
+window.addEventListener('resize', function(){
+  var nowMobile = isMobile();
+  if(nowMobile !== _lastMobile){
+    _lastMobile = nowMobile;
+    if(curView==='inventario') renderInventario();
+    if(curView==='obsoletos') renderObsoletos();
   }
 });
 
