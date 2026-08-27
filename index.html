@@ -35034,7 +35034,7 @@ function renderObsoletos(){
 
   // Cards
   var cards = data.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:14px;">'+data.map(function(e){
-    var anios = calcAnios(e.fecha).toFixed(1);
+    var anios = (calcAnios(e.fecha)||0).toFixed(1);
     var ini = (e.responsable||'??').split(' ').map(function(x){return x[0]||'';}).join('').toUpperCase().slice(0,2);
     var cols = [['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],['#fce7f3','#be185d'],['#ede9fe','#6d28d9']];
     var col = cols[Math.abs((ini.charCodeAt(0)||65))%5];
