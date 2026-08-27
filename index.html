@@ -34995,20 +34995,26 @@ function saveObsoleto(){
     updBy:curUser?curUser.name:'',
     updTs:new Date().toISOString()
   };
+  console.log('Guardando obsoleto:', JSON.stringify(doc));
   setSyncUI('saving','Guardando...');
   db.collection('equipos').doc(id).set(doc)
     .then(function(){
       setSyncUI('ok','En linea');
       closeFormObsoleto();
-      toast(m._editId?'Equipo actualizado':'Equipo obsoleto registrado');
+      toast('✅ ' + (m._editId?'Equipo actualizado':'Equipo obsoleto registrado: '+id));
+      console.log('Guardado OK:', id);
     })
-    .catch(function(e){setSyncUI('error','Error');toast('Error: '+e.message);});
+    .catch(function(e){
+      setSyncUI('error','Error');
+      alert('Error al guardar: ' + e.message + ' (código: ' + e.code + ')');
+      console.error('Error Firebase:', e);
+    });
 }
 
 function renderObsoletos(){
   var w = document.getElementById('view-obsoletos'); if(!w) return;
   var data = equipos.filter(function(e){
-    return e.estado === 'Obsoleto' || e.estado === 'Baja';
+    return e.estado === 'Obsoleto' || e.estado === 'Baja' || e._tipo === 'obsoleto';
   });
 
   // KPIs
