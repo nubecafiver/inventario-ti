@@ -35020,82 +35020,91 @@ function saveObsoleto(){
 
 function renderObsoletos(){
   var w = document.getElementById('view-obsoletos'); if(!w) return;
-  console.log('renderObsoletos: total equipos='+equipos.length, 'estados:', equipos.map(function(e){return e.id+':'+e.estado;}).slice(0,10));
+
+  console.log('renderObsoletos: total equipos='+equipos.length, equipos.map(function(e){return e.id+':'+e.estado;}).slice(0,10));
+
   var data = equipos.filter(function(e){
-    return e.estado === 'Obsoleto' || e.estado === 'Baja' || e._tipo === 'obsoleto';
+    return e.estado==='Obsoleto' || e.estado==='Baja' || e._tipo==='obsoleto';
   });
+
   console.log('Obsoletos encontrados:', data.length, data.map(function(e){return e.id;}));
 
-  // KPIs
   var totalObs = data.length;
-  var valorRecuperable = data.reduce(function(a,e){return a+(parseFloat(e.precio)||0);},0);
   var porEstado = {Obsoleto:0, Baja:0};
-  data.forEach(function(e){ if(porEstado[e.estado]!==undefined) porEstado[e.estado]++; else porEstado['Baja']++; });
+  data.forEach(function(e){
+    if(e.estado==='Baja') porEstado.Baja++;
+    else porEstado.Obsoleto++;
+  });
 
-  // Cards
-  var cards = data.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:14px;">'+data.map(function(e){
-    var anios = (calcAnios(e.fecha)||0).toFixed(1);
-    var ini = (e.responsable||'??').split(' ').map(function(x){return x[0]||'';}).join('').toUpperCase().slice(0,2);
-    var cols = [['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],['#fce7f3','#be185d'],['#ede9fe','#6d28d9']];
-    var col = cols[Math.abs((ini.charCodeAt(0)||65))%5];
-    var esObs = e.estado === 'Obsoleto';
-    var ecol = esObs ? '#7c3aed' : '#6b7280';
-    var ebg  = esObs ? '#f5f3ff' : '#f1f5f9';
-    return '<div class="inv-eq-card" data-id="'+e.id+'" style="background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden;cursor:pointer;transition:all .15s;opacity:.92;" onmouseover="this.style.borderColor=\'#7c3aed\';this.style.boxShadow=\'0 4px 12px rgba(124,58,237,.1)\';this.style.opacity=\'1\'" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.boxShadow=\'none\';this.style.opacity=\'.92\'">'
-      +'<div style="height:3px;background:'+ecol+';"></div>'
-      +'<div style="padding:11px 13px;">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">'
-      +'<span style="font-family:monospace;font-size:10px;color:#9ca3af;">'+(e.af||e.id)+'</span>'
-      +'<span style="font-size:10px;font-weight:600;color:'+ecol+';background:'+ebg+';padding:2px 8px;border-radius:20px;">'+e.estado+'</span>'
-      +'</div>'
-      +'<div style="font-size:13px;font-weight:500;color:#374151;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-      +'<span style="font-weight:700;">'+e.marca+'</span> <span style="color:#9ca3af;font-weight:400;">'+e.modelo+'</span>'
-      +'</div>'
-      +'<div style="font-size:10px;color:#9ca3af;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(e.area||'Sin area')+'</div>'
-      +'<div style="height:0.5px;background:#f3f4f6;margin-bottom:8px;"></div>'
-      +'<div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">'
-      +'<div style="width:22px;height:22px;border-radius:50%;background:'+col[0]+';color:'+col[1]+';display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0;">'+ini+'</div>'
-      +'<span style="font-size:11px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(e.responsable||'Sin asignar')+'</span>'
-      +'</div>'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">'
-      +tipoPill(e.tipo)
-      +'<span style="font-size:10px;color:#9ca3af;">'+anios+' años de uso</span>'
-      +'</div>'
-      +'<div style="display:flex;gap:4px;padding-top:9px;border-top:0.5px solid #f3f4f6;">'
-      +'<button class="btn btn-sm" data-act="ver" data-id="'+e.id+'" style="flex:1;font-size:11px;justify-content:center;">&#128065; Ver</button>'
-      +'<button class="btn btn-sm" data-act="obs-edit" data-id="'+e.id+'" style="font-size:11px;" title="Editar">&#9999;</button>'
-      +'<button class="btn btn-sm" data-act="del" data-id="'+e.id+'" style="font-size:11px;color:#dc2626;" title="Eliminar">&#128465;</button>'
-      +'</div>'
-      +'</div>'
+  var cards = data.length
+    ? data.map(function(e){
+        var anios = (calcAnios(e.fecha)||0).toFixed(1);
+        var esObs = e.estado==='Obsoleto';
+        var ecol = esObs?'#7c3aed':'#6b7280';
+        var ebg  = esObs?'#f5f3ff':'#f1f5f9';
+        return '<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:0;">'
+          +'<div style="height:3px;background:'+ecol+';"></div>'
+          +'<div style="padding:11px 13px;">'
+          +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
+          +'<span style="font-family:monospace;font-size:10px;color:#9ca3af;">'+(e.af||e.serie||e.id)+(e.af&&e.serie?' / '+e.serie:'')+'</span>'
+          +'<span style="font-size:10px;font-weight:600;color:'+ecol+';background:'+ebg+';padding:2px 8px;border-radius:20px;">'+e.estado+'</span>'
+          +'</div>'
+          +'<div style="font-size:13px;font-weight:500;color:#374151;margin-bottom:2px;">'
+          +'<b>'+e.marca+'</b> <span style="color:#9ca3af;font-weight:400;">'+e.modelo+'</span>'
+          +'</div>'
+          +'<div style="font-size:10px;color:#9ca3af;margin-bottom:8px;">'+(e.area||'Sin area')+'</div>'
+          +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">'
+          +tipoPill(e.tipo||'Otro')
+          +(parseFloat(anios)>0?'<span style="font-size:10px;color:#9ca3af;">'+anios+' años de uso</span>':'<span style="font-size:10px;color:#9ca3af;">Sin fecha</span>')
+          +'</div>'
+          +(e.motivo_baja?'<div style="font-size:10px;color:#6b7280;background:#f8fafc;padding:4px 8px;border-radius:6px;margin-bottom:8px;">⚠ '+e.motivo_baja+'</div>':'')
+          +'<div style="display:flex;gap:4px;padding-top:9px;border-top:0.5px solid #f3f4f6;">'
+          +'<button class="btn btn-sm" data-act="ver" data-id="'+e.id+'" style="flex:1;font-size:11px;">&#128065; Ver</button>'
+          +'<button class="btn btn-sm" data-act="obs-edit" data-id="'+e.id+'" style="font-size:11px;" title="Editar">&#9999;</button>'
+          +'<button class="btn btn-sm" data-act="del" data-id="'+e.id+'" style="font-size:11px;color:#dc2626;" title="Eliminar">&#128465;</button>'
+          +'</div>'
+          +'</div>'
+          +'</div>';
+      }).join('')
+    : '<div style="text-align:center;padding:40px 20px;color:#9ca3af;">'
+      +'<div style="font-size:40px;margin-bottom:8px;">📦</div>'
+      +'<div style="font-size:14px;font-weight:500;">Sin equipos obsoletos</div>'
+      +'<div style="font-size:11px;margin-top:4px;">Los equipos marcados como <b>Obsoleto</b> o <b>Baja</b> aparecerán aquí</div>'
       +'</div>';
-  }).join('')+'</div>'
-  : '<div style="text-align:center;padding:60px 20px;color:#9ca3af;">'
-    +'<div style="font-size:48px;margin-bottom:12px;">📦</div>'
-    +'<div style="font-size:14px;font-weight:500;margin-bottom:4px;">Sin equipos obsoletos</div>'
-    +'<div style="font-size:12px;">Los equipos marcados como <b>Obsoleto</b> o <b>Baja</b> aparecerán aquí</div>'
-    +'</div>';
 
   w.innerHTML =
-    '<div style="padding:0;">'
-    // Header
-    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:0.5px solid #f3f4f6;flex-wrap:wrap;gap:8px;">'
+    '<div style="padding:14px 16px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
     +'<div>'
     +'<div style="font-size:16px;font-weight:500;color:#111827;">Equipos obsoletos y bajas</div>'
     +'<div style="font-size:12px;color:#9ca3af;margin-top:2px;">Equipos fuera de servicio — '+totalObs+' registros</div>'
     +'</div>'
     +'<div style="display:flex;gap:6px;">'
-      +'<button class="btn btn-blue btn-sm" onclick="openFormObsoleto()"><i class="ti ti-plus" aria-hidden="true"></i> Nuevo obsoleto</button>'
-      +'<button class="btn btn-sm" onclick="switchView(\'inventario\')" style="font-size:11px;">&#8592; Ver inventario activo</button>'
+    +'<button class="btn btn-blue btn-sm" onclick="openFormObsoleto()">+ Nuevo obsoleto</button>'
+    +'<button class="btn btn-sm" onclick="switchView(\'inventario\')">&#8592; Ver inventario activo</button>'
+    +'</div>'
     +'</div>'
     // KPIs
     +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px 16px;">'
-    +'<div class="stat-card"><div class="lbl">Total equipos</div><div class="val" style="color:#7c3aed;">'+totalObs+'</div><div style="font-size:10px;color:#9ca3af;margin-top:2px;">fuera de servicio</div></div>'
-    +'<div class="stat-card"><div class="lbl">Obsoletos</div><div class="val" style="color:#7c3aed;">'+(porEstado.Obsoleto||0)+'</div><div style="font-size:10px;color:#9ca3af;margin-top:2px;">marcados como obsoleto</div></div>'
-    +'<div class="stat-card"><div class="lbl">Bajas</div><div class="val" style="color:#6b7280;">'+(porEstado.Baja||0)+'</div><div style="font-size:10px;color:#9ca3af;margin-top:2px;">dados de baja</div></div>'
+    +'<div style="background:#fff;border:0.5px solid #e2e8f0;border-radius:8px;padding:12px;">'
+    +'<div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;">Total equipos</div>'
+    +'<div style="font-size:22px;font-weight:600;color:#7c3aed;margin-top:2px;">'+totalObs+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;">fuera de servicio</div>'
     +'</div>'
-    // Info
-    +'<div style="margin:0 16px 12px;background:#f5f3ff;border:0.5px solid #ddd6fe;border-radius:8px;padding:10px 14px;font-size:12px;color:#6d28d9;">💡 Para mover un equipo aquí, edítalo y cambia su estado a <b>Obsoleto</b> o <b>Baja</b>.</div>'
-    // Cards
+    +'<div style="background:#fff;border:0.5px solid #e2e8f0;border-radius:8px;padding:12px;">'
+    +'<div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;">Obsoletos</div>'
+    +'<div style="font-size:22px;font-weight:600;color:#7c3aed;margin-top:2px;">'+(porEstado.Obsoleto||0)+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;">marcados como obsoleto</div>'
+    +'</div>'
+    +'<div style="background:#fff;border:0.5px solid #e2e8f0;border-radius:8px;padding:12px;">'
+    +'<div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;">Bajas</div>'
+    +'<div style="font-size:22px;font-weight:600;color:#6b7280;margin-top:2px;">'+(porEstado.Baja||0)+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;">dados de baja</div>'
+    +'</div>'
+    +'</div>'
+    // Aviso
+    +'<div style="margin:0 16px 12px;background:#f5f3ff;border:0.5px solid #ddd6fe;border-radius:8px;padding:8px 12px;font-size:11px;color:#6d28d9;">💡 Para mover un equipo aquí, edítalo y cambia su estado a <b>Obsoleto</b> o <b>Baja</b>.</div>'
+    // Grid de cards
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:0 16px 16px;">'
     + cards
     +'</div>';
 }
@@ -37309,6 +37318,7 @@ document.addEventListener('click', function(ev){
     else if(act==='edit') editEquipo(id);
     else if(act==='obs-edit') openFormObsoleto(id);
     else if(act==='res') generarResguardoDePanel2(id);
+    else if(act==='del') deleteEquipo(id);
     return;
   }
   var card=ev.target.closest('.inv-eq-card');
