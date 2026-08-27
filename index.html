@@ -33666,20 +33666,20 @@ table.mts tr:hover td{background:#f9fafb;}
 
 
 @media(max-width:900px){
-  .fab-scan{
-    display:flex!important;
-  }
+  .fab-scan{ display:flex!important; }
 }
 .fab-scan{
   display:none;
-  position:fixed;bottom:20px;right:16px;
-  width:52px;height:52px;border-radius:50%;
+  position:fixed;bottom:22px;right:18px;
+  width:54px;height:54px;border-radius:50%;
   background:#4f46e5;color:#fff;
   align-items:center;justify-content:center;
-  font-size:22px;z-index:150;
+  font-size:24px;z-index:9999;
   border:none;cursor:pointer;
-  box-shadow:0 4px 16px rgba(79,70,229,.4);
+  box-shadow:0 4px 20px rgba(79,70,229,.5);
+  transition:transform .15s;
 }
+.fab-scan:active{transform:scale(.93);}
 
 
 </style>
@@ -34259,7 +34259,6 @@ table.mts tr:hover td{background:#f9fafb;}
     </div>
   </div>
 
-  <button class="fab-scan" onclick="openScanner()" title="Escanear QR" aria-label="Escanear QR"><i class="ti ti-qrcode"></i></button>
 </div>
 
 <!-- MODAL OBSOLETO -->
@@ -37096,5 +37095,10 @@ window.addEventListener('resize', function(){
 });
 
 </script>
+
+<!-- FAB ESCANEAR MÓVIL -->
+<button class="fab-scan" onclick="openScanner()" title="Escanear QR" aria-label="Escanear QR">
+  <i class="ti ti-qrcode" style="font-size:24px;"></i>
+</button>
 </body>
 </html>
