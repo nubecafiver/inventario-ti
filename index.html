@@ -33766,7 +33766,7 @@ table.mts tr:hover td{background:#f9fafb;}
 
 
 </style>
-<script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -36186,9 +36186,9 @@ function printFichaId(id){
 // QR
 var _qrPending = [];
 function makeQR(text,size){
-  var canvasId = 'qr-'+Math.random().toString(36).slice(2,8);
-  _qrPending.push({id:canvasId, text:text, size:size});
-  return '<canvas id="'+canvasId+'" width="'+size+'" height="'+size+'" style="display:block;border-radius:4px;"></canvas>';
+  var divId = 'qr-'+Math.random().toString(36).slice(2,8);
+  _qrPending.push({id:divId, text:text, size:size});
+  return '<div id="'+divId+'" style="width:'+size+'px;height:'+size+'px;display:flex;align-items:center;justify-content:center;"></div>';
 }
 function renderPendingQR(){
   if(typeof QRCode==='undefined'){setTimeout(renderPendingQR,200);return;}
@@ -36197,10 +36197,16 @@ function renderPendingQR(){
   pending.forEach(function(q){
     var el = document.getElementById(q.id);
     if(!el) return;
-    QRCode.toCanvas(el, q.text, {
-      width:q.size, margin:2,
-      color:{dark:'#000000',light:'#ffffff'}
-    }, function(err){if(err) console.warn('QR:',err);});
+    try{
+      new QRCode(el, {
+        text: q.text,
+        width: q.size,
+        height: q.size,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }catch(e){console.warn('QR error:',e);}
   });
 }
 function renderQR(){
@@ -36581,10 +36587,10 @@ var ETIQ_POR_HOJA = 30;
 var etiqFilter = {area:'',plaza:'',tipo:'',estado:'',q:''};
 
 function makeQRUrl(id){
-  var canvasId = 'qru-'+id+'-'+Math.random().toString(36).slice(2,6);
+  var divId = 'qru-'+id+'-'+Math.random().toString(36).slice(2,6);
   var url = BASE_URL+id;
-  _qrPending.push({id:canvasId, text:url, size:80});
-  return '<canvas id="'+canvasId+'" width="80" height="80" style="display:block;"></canvas>';
+  _qrPending.push({id:divId, text:url, size:80});
+  return '<div id="'+divId+'" style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;"></div>';
 }
 
 function etiqHTML(e){
@@ -37505,3 +37511,10 @@ function renderRecientesCampo(){
 </button>
 </body>
 </html>
+@media print {
+  .qr-card div img { display: block !important; max-width:100%; }
+  .qr-card div canvas { display: block !important; }
+  .etiq div img { display: block !important; }
+  .etiq div canvas { display: block !important; }
+}
+
