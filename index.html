@@ -33323,6 +33323,12 @@ tr:hover td{background:#f7f9ff;}
   body *{display:none!important;}
   .ficha-qr{display:block!important;font-family:'Inter',sans-serif;padding:20px;max-width:600px;margin:0 auto;}
   .ficha-qr *{display:block!important;}
+  .print-hoja-etiq{display:block!important;position:static!important;}
+  .print-hoja-etiq *{display:block!important;}
+  .print-hoja-etiq .etiq{display:flex!important;}
+  .print-hoja-etiq .einfo{display:flex!important;}
+  .print-hoja-etiq img{display:block!important;}
+  .print-hoja-etiq canvas{display:block!important;}
   .ficha-header{display:flex!important;flex-direction:row!important;align-items:flex-start!important;gap:20px!important;border-bottom:2px solid #1a73e8!important;padding-bottom:14px!important;margin-bottom:14px!important;}
   .ficha-secciones{display:block!important;}
   .ficha-sec{margin-bottom:12px!important;}
@@ -37434,10 +37440,14 @@ function imprimirQRs(dataEquipos){
     }catch(err){ console.warn('QR error:', err); }
   });
 
-  // Imprimir después de que QRCode renderice
+  // Mostrar container y imprimir después de que QRCode renderice
+  container.style.display = 'block';
   setTimeout(function(){
     window.print();
-    setTimeout(function(){ container.innerHTML=''; }, 2000);
+    setTimeout(function(){
+      container.innerHTML='';
+      container.style.display='none';
+    }, 2000);
   }, 1000);
 }
 
