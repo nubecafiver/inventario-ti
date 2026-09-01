@@ -36179,27 +36179,33 @@ function frow(k,v){return '<div class="ficha-row"><div class="ficha-k">'+k+'</di
 function printFicha(){if(openEquipoId)printFichaId(openEquipoId);}
 function printFichaId(id){
   document.getElementById('ficha-print').innerHTML=buildFicha(id);
-  window.print();
+  renderPendingQR();
+  setTimeout(function(){window.print();},300);
 }
 
 // QR
+var _qrPending = [];
 function makeQR(text,size){
-  // Usar canvas para generar QR inline (funciona en impresión)
   var canvasId = 'qr-'+Math.random().toString(36).slice(2,8);
-  setTimeout(function(){
-    var el = document.getElementById(canvasId);
-    if(!el || typeof QRCode==='undefined') return;
-    QRCode.toCanvas(el, text, {
-      width:size, margin:2,
-      color:{dark:'#000000',light:'#ffffff'}
-    }, function(err){
-      if(err) console.warn('QR error:',err);
-    });
-  }, 50);
+  _qrPending.push({id:canvasId, text:text, size:size});
   return '<canvas id="'+canvasId+'" width="'+size+'" height="'+size+'" style="display:block;border-radius:4px;"></canvas>';
+}
+function renderPendingQR(){
+  if(typeof QRCode==='undefined'){setTimeout(renderPendingQR,200);return;}
+  var pending = _qrPending.slice();
+  _qrPending = [];
+  pending.forEach(function(q){
+    var el = document.getElementById(q.id);
+    if(!el) return;
+    QRCode.toCanvas(el, q.text, {
+      width:q.size, margin:2,
+      color:{dark:'#000000',light:'#ffffff'}
+    }, function(err){if(err) console.warn('QR:',err);});
+  });
 }
 function renderQR(){
   var w=document.getElementById('view-qr');if(!w)return;
+  _qrPending=[];
   var q=document.getElementById('qr-search')?document.getElementById('qr-search').value.toLowerCase():'';
   var areas2=[]; equipos.forEach(function(e){if(areas2.indexOf(e.area)<0&&e.area)areas2.push(e.area);}); areas2.sort();
   var filterArea=document.getElementById('qr-area-filter')?document.getElementById('qr-area-filter').value:'';
@@ -36216,7 +36222,7 @@ function renderQR(){
     +areas2.map(function(a){return '<option value="'+a+'"'+(filterArea===a?' selected':'')+'>'+a+'</option>';}).join('')
     +'</select>'
     +'<span style="font-size:12px;color:#9aa0a6;">'+data.length+' equipo(s)</span>'
-    +'<button class="btn btn-sm" onclick="window.print()">🖨 Imprimir todos</button>'
+    +'<button class="btn btn-sm" onclick="renderPendingQR();setTimeout(function(){window.print();},400);">🖨 Imprimir todos</button>'
     +'</div>'
     +'<div class="qr-grid">'
     +data.map(function(e){
@@ -36228,9 +36234,11 @@ function renderQR(){
         +'</div>';
     }).join('')
     +'</div>';
+  setTimeout(renderPendingQR,100);
 }
 
 // REPARACIONES
+
 function openFormRepFor(equipoId){
   closePanel();
   var sel=document.getElementById('rep-equipo-sel');
@@ -36573,17 +36581,9 @@ var ETIQ_POR_HOJA = 30;
 var etiqFilter = {area:'',plaza:'',tipo:'',estado:'',q:''};
 
 function makeQRUrl(id){
-  // Retorna un canvas element string para uso inline
   var canvasId = 'qru-'+id+'-'+Math.random().toString(36).slice(2,6);
   var url = BASE_URL+id;
-  setTimeout(function(){
-    var el = document.getElementById(canvasId);
-    if(!el || typeof QRCode==='undefined') return;
-    QRCode.toCanvas(el, url, {
-      width:80, margin:1,
-      color:{dark:'#000000',light:'#ffffff'}
-    }, function(err){if(err) console.warn('QR error:',err);});
-  }, 50);
+  _qrPending.push({id:canvasId, text:url, size:80});
   return '<canvas id="'+canvasId+'" width="80" height="80" style="display:block;"></canvas>';
 }
 
