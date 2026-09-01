@@ -33765,6 +33765,12 @@ table.mts tr:hover td{background:#f9fafb;}
 }
 
 
+@media print {
+  .qr-card div img { display:block!important;max-width:100%; }
+  .qr-card div canvas { display:block!important; }
+  .etiq div img { display:block!important; }
+  .etiq div canvas { display:block!important; }
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
@@ -37511,10 +37517,4 @@ function renderRecientesCampo(){
 </button>
 </body>
 </html>
-@media print {
-  .qr-card div img { display: block !important; max-width:100%; }
-  .qr-card div canvas { display: block !important; }
-  .etiq div img { display: block !important; }
-  .etiq div canvas { display: block !important; }
-}
 
