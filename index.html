@@ -33940,6 +33940,7 @@ table.mts tr:hover td{background:#f9fafb;}
 
 <!-- FICHA IMPRIMIBLE (solo visible al imprimir) -->
 <div class="ficha-qr" id="ficha-print"></div>
+<div id="etiq-hoja-print" class="print-hoja-etiq" style="display:none;"></div>
 
 <!-- FORM EQUIPO -->
 <div id="overlay-form" class="hidden" onclick="if(event.target===this)closeFormEquipo()">
@@ -36234,7 +36235,7 @@ function renderQR(){
     +areas2.map(function(a){return '<option value="'+a+'"'+(filterArea===a?' selected':'')+'>'+a+'</option>';}).join('')
     +'</select>'
     +'<span style="font-size:12px;color:#9aa0a6;">'+data.length+' equipo(s)</span>'
-    +'<button class="btn btn-sm" onclick="renderPendingQR();setTimeout(function(){window.print();},400);">🖨 Imprimir todos</button>'
+    +'<button class="btn btn-sm" onclick="imprimirQRActual();">🖨 Imprimir todos</button>'
     +'</div>'
     +'<div class="qr-grid">'
     +data.map(function(e){
@@ -37369,6 +37370,76 @@ document.addEventListener('click', function(ev){
   }
 });
 
+
+
+
+function imprimirQRActual(){
+  var q = document.getElementById('qr-search');
+  var fa = document.getElementById('qr-area-filter');
+  var qq = q?q.value.toLowerCase():'';
+  var area = fa?fa.value:'';
+  var data = equipos.filter(function(e){
+    if(qq&&!(e.nombre+e.modelo+e.plaza+e.marca+e.id).toLowerCase().includes(qq))return false;
+    if(area&&e.area!==area)return false;
+    return true;
+  });
+  imprimirQRs(data);
+}
+
+function imprimirQRs(dataEquipos){
+  var container = document.getElementById('etiq-hoja-print');
+  if(!container){ console.error('No existe etiq-hoja-print'); return; }
+
+  if(typeof QRCode === 'undefined'){
+    alert('La librería QR no está disponible. Verifica tu conexión.');
+    return;
+  }
+
+  // Generar páginas (30 etiquetas por hoja carta en 3 columnas x 10 filas)
+  var perPagina = 30;
+  var paginas = [];
+  for(var i=0;i<dataEquipos.length;i+=perPagina){
+    paginas.push(dataEquipos.slice(i,i+perPagina));
+  }
+
+  container.innerHTML = paginas.map(function(pag){
+    return '<div class="etiq-hoja">'
+      +pag.map(function(e){
+        var uid = 'pqr'+Math.random().toString(36).slice(2,7);
+        return '<div class="etiq">'
+          +'<img class="elogo" src="'+LOGO_B64+'" alt="C" style="width:12mm;height:12mm;object-fit:contain;flex-shrink:0;">'
+          +'<div class="einfo" style="flex:1;display:flex;flex-direction:row;align-items:center;gap:1.5mm;">'
+          +'<div id="'+uid+'" data-eqid="'+e.id+'" style="width:14mm;height:14mm;flex-shrink:0;"></div>'
+          +'<div style="display:flex;flex-direction:column;justify-content:center;gap:.3mm;overflow:hidden;">'
+          +'<div class="eid" style="font-size:6.5pt;font-weight:800;font-family:Arial;color:#000;">'+(e.af||e.id)+'</div>'
+          +'<div class="emod" style="font-size:5pt;color:#222;font-family:Arial;font-weight:600;white-space:nowrap;overflow:hidden;max-width:22mm;">'+(e.modelo||e.marca||'')+'</div>'
+          +(e.serie?'<div class="eser" style="font-size:4.5pt;color:#555;font-family:Arial;white-space:nowrap;overflow:hidden;max-width:22mm;">S/N: '+e.serie+'</div>':'')
+          +'</div>'
+          +'</div>'
+          +'</div>';
+      }).join('')
+      +'</div>';
+  }).join('');
+
+  // Renderizar QR en cada celda
+  container.querySelectorAll('[data-eqid]').forEach(function(div){
+    try{
+      new QRCode(div, {
+        text: BASE_URL + div.dataset.eqid,
+        width: 53, height: 53,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }catch(err){ console.warn('QR error:', err); }
+  });
+
+  // Imprimir después de que QRCode renderice
+  setTimeout(function(){
+    window.print();
+    setTimeout(function(){ container.innerHTML=''; }, 2000);
+  }, 1000);
+}
 
 // ── SIDEBAR MÓVIL ──
 function openSidebar(){
