@@ -37427,7 +37427,7 @@ function imprimirQRs(dataEquipos){
       +'</div>';
   }).join('');
 
-  // Renderizar QR en cada celda
+  // Renderizar QR en cada celda y convertir canvas a img para impresión
   container.querySelectorAll('[data-eqid]').forEach(function(div){
     try{
       new QRCode(div, {
@@ -37440,15 +37440,31 @@ function imprimirQRs(dataEquipos){
     }catch(err){ console.warn('QR error:', err); }
   });
 
-  // Mostrar container y imprimir después de que QRCode renderice
+  // Mostrar container
   container.style.display = 'block';
+
+  // Esperar a que QRCode renderice los canvas, luego convertir a img
   setTimeout(function(){
-    window.print();
+    container.querySelectorAll('[data-eqid] canvas').forEach(function(canvas){
+      try{
+        var dataUrl = canvas.toDataURL('image/png');
+        var img = document.createElement('img');
+        img.src = dataUrl;
+        img.style.width = canvas.width + 'px';
+        img.style.height = canvas.height + 'px';
+        img.style.display = 'block';
+        canvas.parentNode.replaceChild(img, canvas);
+      }catch(e){ console.warn('canvas to img error:', e); }
+    });
+    // Ahora imprimir con las imágenes PNG
     setTimeout(function(){
-      container.innerHTML='';
-      container.style.display='none';
-    }, 2000);
-  }, 1000);
+      window.print();
+      setTimeout(function(){
+        container.innerHTML='';
+        container.style.display='none';
+      }, 2000);
+    }, 300);
+  }, 800);
 }
 
 // ── SIDEBAR MÓVIL ──
