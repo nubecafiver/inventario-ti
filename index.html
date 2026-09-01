@@ -33758,7 +33758,15 @@ table.mts tr:hover td{background:#f9fafb;}
 }
 
 
+@media print {
+  canvas { display: block !important; }
+  .etiq canvas { display: block !important; }
+  img { display: none; }
+}
+
+
 </style>
+<script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -36176,8 +36184,19 @@ function printFichaId(id){
 
 // QR
 function makeQR(text,size){
-  var url='https://api.qrserver.com/v1/create-qr-code/?size='+size+'x'+size+'&data='+encodeURIComponent(text)+'&color=1a73e8&bgcolor=ffffff&margin=4';
-  return '<img src="'+url+'" width="'+size+'" height="'+size+'" style="display:block;border-radius:6px;" loading="lazy">';
+  // Usar canvas para generar QR inline (funciona en impresión)
+  var canvasId = 'qr-'+Math.random().toString(36).slice(2,8);
+  setTimeout(function(){
+    var el = document.getElementById(canvasId);
+    if(!el || typeof QRCode==='undefined') return;
+    QRCode.toCanvas(el, text, {
+      width:size, margin:2,
+      color:{dark:'#000000',light:'#ffffff'}
+    }, function(err){
+      if(err) console.warn('QR error:',err);
+    });
+  }, 50);
+  return '<canvas id="'+canvasId+'" width="'+size+'" height="'+size+'" style="display:block;border-radius:4px;"></canvas>';
 }
 function renderQR(){
   var w=document.getElementById('view-qr');if(!w)return;
@@ -36554,7 +36573,18 @@ var ETIQ_POR_HOJA = 30;
 var etiqFilter = {area:'',plaza:'',tipo:'',estado:'',q:''};
 
 function makeQRUrl(id){
-  return 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data='+encodeURIComponent(BASE_URL+id)+'&color=000000&bgcolor=ffffff&margin=1';
+  // Retorna un canvas element string para uso inline
+  var canvasId = 'qru-'+id+'-'+Math.random().toString(36).slice(2,6);
+  var url = BASE_URL+id;
+  setTimeout(function(){
+    var el = document.getElementById(canvasId);
+    if(!el || typeof QRCode==='undefined') return;
+    QRCode.toCanvas(el, url, {
+      width:80, margin:1,
+      color:{dark:'#000000',light:'#ffffff'}
+    }, function(err){if(err) console.warn('QR error:',err);});
+  }, 50);
+  return '<canvas id="'+canvasId+'" width="80" height="80" style="display:block;"></canvas>';
 }
 
 function etiqHTML(e){
