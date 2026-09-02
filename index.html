@@ -33864,6 +33864,10 @@ table.mts tr:hover td{background:#f9fafb;}
         <i class="ti ti-users tnav-icon" aria-hidden="true"></i>
         <span class="tnav-txt">Personal</span>
       </button>
+      <button class="tnav" id="tnav-etiquetado" onclick="switchView('etiquetado')">
+        <i class="ti ti-checklist tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">Etiquetado</span>
+      </button>
       <button class="tnav" id="tnav-obsoletos" onclick="switchView('obsoletos')">
         <i class="ti ti-box tnav-icon" aria-hidden="true"></i>
         <span class="tnav-txt">Obsoletos</span>
@@ -33909,6 +33913,7 @@ table.mts tr:hover td{background:#f9fafb;}
   <div id="view-obsoletos" class="view-wrap hidden" style="padding:0;"></div>
   <div id="view-licencias" class="view-wrap hidden"></div>
   <div id="view-personal" class="view-wrap hidden"></div>
+  <div id="view-etiquetado" class="view-wrap hidden" style="padding:0;"></div>
 </div>
 
 <!-- DETAIL PANEL -->
@@ -34690,7 +34695,7 @@ function loadAppData(){
 }
 
 // Normaliza un codigo para comparar: quita espacios (incluido el no-rompible) y sube a mayusculas
-var APP_VERSION = 'v-QR-AF-7';
+var APP_VERSION = 'v-ETIQ-1';
 var _hashInicial = window.location.hash || '';
 var _queryInicial = (function(){
   var m = String(window.location.search||'').match(/[?&]eq=([^&]+)/);
@@ -34753,6 +34758,12 @@ function abrirDesdeQR(eq){
   _queryInicial = '';
   if(_qrTimer){ clearInterval(_qrTimer); _qrTimer = null; }
   window.location.hash = '';
+  // En modo pegado el escaneo marca la etiqueta, no abre el equipo
+  if(typeof modoPegadoActivo === 'function' && modoPegadoActivo()){
+    marcarEtiquetaPegada(eq);
+    switchView('etiquetado');
+    return;
+  }
   openPanel(eq.id);
 }
 
@@ -34840,6 +34851,161 @@ function fbSave(e){
 }
 
 // VIEW SWITCH
+// ══ CONTROL DE ETIQUETADO ══
+// Marca que equipos ya tienen su etiqueta QR pegada fisicamente.
+// El "modo pegado" hace que escanear MARQUE en vez de abrir el panel.
+// Se guarda en localStorage porque al escanear con la camara la pagina
+// se recarga y se perderia en memoria. Caduca solo a las 2 horas.
+var ETIQ_MODO_HORAS = 2;
+var etiqFiltro = {area:'', responsable:'', estado:'faltantes'};
+
+function modoPegadoActivo(){
+  try{
+    var t = parseInt(localStorage.getItem('etiq_modo_hasta')||'0', 10);
+    if(!t) return false;
+    if(Date.now() > t){ localStorage.removeItem('etiq_modo_hasta'); return false; }
+    return true;
+  }catch(e){ return false; }
+}
+
+function toggleModoPegado(){
+  try{
+    if(modoPegadoActivo()){
+      localStorage.removeItem('etiq_modo_hasta');
+      toast('Modo pegado apagado');
+    } else {
+      localStorage.setItem('etiq_modo_hasta', String(Date.now() + ETIQ_MODO_HORAS*3600*1000));
+      toast('Modo pegado activo por '+ETIQ_MODO_HORAS+' horas');
+    }
+  }catch(e){ toast('No se pudo cambiar el modo'); }
+  if(curView==='etiquetado') renderEtiquetado();
+}
+
+// Marca un equipo como etiquetado. Devuelve true si lo marco ahora.
+function marcarEtiquetaPegada(eq){
+  if(!eq) return false;
+  if(eq.etiqueta_pegada){
+    toast('⚠️ '+(eq.af||eq.id)+' ya estaba marcada el '+(eq.etiqueta_fecha||'?'));
+    return false;
+  }
+  var fecha = nowStr();
+  eq.etiqueta_pegada = true;
+  eq.etiqueta_fecha = fecha;
+  db.collection('equipos').doc(eq.id).update({etiqueta_pegada:true, etiqueta_fecha:fecha})
+    .then(function(){
+      var n = equipos.filter(function(x){return x.etiqueta_pegada;}).length;
+      toast('✅ '+(eq.af||eq.id)+' · '+(eq.modelo||eq.marca||'')+' — llevas '+n);
+    })
+    .catch(function(err){
+      eq.etiqueta_pegada = false;
+      eq.etiqueta_fecha = null;
+      toast('No se pudo guardar: '+(err && err.message));
+    });
+  if(curView==='etiquetado') renderEtiquetado();
+  return true;
+}
+
+function etiqSetFiltro(campo, valor){
+  etiqFiltro[campo] = valor;
+  renderEtiquetado();
+}
+
+function renderEtiquetado(){
+  var cont = document.getElementById('view-etiquetado');
+  if(!cont) return;
+
+  var total = equipos.length;
+  var pegadas = equipos.filter(function(e){return e.etiqueta_pegada;});
+  var hoy = new Date().toLocaleDateString('es-MX');
+  var deHoy = pegadas.filter(function(e){
+    return String(e.etiqueta_fecha||'').indexOf(hoy) === 0;
+  }).length;
+  var faltan = total - pegadas.length;
+  var pct = total ? Math.round(pegadas.length*100/total) : 0;
+  var activo = modoPegadoActivo();
+
+  var areas = [...new Set(equipos.map(function(e){return e.area||'';}).filter(Boolean))].sort();
+  var resps = [...new Set(equipos.map(function(e){return e.responsable||'';}).filter(Boolean))].sort();
+
+  var lista = equipos.filter(function(e){
+    if(etiqFiltro.area && (e.area||'') !== etiqFiltro.area) return false;
+    if(etiqFiltro.responsable && (e.responsable||'') !== etiqFiltro.responsable) return false;
+    if(etiqFiltro.estado==='faltantes' && e.etiqueta_pegada) return false;
+    if(etiqFiltro.estado==='pegadas' && !e.etiqueta_pegada) return false;
+    return true;
+  }).sort(function(a,b){
+    return String(a.responsable||'zzz').localeCompare(String(b.responsable||'zzz'));
+  });
+
+  function opts(arr, sel){
+    return arr.map(function(x){
+      return '<option value="'+x.replace(/"/g,'&quot;')+'"'+(x===sel?' selected':'')+'>'+x+'</option>';
+    }).join('');
+  }
+
+  var h = '<div style="padding:14px 16px;">';
+
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">'
+    + '<div style="font-size:17px;font-weight:600;color:#1c1e21;">Control de etiquetado</div>'
+    + '<button onclick="toggleModoPegado()" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border:none;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;'
+    + (activo?'background:#dcfce7;color:#15803d;':'background:#f1f5f9;color:#475569;')+'">'
+    + '<i class="ti ti-qrcode"></i>'+(activo?'Modo pegado ACTIVO':'Activar modo pegado')+'</button>'
+    + '</div>';
+
+  if(activo){
+    h += '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:12px;color:#15803d;">'
+       + 'Escanear ahora <b>marca la etiqueta como pegada</b> en vez de abrir el equipo. Se apaga solo en '+ETIQ_MODO_HORAS+' horas.'
+       + '</div>';
+  }
+
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:12px;">'
+    + '<div class="stat-card"><div class="lbl">Pegadas</div><div class="val" style="color:#16a34a;">'+pegadas.length+'</div></div>'
+    + '<div class="stat-card"><div class="lbl">Faltan</div><div class="val">'+faltan+'</div></div>'
+    + '<div class="stat-card"><div class="lbl">Hoy</div><div class="val" style="color:#1d4ed8;">'+deHoy+'</div></div>'
+    + '</div>';
+
+  h += '<div style="height:6px;background:#e5e7eb;border-radius:20px;overflow:hidden;margin-bottom:5px;">'
+    + '<div style="width:'+pct+'%;height:100%;background:#16a34a;"></div></div>'
+    + '<div style="font-size:11px;color:#9ca3af;margin-bottom:14px;">'+pct+'% del inventario etiquetado</div>';
+
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">'
+    + '<select class="fi-sm" onchange="etiqSetFiltro(\'area\',this.value)"><option value="">Todas las áreas</option>'+opts(areas, etiqFiltro.area)+'</select>'
+    + '<select class="fi-sm" onchange="etiqSetFiltro(\'responsable\',this.value)"><option value="">Todos los responsables</option>'+opts(resps, etiqFiltro.responsable)+'</select>'
+    + '<select class="fi-sm" onchange="etiqSetFiltro(\'estado\',this.value)">'
+    + '<option value="faltantes"'+(etiqFiltro.estado==='faltantes'?' selected':'')+'>Faltantes</option>'
+    + '<option value="pegadas"'+(etiqFiltro.estado==='pegadas'?' selected':'')+'>Pegadas</option>'
+    + '<option value=""'+(etiqFiltro.estado===''?' selected':'')+'>Todas</option>'
+    + '</select>'
+    + '<span style="font-size:11px;color:#6b7280;align-self:center;">'+lista.length+' equipo(s)</span>'
+    + '</div>';
+
+  if(!lista.length){
+    h += '<div style="padding:28px;text-align:center;color:#9ca3af;font-size:13px;">Sin equipos con estos filtros.</div>';
+  } else {
+    h += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">';
+    lista.forEach(function(e, i){
+      var resp = (e.responsable||'').trim();
+      var ini = resp ? resp.split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2) : '?';
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;'+(i?'border-top:1px solid #f1f3f5;':'')+'">'
+        + '<i class="ti '+(e.etiqueta_pegada?'ti-circle-check':'ti-circle')+'" style="font-size:19px;flex-shrink:0;color:'+(e.etiqueta_pegada?'#16a34a':'#cbd5e1')+';"></i>'
+        + '<div style="width:29px;height:29px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;'
+        + (resp?'background:#eff6ff;color:#1d4ed8;':'background:#f1f5f9;color:#94a3b8;')+'">'+ini+'</div>'
+        + '<div style="flex:1;min-width:0;cursor:pointer;" onclick="openPanel(\''+e.id+'\')">'
+        + '<div style="font-size:13px;color:'+(resp?'#1c1e21':'#9ca3af')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(resp||'Sin responsable')+'</div>'
+        + '<div style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(e.af||e.id)+' · '+(e.modelo||e.marca||'')+' · '+(e.area||'')+'</div>'
+        + '</div>'
+        + (e.etiqueta_pegada
+            ? '<div style="font-size:10px;color:#9ca3af;white-space:nowrap;">'+(e.etiqueta_fecha||'')+'</div>'
+            : '<button onclick="marcarEtiquetaPegada(equipos.find(function(x){return x.id===\''+e.id+'\';}))" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:11px;color:#374151;cursor:pointer;white-space:nowrap;">Marcar</button>')
+        + '</div>';
+    });
+    h += '</div>';
+  }
+
+  h += '</div>';
+  cont.innerHTML = h;
+}
+
 // ── CARGA BAJO DEMANDA ──
 // Estas colecciones solo se bajan de Firebase cuando entras a su vista.
 // Antes se bajaban siempre, aunque solo vinieras a leer una etiqueta.
@@ -34866,7 +35032,7 @@ function switchView(v){
   var db=document.getElementById('view-dashboard');
   if(db) db.style.display=(v==='dashboard')?'block':'none';
   // El resto usa clase hidden
-  ['inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos'].forEach(function(x){
+  ['inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos','etiquetado'].forEach(function(x){
     var el=document.getElementById('view-'+x);
     if(el) el.classList.toggle('hidden',x!==v);
     var b=document.getElementById('tnav-'+x);if(b)b.classList.toggle('on',x===v);
@@ -34881,6 +35047,7 @@ function switchView(v){
   if(v==='simulador')renderSimulador();
   if(v==='personal')renderPersonal();
   if(v==='licencias')renderLicencias();
+  if(v==='etiquetado')renderEtiquetado();
   if(v==='obsoletos')renderObsoletos();
   if(v==='obsoletos')renderObsoletos();
 }
@@ -36964,6 +37131,12 @@ function procesarEscaneo(codigo){
     diagnosticoQR(code);
     return;
   }
+  // En modo pegado el escaneo marca la etiqueta, no abre el equipo
+  if(typeof modoPegadoActivo === 'function' && modoPegadoActivo()){
+    marcarEtiquetaPegada(equipo);
+    switchView('etiquetado');
+    return;
+  }
   var eqId = equipo.id;
 
   // Mostrar popup de éxito
@@ -37819,7 +37992,7 @@ function switchViewCampo(v){
   if(v==='campo'){
     curView='campo';
     if(vc) vc.style.display='flex';
-    ['dashboard','inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos'].forEach(function(x){
+    ['dashboard','inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos','etiquetado'].forEach(function(x){
       var el=document.getElementById('view-'+x);
       if(el){if(x==='dashboard')el.style.display='none';else el.classList.add('hidden');}
     });
