@@ -34690,17 +34690,22 @@ function loadAppData(){
 }
 
 // Normaliza un codigo para comparar: quita espacios (incluido el no-rompible) y sube a mayusculas
+var APP_VERSION = 'v-QR-AF-3';
+var _hashInicial = window.location.hash || '';
+
 function normCode(v){
   return String(v===null||v===undefined?'':v).replace(/[\s\u00a0]+/g,'').toUpperCase();
 }
 
 function checkQRHash(){
-  var hash = window.location.hash;
+  // El hash puede perderse durante el login, por eso se guarda al cargar la pagina
+  var hash = window.location.hash || _hashInicial || '';
   if(!hash) return;
   // Acepta el numero de activo (600683) y el ID interno viejo (EQ0031 / OBS0007)
   var raw = decodeURIComponent(hash.replace(/^#/,''));
   var code = normCode(raw.split(/[#\/]/).pop());
   if(!code) return;
+  toast('Buscando '+code+'...');
   // Esperar a que equipos carguen y abrir el panel
   var intentos = 0;
   var check = setInterval(function(){
@@ -35847,7 +35852,7 @@ function renderDashboard(){
     // HEADER
     +'<div class="sw-hdr">'
     +'<div><div class="sw-h1">IT Asset Dashboard</div>'
-    +'<div class="sw-sub">Cafiver · '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</div></div>'
+    +'<div class="sw-sub">Cafiver · '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' · '+APP_VERSION+'</div></div>'
     +'<div style="display:flex;gap:8px;">'
     +'<button onclick="exportCSV()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:0.5px solid #e5e7eb;border-radius:6px;background:#fff;font-size:11px;color:#374151;cursor:pointer;"><i class="ti ti-download"></i> Export</button>'
     +'<button onclick="openFormEquipo()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:6px;background:#1d4ed8;font-size:11px;font-weight:500;color:#fff;cursor:pointer;"><i class="ti ti-plus"></i> Nuevo equipo</button>'
