@@ -34683,15 +34683,14 @@ function loadAppData(){
     if(curView==='reparaciones')renderReparaciones();
   });
   loadEscaneos();
-  loadCelulares();
-  loadLicencias();
-  loadCatalogo();
+  // celulares, licencias y catalogo ya no se cargan aqui:
+  // se bajan al entrar a su vista (ver cargarSiHaceFalta)
   loadPersonal();
   checkQRHash();
 }
 
 // Normaliza un codigo para comparar: quita espacios (incluido el no-rompible) y sube a mayusculas
-var APP_VERSION = 'v-QR-AF-6';
+var APP_VERSION = 'v-QR-AF-7';
 var _hashInicial = window.location.hash || '';
 var _queryInicial = (function(){
   var m = String(window.location.search||'').match(/[?&]eq=([^&]+)/);
@@ -34841,8 +34840,28 @@ function fbSave(e){
 }
 
 // VIEW SWITCH
+// ── CARGA BAJO DEMANDA ──
+// Estas colecciones solo se bajan de Firebase cuando entras a su vista.
+// Antes se bajaban siempre, aunque solo vinieras a leer una etiqueta.
+var _yaCargado = {celulares:false, licencias:false, catalogo:false};
+
+function cargarSiHaceFalta(v){
+  try{
+    if(v==='celulares' && !_yaCargado.celulares){
+      _yaCargado.celulares = true; loadCelulares();
+    }
+    if(v==='licencias' && !_yaCargado.licencias){
+      _yaCargado.licencias = true; loadLicencias();
+    }
+    if(v==='simulador' && !_yaCargado.catalogo){
+      _yaCargado.catalogo = true; loadCatalogo();
+    }
+  }catch(err){ console.warn('carga bajo demanda:', err && err.message); }
+}
+
 function switchView(v){
   curView=v;
+  cargarSiHaceFalta(v);
   // Dashboard usa display directo, no clase hidden
   var db=document.getElementById('view-dashboard');
   if(db) db.style.display=(v==='dashboard')?'block':'none';
