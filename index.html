@@ -34692,25 +34692,25 @@ function loadAppData(){
 function checkQRHash(){
   var hash = window.location.hash;
   if(!hash) return;
-  // Formato: #EQ001 o #inventario-ti/#EQ001
-  var match = hash.match(/[#/](EQ[A-Z0-9]+|OBS[A-Z0-9]+)/);
-  if(match){
-    var eqId = match[1];
-    // Esperar a que equipos carguen y abrir el panel
-    var intentos = 0;
-    var check = setInterval(function(){
-      intentos++;
-      var eq = equipos.find(function(e){return e.id===eqId;});
-      if(eq){
-        clearInterval(check);
-        window.location.hash = '';
-        openPanel(eqId);
-      } else if(intentos > 20){
-        clearInterval(check);
-        toast('Equipo '+eqId+' no encontrado');
-      }
-    }, 300);
-  }
+  // Acepta el numero de activo (600683) y el ID interno viejo (EQ0031 / OBS0007)
+  var raw = decodeURIComponent(hash.replace(/^#/,''));
+  var code = raw.split(/[#\/]/).pop().trim();
+  if(!code) return;
+  // Esperar a que equipos carguen y abrir el panel
+  var intentos = 0;
+  var check = setInterval(function(){
+    intentos++;
+    var eq = equipos.find(function(e){return String(e.af||'') === code;});
+    if(!eq) eq = equipos.find(function(e){return e.id === code;});
+    if(eq){
+      clearInterval(check);
+      window.location.hash = '';
+      openPanel(eq.id);
+    } else if(intentos > 20){
+      clearInterval(check);
+      toast('Equipo '+code+' no encontrado');
+    }
+  }, 300);
 }
 // Escuchar cambios de hash (cuando se escanea QR con cámara nativa)
 window.addEventListener('hashchange', function(){
@@ -36161,7 +36161,7 @@ function buildFicha(id){
   var e=equipos.find(function(x){return x.id===id;});if(!e)return '';
   var reps=reparaciones.filter(function(r){return r.equipo_id===id;});
   var totalRep=reps.reduce(function(a,r){return a+(parseFloat(r.costo)||0);},0);
-  var qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=100x100&data='+encodeURIComponent('https://nubecafiver.github.io/inventario-ti/#'+e.id)+'&color=1a73e8';
+  var qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=100x100&data='+encodeURIComponent('https://nubecafiver.github.io/inventario-ti/#'+(e.af||e.id))+'&color=1a73e8';
   return '<div class="ficha-header">'
     +'<img src="'+qrUrl+'" width="90" height="90" style="border-radius:6px;flex-shrink:0;">'
     +'<div style="flex:1;">'
@@ -36246,7 +36246,7 @@ function renderQR(){
     +'</div>'
     +'<div class="qr-grid">'
     +data.map(function(e){
-      var qrUrl='https://nubecafiver.github.io/inventario-ti/#'+e.id;
+      var qrUrl='https://nubecafiver.github.io/inventario-ti/#'+(e.af||e.id);
       return '<div class="qr-card">'        +makeQR(qrUrl,150)        +'<div class="qr-id">'+(e.af||e.id)+'</div>'        +'<div class="qr-lbl">'+(e.modelo||e.marca||'')+'</div>'        +(e.serie?'<div class="qr-sub">S/N: '+e.serie+'</div>':'')+'<div style="display:flex;gap:4px;width:100%;">'
         +'<button class="btn btn-sm" style="flex:1;justify-content:center;" onclick="openPanel(\''+e.id+'\')">👁 Ver</button>'
         +'<button class="btn btn-sm" style="flex:1;justify-content:center;" onclick="printFichaId(\''+e.id+'\')">🖨</button>'
@@ -36605,7 +36605,7 @@ function makeQRUrl(id){
 }
 
 function etiqHTML(e){
-  return '<img class="elogo" src="'+LOGO_B64+'" alt="CAFIVER">'    +'<div class="einfo">'    +'<img class="eqr" src="'+makeQRUrl(e.id)+'" alt="QR">'    +'<div class="edata">'    +'<div class="eid">'+(e.af||e.id)+'</div>'    +'<div class="emod">'+(e.modelo||e.marca||'')+'</div>'    +(e.serie?'<div class="eser">S/N: '+e.serie+'</div>':'')    +'</div>'    +'</div>';
+  return '<img class="elogo" src="'+LOGO_B64+'" alt="CAFIVER">'    +'<div class="einfo">'    +'<img class="eqr" src="'+makeQRUrl(e.af||e.id)+'" alt="QR">'    +'<div class="edata">'    +'<div class="eid">'+(e.af||e.id)+'</div>'    +'<div class="emod">'+(e.modelo||e.marca||'')+'</div>'    +(e.serie?'<div class="eser">S/N: '+e.serie+'</div>':'')    +'</div>'    +'</div>';
 }
 
 
@@ -37431,7 +37431,7 @@ function imprimirQRs(dataEquipos){
       af: e.af||e.id,
       modelo: e.modelo||e.marca||'',
       serie: e.serie||'',
-      url: 'https://api.qrserver.com/v1/create-qr-code/?size=53x53&data='+encodeURIComponent(BASE_URL+e.id)+'&color=000000&bgcolor=ffffff&margin=1'
+      url: 'https://api.qrserver.com/v1/create-qr-code/?size=53x53&data='+encodeURIComponent(BASE_URL+(e.af||e.id))+'&color=000000&bgcolor=ffffff&margin=1'
     };
   });
 
@@ -37544,7 +37544,7 @@ async function descargarPDFEtiquetas(){
   var qrDataURLs = [];
   for(var i=0; i<total; i++){
     var e = data[i];
-    var dataUrl = await generarQRDataURLPDF(BASE_URL + e.id, 180);
+    var dataUrl = await generarQRDataURLPDF(BASE_URL + (e.af||e.id), 180);
     qrDataURLs.push(dataUrl);
   }
 
