@@ -34664,6 +34664,7 @@ function loadAppData(){
   var _primeraVez=true;
   db.collection('equipos').onSnapshot(function(s){
     equipos=s.docs.map(function(d){return d.data();});
+    resolverQRPendiente();
     if(_primeraVez){_primeraVez=false;switchView('dashboard');}
     if(_modoCampo) actualizarStatsCampo();
     else if(curView==='dashboard')renderDashboard();
@@ -34690,35 +34691,103 @@ function loadAppData(){
 }
 
 // Normaliza un codigo para comparar: quita espacios (incluido el no-rompible) y sube a mayusculas
-var APP_VERSION = 'v-QR-AF-3';
+var APP_VERSION = 'v-QR-AF-6';
 var _hashInicial = window.location.hash || '';
+var _queryInicial = (function(){
+  var m = String(window.location.search||'').match(/[?&]eq=([^&]+)/);
+  return m ? '#'+decodeURIComponent(m[1]) : '';
+})();
+// Lo que la app recibio al cargar, para mostrarlo en pantalla
+var _codigoInicial = (_hashInicial || _queryInicial || '').replace(/^#/,'');
 
 function normCode(v){
   return String(v===null||v===undefined?'':v).replace(/[\s\u00a0]+/g,'').toUpperCase();
 }
 
+var _qrPendiente = null;
+var _qrTimer = null;
+
+// Trae UN solo equipo desde Firebase, sin esperar a que carguen los 382.
+// Prueba primero por ID de documento (mas barato) y luego por numero de activo.
+function buscarEquipoRapido(code, alEncontrar, alFallar){
+  if(!code || typeof db === 'undefined'){ alFallar(); return; }
+
+  function usar(data){
+    if(!data){ alFallar(); return; }
+    // Meterlo en la lista para que openPanel lo encuentre
+    var ya = equipos.some(function(e){return e.id === data.id;});
+    if(!ya) equipos.push(data);
+    alEncontrar(data);
+  }
+
+  db.collection('equipos').doc(code).get()
+    .then(function(doc){
+      if(doc.exists){ usar(doc.data()); return; }
+      // No era un ID de documento: buscar por numero de activo
+      return db.collection('equipos').where('af','==',code).limit(1).get()
+        .then(function(snap){
+          if(snap && !snap.empty){ usar(snap.docs[0].data()); }
+          else { alFallar(); }
+        });
+    })
+    .catch(function(err){
+      console.warn('Lectura rapida fallo:', err && err.message);
+      alFallar();
+    });
+}
+
+// Intenta abrir el equipo del QR usando la lista ya cargada. Devuelve true si lo logro.
+function resolverQRPendiente(){
+  if(!_qrPendiente) return false;
+  if(!equipos.length) return false;
+  var code = _qrPendiente;
+  var eq = equipos.find(function(e){return normCode(e.af) === code;});
+  if(!eq) eq = equipos.find(function(e){return normCode(e.id) === code;});
+  if(!eq) return false;
+  abrirDesdeQR(eq);
+  return true;
+}
+
+function abrirDesdeQR(eq){
+  _qrPendiente = null;
+  _hashInicial = '';
+  _queryInicial = '';
+  if(_qrTimer){ clearInterval(_qrTimer); _qrTimer = null; }
+  window.location.hash = '';
+  openPanel(eq.id);
+}
+
 function checkQRHash(){
   // El hash puede perderse durante el login, por eso se guarda al cargar la pagina
-  var hash = window.location.hash || _hashInicial || '';
+  var hash = window.location.hash || _hashInicial || _queryInicial || '';
   if(!hash) return;
   // Acepta el numero de activo (600683) y el ID interno viejo (EQ0031 / OBS0007)
   var raw = decodeURIComponent(hash.replace(/^#/,''));
   var code = normCode(raw.split(/[#\/]/).pop());
   if(!code) return;
+  _qrPendiente = code;
   toast('Buscando '+code+'...');
-  // Esperar a que equipos carguen y abrir el panel
+  // Si los equipos ya estan cargados, abre de inmediato
+  if(resolverQRPendiente()) return;
+
+  // Lectura rapida: un solo documento en vez de los 382
+  buscarEquipoRapido(code,
+    function(data){ if(_qrPendiente) abrirDesdeQR(data); },
+    function(){ /* sin suerte: queda el respaldo de abajo */ }
+  );
+
+  // Respaldo por si la lectura rapida falla (sin permisos, sin red, dato raro).
+  // loadAppData tambien reintenta en cuanto llegan los datos de Firebase.
   var intentos = 0;
-  var check = setInterval(function(){
+  if(_qrTimer) clearInterval(_qrTimer);
+  _qrTimer = setInterval(function(){
     intentos++;
-    var eq = equipos.find(function(e){return normCode(e.af) === code;});
-    if(!eq) eq = equipos.find(function(e){return normCode(e.id) === code;});
-    if(eq){
-      clearInterval(check);
-      window.location.hash = '';
-      openPanel(eq.id);
-    } else if(intentos > 20){
-      clearInterval(check);
-      diagnosticoQR(code);
+    if(resolverQRPendiente()) return;
+    if(intentos > 100){
+      clearInterval(_qrTimer); _qrTimer = null;
+      var fallido = _qrPendiente;
+      _qrPendiente = null;
+      diagnosticoQR(fallido);
     }
   }, 300);
 }
@@ -35852,7 +35921,7 @@ function renderDashboard(){
     // HEADER
     +'<div class="sw-hdr">'
     +'<div><div class="sw-h1">IT Asset Dashboard</div>'
-    +'<div class="sw-sub">Cafiver · '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' · '+APP_VERSION+'</div></div>'
+    +'<div class="sw-sub">Cafiver · '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' · '+APP_VERSION+' · QR recibido: '+(_codigoInicial||'NINGUNO')+'</div></div>'
     +'<div style="display:flex;gap:8px;">'
     +'<button onclick="exportCSV()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:0.5px solid #e5e7eb;border-radius:6px;background:#fff;font-size:11px;color:#374151;cursor:pointer;"><i class="ti ti-download"></i> Export</button>'
     +'<button onclick="openFormEquipo()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:6px;background:#1d4ed8;font-size:11px;font-weight:500;color:#fff;cursor:pointer;"><i class="ti ti-plus"></i> Nuevo equipo</button>'
