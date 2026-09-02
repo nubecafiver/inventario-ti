@@ -34689,25 +34689,32 @@ function loadAppData(){
   checkQRHash();
 }
 
+// Normaliza un codigo para comparar: quita espacios (incluido el no-rompible) y sube a mayusculas
+function normCode(v){
+  return String(v===null||v===undefined?'':v).replace(/[\s\u00a0]+/g,'').toUpperCase();
+}
+
 function checkQRHash(){
   var hash = window.location.hash;
   if(!hash) return;
   // Acepta el numero de activo (600683) y el ID interno viejo (EQ0031 / OBS0007)
   var raw = decodeURIComponent(hash.replace(/^#/,''));
-  var code = raw.split(/[#\/]/).pop().trim();
+  var code = normCode(raw.split(/[#\/]/).pop());
   if(!code) return;
   // Esperar a que equipos carguen y abrir el panel
   var intentos = 0;
   var check = setInterval(function(){
     intentos++;
-    var eq = equipos.find(function(e){return String(e.af||'') === code;});
-    if(!eq) eq = equipos.find(function(e){return e.id === code;});
+    var eq = equipos.find(function(e){return normCode(e.af) === code;});
+    if(!eq) eq = equipos.find(function(e){return normCode(e.id) === code;});
     if(eq){
       clearInterval(check);
       window.location.hash = '';
       openPanel(eq.id);
     } else if(intentos > 20){
       clearInterval(check);
+      console.warn('QR no encontrado. Codigo escaneado:', JSON.stringify(code),
+                   '| Activos cargados:', equipos.length);
       toast('Equipo '+code+' no encontrado');
     }
   }, 300);
