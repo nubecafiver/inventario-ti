@@ -34713,11 +34713,46 @@ function checkQRHash(){
       openPanel(eq.id);
     } else if(intentos > 20){
       clearInterval(check);
-      console.warn('QR no encontrado. Codigo escaneado:', JSON.stringify(code),
-                   '| Activos cargados:', equipos.length);
-      toast('Equipo '+code+' no encontrado');
+      diagnosticoQR(code);
     }
   }, 300);
+}
+
+// Muestra en pantalla por que fallo el escaneo (util en celular, sin consola)
+function diagnosticoQR(code){
+  var lineas = [];
+  lineas.push('Codigo escaneado: "'+code+'"');
+  lineas.push('Equipos cargados: '+equipos.length);
+
+  if(equipos.length === 0){
+    lineas.push('');
+    lineas.push('La lista esta vacia: no habia sesion iniciada o');
+    lineas.push('los datos no alcanzaron a cargar. Entra a la app');
+    lineas.push('primero y vuelve a escanear.');
+    alert(lineas.join('\n'));
+    return;
+  }
+
+  // Buscar parecidos: que contengan el codigo o esten contenidos en el
+  var cerca = equipos.filter(function(e){
+    var a = normCode(e.af), i = normCode(e.id);
+    return (a && (a.indexOf(code)>=0 || code.indexOf(a)>=0))
+        || (i && (i.indexOf(code)>=0 || code.indexOf(i)>=0));
+  }).slice(0,5);
+
+  if(cerca.length){
+    lineas.push('');
+    lineas.push('Parecidos encontrados:');
+    cerca.forEach(function(e){
+      lineas.push('  af="'+e.af+'"  id="'+e.id+'"  '+(e.modelo||e.marca||''));
+    });
+  } else {
+    lineas.push('');
+    lineas.push('Ningun equipo se le parece.');
+    lineas.push('Ejemplo de af cargados: '
+      + equipos.slice(0,3).map(function(e){return '"'+e.af+'"';}).join(', '));
+  }
+  alert(lineas.join('\n'));
 }
 // Escuchar cambios de hash (cuando se escanea QR con cámara nativa)
 window.addEventListener('hashchange', function(){
@@ -36785,17 +36820,14 @@ function openScanner(){
       zxingReader.decodeFromVideoDevice(deviceId, 'scanner-video', function(result, err){
         if(result){
           var data = result.getText();
-          var eqId = null;
-          if(data.includes('#EQ')){
-            eqId = data.split('#')[1].trim();
-          } else if(data.startsWith('EQ')){
-            eqId = data.trim();
-          }
-          if(eqId && eqId !== lastScannedId){
-            lastScannedId = eqId;
-            setStatus('✅ QR detectado: '+eqId,'success');
+          // Acepta numero de activo (600314), ID interno viejo (EQ0031)
+          // y la URL completa (https://.../#600314)
+          var code = normCode(String(data).split(/[#\/]/).pop());
+          if(code && code !== lastScannedId){
+            lastScannedId = code;
+            setStatus('✅ QR detectado: '+code,'success');
             if(navigator.vibrate) navigator.vibrate([100,50,100]);
-            setTimeout(function(){ procesarEscaneo(eqId); }, 300);
+            setTimeout(function(){ procesarEscaneo(code); }, 300);
           }
         }
         if(err && !(err instanceof ZXing.NotFoundException)){
@@ -36828,15 +36860,18 @@ function openFormRepForScan(){
   if(id) openFormRepFor(id);
 }
 
-function procesarEscaneo(eqId){
+function procesarEscaneo(codigo){
   closeScanner();
   lastScannedId = null;
 
-  var equipo = equipos.find(function(e){return e.id===eqId;});
+  var code = normCode(codigo);
+  var equipo = equipos.find(function(e){return normCode(e.af) === code;});
+  if(!equipo) equipo = equipos.find(function(e){return normCode(e.id) === code;});
   if(!equipo){
-    toast('❌ Equipo '+eqId+' no encontrado en el inventario');
+    diagnosticoQR(code);
     return;
   }
+  var eqId = equipo.id;
 
   // Mostrar popup de éxito
   var titleEl=document.getElementById('scan-success-title'); titleEl.textContent=equipo.nombre||equipo.modelo; titleEl.dataset.eqid=eqId;
