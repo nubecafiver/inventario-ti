@@ -33779,6 +33779,7 @@ table.mts tr:hover td{background:#f9fafb;}
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -33946,6 +33947,7 @@ table.mts tr:hover td{background:#f9fafb;}
 
 <!-- FICHA IMPRIMIBLE (solo visible al imprimir) -->
 <div class="ficha-qr" id="ficha-print"></div>
+<div id="qr-temp-pdf" style="position:fixed;left:-9999px;top:-9999px;"></div>
 <div id="etiq-hoja-print" class="print-hoja-etiq" style="display:none;"></div>
 
 <!-- FORM EQUIPO -->
@@ -36199,9 +36201,8 @@ function printFichaId(id){
 // QR
 var _qrPending = [];
 function makeQR(text,size){
-  var divId = 'qr-'+Math.random().toString(36).slice(2,8);
-  _qrPending.push({id:divId, text:text, size:size});
-  return '<div id="'+divId+'" style="width:'+size+'px;height:'+size+'px;display:flex;align-items:center;justify-content:center;"></div>';
+  var url='https://api.qrserver.com/v1/create-qr-code/?size='+size+'x'+size+'&data='+encodeURIComponent(text)+'&color=000000&bgcolor=ffffff&margin=2';
+  return '<img src="'+url+'" width="'+size+'" height="'+size+'" style="display:block;" crossorigin="anonymous">';
 }
 function renderPendingQR(){
   if(typeof QRCode==='undefined'){setTimeout(renderPendingQR,200);return;}
@@ -36241,7 +36242,7 @@ function renderQR(){
     +areas2.map(function(a){return '<option value="'+a+'"'+(filterArea===a?' selected':'')+'>'+a+'</option>';}).join('')
     +'</select>'
     +'<span style="font-size:12px;color:#9aa0a6;">'+data.length+' equipo(s)</span>'
-    +'<button class="btn btn-sm" onclick="imprimirQRActual();">🖨 Imprimir todos</button>'
+    +'<button class="btn btn-sm" onclick="descargarPDFEtiquetas();">📄 Descargar PDF</button>'
     +'</div>'
     +'<div class="qr-grid">'
     +data.map(function(e){
@@ -36600,10 +36601,7 @@ var ETIQ_POR_HOJA = 30;
 var etiqFilter = {area:'',plaza:'',tipo:'',estado:'',q:''};
 
 function makeQRUrl(id){
-  var divId = 'qru-'+id+'-'+Math.random().toString(36).slice(2,6);
-  var url = BASE_URL+id;
-  _qrPending.push({id:divId, text:url, size:80});
-  return '<div id="'+divId+'" style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;"></div>';
+  return 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data='+encodeURIComponent(BASE_URL+id)+'&color=000000&bgcolor=ffffff&margin=1';
 }
 
 function etiqHTML(e){
@@ -37411,11 +37409,10 @@ function imprimirQRs(dataEquipos){
   container.innerHTML = paginas.map(function(pag){
     return '<div class="etiq-hoja">'
       +pag.map(function(e){
-        var uid = 'pqr'+Math.random().toString(36).slice(2,7);
         return '<div class="etiq">'
           +'<img class="elogo" src="'+LOGO_B64+'" alt="C" style="width:12mm;height:12mm;object-fit:contain;flex-shrink:0;">'
           +'<div class="einfo" style="flex:1;display:flex;flex-direction:row;align-items:center;gap:1.5mm;">'
-          +'<div id="'+uid+'" data-eqid="'+e.id+'" style="width:14mm;height:14mm;flex-shrink:0;"></div>'
+          +'<div data-eqid="'+e.id+'" style="width:14mm;height:14mm;flex-shrink:0;"></div>'
           +'<div style="display:flex;flex-direction:column;justify-content:center;gap:.3mm;overflow:hidden;">'
           +'<div class="eid" style="font-size:6.5pt;font-weight:800;font-family:Arial;color:#000;">'+(e.af||e.id)+'</div>'
           +'<div class="emod" style="font-size:5pt;color:#222;font-family:Arial;font-weight:600;white-space:nowrap;overflow:hidden;max-width:22mm;">'+(e.modelo||e.marca||'')+'</div>'
@@ -37427,44 +37424,170 @@ function imprimirQRs(dataEquipos){
       +'</div>';
   }).join('');
 
-  // Renderizar QR en cada celda y convertir canvas a img para impresión
-  container.querySelectorAll('[data-eqid]').forEach(function(div){
-    try{
-      new QRCode(div, {
-        text: BASE_URL + div.dataset.eqid,
-        width: 53, height: 53,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
-    }catch(err){ console.warn('QR error:', err); }
+  // Generar URLs de QR para cada equipo
+  var qrItems = dataEquipos.map(function(e){
+    return {
+      eqid: e.id,
+      af: e.af||e.id,
+      modelo: e.modelo||e.marca||'',
+      serie: e.serie||'',
+      url: 'https://api.qrserver.com/v1/create-qr-code/?size=53x53&data='+encodeURIComponent(BASE_URL+e.id)+'&color=000000&bgcolor=ffffff&margin=1'
+    };
   });
 
-  // Mostrar container
+  // Pre-cargar todas las imágenes como base64 usando fetch
   container.style.display = 'block';
+  var loaded = 0;
+  var total = qrItems.length;
+  var b64map = {};
 
-  // Esperar a que QRCode renderice los canvas, luego convertir a img
-  setTimeout(function(){
-    container.querySelectorAll('[data-eqid] canvas').forEach(function(canvas){
-      try{
-        var dataUrl = canvas.toDataURL('image/png');
+  function cargarQR(item, cb){
+    fetch(item.url)
+      .then(function(r){return r.blob();})
+      .then(function(blob){
+        var reader = new FileReader();
+        reader.onload = function(){
+          b64map[item.eqid] = reader.result;
+          cb();
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch(function(){
+        b64map[item.eqid] = item.url; // fallback
+        cb();
+      });
+  }
+
+  function onTodosListos(){
+    // Reemplazar src de todas las imágenes con base64
+    container.querySelectorAll('[data-eqid]').forEach(function(div){
+      var b64 = b64map[div.dataset.eqid];
+      if(b64){
         var img = document.createElement('img');
-        img.src = dataUrl;
-        img.style.width = canvas.width + 'px';
-        img.style.height = canvas.height + 'px';
-        img.style.display = 'block';
-        canvas.parentNode.replaceChild(img, canvas);
-      }catch(e){ console.warn('canvas to img error:', e); }
+        img.src = b64;
+        img.style.cssText = 'width:53px;height:53px;display:block;';
+        div.appendChild(img);
+      }
     });
-    // Ahora imprimir con las imágenes PNG
+    // Imprimir
     setTimeout(function(){
       window.print();
       setTimeout(function(){
         container.innerHTML='';
         container.style.display='none';
       }, 2000);
-    }, 300);
-  }, 800);
+    }, 500);
+  }
+
+  // Cargar en paralelo con límite
+  if(total === 0){ onTodosListos(); return; }
+  qrItems.forEach(function(item){
+    cargarQR(item, function(){
+      loaded++;
+      if(loaded >= total) onTodosListos();
+    });
+  });
+}
+
+
+// ══ GENERADOR PDF ETIQUETAS QR ══
+function generarQRDataURLPDF(text, size){
+  return new Promise(function(resolve){
+    var container = document.getElementById('qr-temp-pdf');
+    var div = document.createElement('div');
+    container.appendChild(div);
+    try{
+      new QRCode(div, {
+        text: text, width: size, height: size,
+        colorDark: '#000000', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      setTimeout(function(){
+        var canvas = div.querySelector('canvas');
+        var dataUrl = canvas ? canvas.toDataURL('image/png') : null;
+        div.remove();
+        resolve(dataUrl);
+      }, 80);
+    }catch(e){ div.remove(); resolve(null); }
+  });
+}
+
+async function descargarPDFEtiquetas(){
+  if(typeof window.jspdf === 'undefined'){
+    toast('La librería PDF no está cargada. Verifica tu conexión.');
+    return;
+  }
+
+  // Obtener equipos filtrados de la vista QR actual
+  var q = document.getElementById('qr-search');
+  var fa = document.getElementById('qr-area-filter');
+  var qq = q ? q.value.toLowerCase() : '';
+  var area = fa ? fa.value : '';
+  var data = equipos.filter(function(e){
+    if(qq && !(e.nombre+e.modelo+e.plaza+e.marca+e.id).toLowerCase().includes(qq)) return false;
+    if(area && e.area !== area) return false;
+    return true;
+  });
+
+  if(!data.length){ toast('No hay equipos para generar.'); return; }
+
+  toast('Generando PDF de ' + data.length + ' etiquetas...');
+
+  var etiqW=50, etiqH=25, cols=3, rowsPerPage=10;
+  var marginX=12.95, marginY=14.7;
+
+  var jsPDF = window.jspdf.jsPDF;
+  var doc = new jsPDF({unit:'mm', format:'letter', orientation:'portrait'});
+
+  var total = data.length;
+
+  for(var i=0; i<total; i++){
+    var e = data[i];
+    var col = i % cols;
+    var row = Math.floor(i/cols) % rowsPerPage;
+
+    if(i>0 && i%(cols*rowsPerPage)===0) doc.addPage();
+
+    var x = marginX + col*etiqW;
+    var y = marginY + row*etiqH;
+
+    // Borde
+    doc.setDrawColor(180,180,180);
+    doc.setLineWidth(0.2);
+    doc.rect(x, y, etiqW, etiqH);
+
+    // QR
+    var qrSize=14;
+    var qrUrl = await generarQRDataURLPDF(BASE_URL+e.id, 150);
+    if(qrUrl){
+      doc.addImage(qrUrl,'PNG', x+etiqW-qrSize-1.5, y+(etiqH-qrSize)/2, qrSize, qrSize);
+    }
+
+    // No. Activo
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8);
+    doc.setTextColor(0,0,0);
+    doc.text(String(e.af||e.id), x+1.5, y+6);
+
+    // Modelo
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(5.5);
+    doc.text(String(e.modelo||e.marca||'').substring(0,22), x+1.5, y+10.5);
+
+    // S/N
+    if(e.serie){
+      doc.setFontSize(5);
+      doc.setTextColor(90,90,90);
+      doc.text('S/N: '+String(e.serie).substring(0,20), x+1.5, y+14.5);
+    }
+
+    // Yield cada 10 equipos
+    if((i+1)%10===0) await new Promise(function(r){setTimeout(r,5);});
+  }
+
+  var fecha = new Date().toISOString().slice(0,10);
+  doc.save('Etiquetas_QR_Cafiver_'+fecha+'.pdf');
+  toast('✅ PDF descargado: '+total+' etiquetas');
 }
 
 // ── SIDEBAR MÓVIL ──
