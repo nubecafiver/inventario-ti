@@ -37514,11 +37514,10 @@ function generarQRDataURLPDF(text, size){
 
 async function descargarPDFEtiquetas(){
   if(typeof window.jspdf === 'undefined'){
-    toast('La librería PDF no está cargada. Verifica tu conexión.');
+    toast('La libreria PDF no esta cargada. Verifica tu conexion.');
     return;
   }
 
-  // Obtener equipos filtrados de la vista QR actual
   var q = document.getElementById('qr-search');
   var fa = document.getElementById('qr-area-filter');
   var qq = q ? q.value.toLowerCase() : '';
@@ -37533,8 +37532,11 @@ async function descargarPDFEtiquetas(){
 
   toast('Generando PDF de ' + data.length + ' etiquetas...');
 
-  var etiqW=50, etiqH=25, cols=3, rowsPerPage=10;
-  var marginX=12.95, marginY=14.7;
+  // Dimensiones etiqueta vertical: 25mm ancho x 50mm alto
+  var etiqW = 25, etiqH = 50;
+  var cols = 4, rowsPerPage = 5;
+  var marginX = (215.9 - cols*etiqW) / 2;  // 7.95mm
+  var marginY = (279.4 - rowsPerPage*etiqH) / 2; // 14.7mm
 
   var jsPDF = window.jspdf.jsPDF;
   var doc = new jsPDF({unit:'mm', format:'letter', orientation:'portrait'});
@@ -37556,38 +37558,45 @@ async function descargarPDFEtiquetas(){
     doc.setLineWidth(0.2);
     doc.rect(x, y, etiqW, etiqH);
 
-    // QR
-    var qrSize=14;
-    var qrUrl = await generarQRDataURLPDF(BASE_URL+e.id, 150);
+    // ── Logo centrado arriba ──
+    var logoSize = 14;
+    var logoX = x + (etiqW - logoSize) / 2;
+    doc.addImage(LOGO_B64, 'JPEG', logoX, y+2, logoSize, logoSize);
+
+    // ── QR centrado ──
+    var qrSize = 18;
+    var qrX = x + (etiqW - qrSize) / 2;
+    var qrUrl = await generarQRDataURLPDF(BASE_URL + e.id, 180);
     if(qrUrl){
-      doc.addImage(qrUrl,'PNG', x+etiqW-qrSize-1.5, y+(etiqH-qrSize)/2, qrSize, qrSize);
+      doc.addImage(qrUrl, 'PNG', qrX, y+17, qrSize, qrSize);
     }
 
-    // No. Activo
+    // ── No. Activo centrado ──
     doc.setFont('helvetica','bold');
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setTextColor(0,0,0);
-    doc.text(String(e.af||e.id), x+1.5, y+6);
+    var af = String(e.af||e.id);
+    doc.text(af, x + etiqW/2, y+37.5, {align:'center'});
 
-    // Modelo
+    // ── Modelo ──
     doc.setFont('helvetica','normal');
     doc.setFontSize(5.5);
-    doc.text(String(e.modelo||e.marca||'').substring(0,22), x+1.5, y+10.5);
+    var modelo = String(e.modelo||e.marca||'').substring(0,18);
+    doc.text(modelo, x + etiqW/2, y+41.5, {align:'center'});
 
-    // S/N
+    // ── S/N ──
     if(e.serie){
-      doc.setFontSize(5);
+      doc.setFontSize(4.5);
       doc.setTextColor(90,90,90);
-      doc.text('S/N: '+String(e.serie).substring(0,20), x+1.5, y+14.5);
+      doc.text('S/N: '+String(e.serie).substring(0,18), x + etiqW/2, y+45.5, {align:'center'});
     }
 
-    // Yield cada 10 equipos
-    if((i+1)%10===0) await new Promise(function(r){setTimeout(r,5);});
+    if((i+1)%8===0) await new Promise(function(r){setTimeout(r,5);});
   }
 
   var fecha = new Date().toISOString().slice(0,10);
   doc.save('Etiquetas_QR_Cafiver_'+fecha+'.pdf');
-  toast('✅ PDF descargado: '+total+' etiquetas');
+  toast('PDF descargado: '+total+' etiquetas');
 }
 
 // ── SIDEBAR MÓVIL ──
