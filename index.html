@@ -37530,19 +37530,25 @@ async function descargarPDFEtiquetas(){
 
   if(!data.length){ toast('No hay equipos para generar.'); return; }
 
-  toast('Generando PDF de ' + data.length + ' etiquetas...');
+  toast('Generando PDF... espera un momento');
 
-  // Dimensiones etiqueta vertical: 25mm ancho x 50mm alto
-  var etiqW = 25, etiqH = 50;
-  var cols = 4, rowsPerPage = 5;
-  var marginX = (215.9 - cols*etiqW) / 2;  // 7.95mm
-  var marginY = (279.4 - rowsPerPage*etiqH) / 2; // 14.7mm
-
+  var etiqW=25, etiqH=50, cols=8, rowsPerPage=5;
+  var marginX=8, marginY=8;
   var jsPDF = window.jspdf.jsPDF;
   var doc = new jsPDF({unit:'mm', format:'letter', orientation:'portrait'});
-
   var total = data.length;
+  var container = document.getElementById('qr-temp-pdf');
 
+  // PASO 1: Pre-generar TODOS los QR como dataURLs en orden
+  // Esperar a que cada uno termine antes de pasar al siguiente
+  var qrDataURLs = [];
+  for(var i=0; i<total; i++){
+    var e = data[i];
+    var dataUrl = await generarQRDataURLPDF(BASE_URL + e.id, 180);
+    qrDataURLs.push(dataUrl);
+  }
+
+  // PASO 2: Dibujar usando el array en orden — qrDataURLs[i] corresponde a data[i]
   for(var i=0; i<total; i++){
     var e = data[i];
     var col = i % cols;
@@ -37558,40 +37564,33 @@ async function descargarPDFEtiquetas(){
     doc.setLineWidth(0.2);
     doc.rect(x, y, etiqW, etiqH);
 
-    // ── Logo centrado arriba ──
-    var logoSize = 14;
-    var logoX = x + (etiqW - logoSize) / 2;
-    doc.addImage(LOGO_B64, 'JPEG', logoX, y+2, logoSize, logoSize);
+    // Logo
+    var logoSz=14;
+    doc.addImage(LOGO_B64,'JPEG', x+(etiqW-logoSz)/2, y+1.5, logoSz, logoSz);
 
-    // ── QR centrado ──
-    var qrSize = 18;
-    var qrX = x + (etiqW - qrSize) / 2;
-    var qrUrl = await generarQRDataURLPDF(BASE_URL + e.id, 180);
-    if(qrUrl){
-      doc.addImage(qrUrl, 'PNG', qrX, y+17, qrSize, qrSize);
+    // QR — usar el dataURL pre-generado para ESTE equipo
+    var qrSz=18;
+    if(qrDataURLs[i]){
+      doc.addImage(qrDataURLs[i],'PNG', x+(etiqW-qrSz)/2, y+1.5+logoSz+1, qrSz, qrSz);
     }
 
-    // ── No. Activo centrado ──
+    // No. Activo
     doc.setFont('helvetica','bold');
-    doc.setFontSize(7);
+    doc.setFontSize(7.5);
     doc.setTextColor(0,0,0);
-    var af = String(e.af||e.id);
-    doc.text(af, x + etiqW/2, y+37.5, {align:'center'});
+    doc.text(String(e.af||e.id), x+etiqW/2, y+37, {align:'center'});
 
-    // ── Modelo ──
+    // Modelo
     doc.setFont('helvetica','normal');
     doc.setFontSize(5.5);
-    var modelo = String(e.modelo||e.marca||'').substring(0,18);
-    doc.text(modelo, x + etiqW/2, y+41.5, {align:'center'});
+    doc.text(String(e.modelo||e.marca||'').substring(0,18), x+etiqW/2, y+41, {align:'center'});
 
-    // ── S/N ──
+    // S/N
     if(e.serie){
       doc.setFontSize(4.5);
       doc.setTextColor(90,90,90);
-      doc.text('S/N: '+String(e.serie).substring(0,18), x + etiqW/2, y+45.5, {align:'center'});
+      doc.text('S/N: '+String(e.serie).substring(0,18), x+etiqW/2, y+45, {align:'center'});
     }
-
-    if((i+1)%8===0) await new Promise(function(r){setTimeout(r,5);});
   }
 
   var fecha = new Date().toISOString().slice(0,10);
