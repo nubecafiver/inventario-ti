@@ -34695,7 +34695,7 @@ function loadAppData(){
 }
 
 // Normaliza un codigo para comparar: quita espacios (incluido el no-rompible) y sube a mayusculas
-var APP_VERSION = 'v-ETIQ-1';
+var APP_VERSION = 'v-ETIQ-2';
 var _hashInicial = window.location.hash || '';
 var _queryInicial = (function(){
   var m = String(window.location.search||'').match(/[?&]eq=([^&]+)/);
@@ -37820,6 +37820,25 @@ function generarQRDataURLPDF(text, size){
   });
 }
 
+// Escribe centrado bajando el tamano solo lo necesario para que quepa a lo ancho.
+// Asi los textos largos no se salen y los cortos quedan grandes.
+function pdfTextoAjustado(doc, txt, cx, yy, maxW, sizeIni, sizeMin){
+  if(!txt) return;
+  var s = sizeIni;
+  doc.setFontSize(s);
+  while(s > sizeMin && doc.getTextWidth(txt) > maxW){
+    s -= 0.25;
+    doc.setFontSize(s);
+  }
+  // Si aun al minimo no cabe, recortar
+  if(doc.getTextWidth(txt) > maxW){
+    while(txt.length > 4 && doc.getTextWidth(txt) > maxW){
+      txt = txt.slice(0, -1);
+    }
+  }
+  doc.text(txt, cx, yy, {align:'center'});
+}
+
 async function descargarPDFEtiquetas(){
   if(typeof window.jspdf === 'undefined'){
     toast('La libreria PDF no esta cargada. Verifica tu conexion.');
@@ -37872,32 +37891,33 @@ async function descargarPDFEtiquetas(){
     doc.setLineWidth(0.2);
     doc.rect(x, y, etiqW, etiqH);
 
-    // Logo
-    var logoSz=14;
+    // Logo (mas chico para dejarle espacio al texto)
+    var logoSz=9;
     doc.addImage(LOGO_B64,'JPEG', x+(etiqW-logoSz)/2, y+1.5, logoSz, logoSz);
 
     // QR — usar el dataURL pre-generado para ESTE equipo
-    var qrSz=18;
+    var qrSz=20;
     if(qrDataURLs[i]){
-      doc.addImage(qrDataURLs[i],'PNG', x+(etiqW-qrSz)/2, y+1.5+logoSz+1, qrSz, qrSz);
+      doc.addImage(qrDataURLs[i],'PNG', x+(etiqW-qrSz)/2, y+11, qrSz, qrSz);
     }
+
+    var cx = x+etiqW/2;
+    var maxW = etiqW-3;
 
     // No. Activo
     doc.setFont('helvetica','bold');
-    doc.setFontSize(7.5);
     doc.setTextColor(0,0,0);
-    doc.text(String(e.af||e.id), x+etiqW/2, y+37, {align:'center'});
+    pdfTextoAjustado(doc, String(e.af||e.id), cx, y+37, maxW, 11, 7);
 
     // Modelo
     doc.setFont('helvetica','normal');
-    doc.setFontSize(5.5);
-    doc.text(String(e.modelo||e.marca||'').substring(0,18), x+etiqW/2, y+41, {align:'center'});
+    doc.setTextColor(0,0,0);
+    pdfTextoAjustado(doc, String(e.modelo||e.marca||''), cx, y+42, maxW, 7.5, 4.5);
 
     // S/N
     if(e.serie){
-      doc.setFontSize(4.5);
-      doc.setTextColor(90,90,90);
-      doc.text('S/N: '+String(e.serie).substring(0,18), x+etiqW/2, y+45, {align:'center'});
+      doc.setTextColor(40,40,40);
+      pdfTextoAjustado(doc, 'S/N: '+String(e.serie), cx, y+47, maxW, 6.5, 4);
     }
   }
 
