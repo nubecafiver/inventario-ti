@@ -34695,7 +34695,7 @@ function loadAppData(){
 }
 
 // Normaliza un codigo para comparar: quita espacios (incluido el no-rompible) y sube a mayusculas
-var APP_VERSION = 'v-ETIQ-2';
+var APP_VERSION = 'v-INV-1';
 var _hashInicial = window.location.hash || '';
 var _queryInicial = (function(){
   var m = String(window.location.search||'').match(/[?&]eq=([^&]+)/);
@@ -36658,9 +36658,16 @@ function toggleCelularFields(){
 // DETECTAR MÓVIL
 function isMobile(){ return window.innerWidth <= 900 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); }
 
+// Obsoletos y bajas viven en la misma coleccion que los activos.
+// Este es el mismo criterio que usa la vista Obsoletos.
+function esObsoleto(e){
+  return e.estado==='Obsoleto' || e.estado==='Baja' || e._tipo==='obsoleto';
+}
+
 function renderInventario(){
   var w=document.getElementById('view-inventario');if(!w)return;
   var data=equipos.filter(function(e){
+    if(esObsoleto(e))return false;
     var q=invFilter.q.toLowerCase();
     if(q&&!(e.nombre+e.modelo+e.marca+e.plaza+e.area+e.serie+e.ip+e.so+e.usuario+(e.responsable||'')).toLowerCase().includes(q))return false;
     if(invFilter.tipo&&e.tipo!==invFilter.tipo)return false;
@@ -36717,7 +36724,7 @@ function renderInventario(){
     +'</select>'
     +'<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()">'
     +'<option value="">Todos los estados</option>'
-    +['Bueno','Regular','Malo','Baja'].map(function(t){return '<option value="'+t+'"'+(invFilter.estado===t?' selected':'')+'>'+t+'</option>';}).join('')
+    +['Bueno','Regular','Malo'].map(function(t){return '<option value="'+t+'"'+(invFilter.estado===t?' selected':'')+'>'+t+'</option>';}).join('')
     +'</select>'
     +'<button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Nuevo</button>'
     +'</div></div>'
@@ -36766,7 +36773,7 @@ function renderInventario(){
     var tipos=[...new Set(equipos.map(function(e){return e.tipo;}).filter(Boolean))].sort();
     var filAreas='<select class="fi-sm" onchange="invFilter.area=this.value;renderInventario()"><option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
     var filTipos='<select class="fi-sm" onchange="invFilter.tipo=this.value;renderInventario()"><option value="">Todos los tipos</option>'+tipos.map(function(t){return '<option value="'+t+'"'+(invFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>';
-    var filEstados='<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()"><option value="">Todos los estados</option>'+['Bueno','Regular','Malo','Baja','Obsoleto'].map(function(s){return '<option value="'+s+'"'+(invFilter.estado===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
+    var filEstados='<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()"><option value="">Todos los estados</option>'+['Bueno','Regular','Malo'].map(function(s){return '<option value="'+s+'"'+(invFilter.estado===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
     w.innerHTML='<div style="padding:0;">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid #f3f4f6;flex-wrap:wrap;gap:8px;">'
       +'<span style="font-size:13px;font-weight:500;color:#111827;">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
@@ -37225,6 +37232,7 @@ var celFilter={q:'',estado:'',area:'',plaza:'',estado_asig:''};
 
 function exportCSV(){
   var data=equipos.filter(function(e){
+    if(esObsoleto(e))return false;
     if(invFilter.tipo&&e.tipo!==invFilter.tipo)return false;
     if(invFilter.estado&&e.estado!==invFilter.estado)return false;
     if(invFilter.plaza&&e.plaza!==invFilter.plaza)return false;
