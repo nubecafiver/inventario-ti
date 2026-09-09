@@ -34695,7 +34695,7 @@ function loadAppData(){
 }
 
 // Normaliza un codigo para comparar: quita espacios (incluido el no-rompible) y sube a mayusculas
-var APP_VERSION = 'v-INV-1';
+var APP_VERSION = 'v-INV-3';
 var _hashInicial = window.location.hash || '';
 var _queryInicial = (function(){
   var m = String(window.location.search||'').match(/[?&]eq=([^&]+)/);
@@ -35348,9 +35348,7 @@ function renderObsoletos(){
 
   console.log('renderObsoletos: total equipos='+equipos.length, equipos.map(function(e){return e.id+':'+e.estado;}).slice(0,10));
 
-  var data = equipos.filter(function(e){
-    return e.estado==='Obsoleto' || e.estado==='Baja' || e._tipo==='obsoleto';
-  });
+  var data = equipos.filter(esObsoleto);
 
   console.log('Obsoletos encontrados:', data.length, data.map(function(e){return e.id;}));
 
@@ -35761,7 +35759,7 @@ function renderSimulador(){
   var rows=candidatos.slice(0,20).map(function(e){
     var anios=calcAnios(e.fecha).toFixed(1);
     var precio=e.tipo==='Laptop'?precioLap:precioDesk;
-    return '<tr><td style="padding:7px 12px;font-size:11px;font-weight:500;">'+e.id+'</td>'
+    return '<tr><td style="padding:7px 12px;font-size:11px;font-weight:500;">'+(e.af||e.id)+'</td>'
       +'<td style="padding:7px 12px;font-size:11px;">'+e.marca+' '+e.modelo+'</td>'
       +'<td style="padding:7px 12px;"><span class="pill '+vidaClass(parseFloat(anios))+'">'+anios+' años</span></td>'
       +'<td style="padding:7px 12px;"><span class="'+estadoPill(e.estado)+'">'+e.estado+'</span></td>'
@@ -35806,7 +35804,7 @@ function renderSimulador(){
     +'</div>'
     +(costoTotal>presupuesto?'<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#dc2626;">⚠️ El costo de reemplazo supera el presupuesto por $'+(costoTotal-presupuesto).toLocaleString('es-MX')+'</div>':'')
     +(costoTotal<=presupuesto&&candidatos.length?'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#16a34a;">✅ Presupuesto suficiente para renovar los '+candidatos.length+' equipos</div>':'')
-    +'<div class="tbl-box"><div style="overflow-x:auto;"><table><thead><tr><th>ID</th><th>Equipo</th><th>Antigüedad</th><th>Estado</th><th>Responsable</th><th>Precio</th></tr></thead>'
+    +'<div class="tbl-box"><div style="overflow-x:auto;"><table><thead><tr><th>No. Activo</th><th>Equipo</th><th>Antigüedad</th><th>Estado</th><th>Responsable</th><th>Precio</th></tr></thead>'
     +'<tbody>'+rows+'</tbody></table></div>'
     +(candidatos.length>20?'<div style="text-align:center;padding:8px;font-size:11px;color:#9ca3af;">Mostrando 20 de '+candidatos.length+' equipos</div>':'')
     +'</div>'
@@ -36659,9 +36657,13 @@ function toggleCelularFields(){
 function isMobile(){ return window.innerWidth <= 900 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); }
 
 // Obsoletos y bajas viven en la misma coleccion que los activos.
-// Este es el mismo criterio que usa la vista Obsoletos.
+// Se detectan por estado, por _tipo, o por el prefijo OBS del ID
+// (los que se dieron de alta desde el formulario de obsoletos y
+// quedaron sin estado capturado).
 function esObsoleto(e){
-  return e.estado==='Obsoleto' || e.estado==='Baja' || e._tipo==='obsoleto';
+  if(!e) return false;
+  if(e.estado==='Obsoleto' || e.estado==='Baja' || e._tipo==='obsoleto') return true;
+  return String(e.id||'').toUpperCase().indexOf('OBS') === 0;
 }
 
 function renderInventario(){
@@ -36730,8 +36732,8 @@ function renderInventario(){
     +'</div></div>'
     +'<div style="overflow-x:auto;"><table>'
     +'<thead><tr>'
-    +['id','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado',''].map(function(c,i){
-      var lbl=['ID','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Acciones'][i];
+    +['af','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado',''].map(function(c,i){
+      var lbl=['No. Activo','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Acciones'][i];
       if(!c)return '<th>'+lbl+'</th>';
       return '<th onclick="sortBy(\''+c+'\')" >'+lbl+(sortCol===c?(sortAsc?' ▲':' ▼'):' ⇅')+'</th>';
     }).join('')
@@ -36739,7 +36741,7 @@ function renderInventario(){
     +(data.length?data.map(function(e){
       var rc=rowClass(e.fecha);
       return '<tr class="'+rc+'" style="cursor:pointer;" ondblclick="openPanel(\''+e.id+'\')">'
-        +'<td style="font-family:monospace;font-size:10px;color:#9aa0a6;">'+e.id+'</td>'
+        +'<td style="font-family:monospace;font-size:11px;font-weight:600;color:#1c1e21;">'+(e.af||'—')+'</td>'
         +'<td>'+tipoPill(e.tipo)+'</td>'
         +'<td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;">'+e.area+'</td>'
         +'<td style="white-space:nowrap;font-size:11px;">'+e.plaza+'</td>'
