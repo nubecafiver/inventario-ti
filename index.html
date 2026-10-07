@@ -37244,10 +37244,10 @@ function exportCSV(){
     if(invFilter.q){var q=invFilter.q.toLowerCase();if(!(e.nombre+e.modelo+e.marca+e.plaza+e.area+e.serie+e.ip+e.so+(e.responsable||'')).toLowerCase().includes(q))return false;}
     return true;
   });
-  var headers=['ID','Tipo','Marca','Modelo','Serie','Responsable','Area','Plaza','Estado','S.O.','RAM','IP','Procesador','Fecha Compra','Precio'];
+  var headers=['ID','Tipo','Marca','Modelo','Serie','Nombre equipo','Responsable','Area','Plaza','Estado','S.O.','RAM','IP','Procesador','Fecha Compra','Precio'];
   var rows=[headers];
   data.forEach(function(e){
-    rows.push([e.id,e.tipo,e.marca,e.modelo,e.serie,e.responsable,e.area,e.plaza,e.estado,e.so,e.ram,e.ip,e.procesador,e.fecha,e.precio||'']);
+    rows.push([e.id,e.tipo,e.marca,e.modelo,e.serie,e.nombre,e.responsable,e.area,e.plaza,e.estado,e.so,e.ram,e.ip,e.procesador,e.fecha,e.precio||'']);
   });
   var csv='﻿'+rows.map(function(r){
     return r.map(function(v){
