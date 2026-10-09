@@ -33864,10 +33864,6 @@ table.mts tr:hover td{background:#f9fafb;}
         <i class="ti ti-users tnav-icon" aria-hidden="true"></i>
         <span class="tnav-txt">Personal</span>
       </button>
-      <button class="tnav" id="tnav-etiquetado" onclick="switchView('etiquetado')">
-        <i class="ti ti-checklist tnav-icon" aria-hidden="true"></i>
-        <span class="tnav-txt">Etiquetado</span>
-      </button>
       <button class="tnav" id="tnav-obsoletos" onclick="switchView('obsoletos')">
         <i class="ti ti-box tnav-icon" aria-hidden="true"></i>
         <span class="tnav-txt">Obsoletos</span>
@@ -33913,7 +33909,6 @@ table.mts tr:hover td{background:#f9fafb;}
   <div id="view-obsoletos" class="view-wrap hidden" style="padding:0;"></div>
   <div id="view-licencias" class="view-wrap hidden"></div>
   <div id="view-personal" class="view-wrap hidden"></div>
-  <div id="view-etiquetado" class="view-wrap hidden" style="padding:0;"></div>
 </div>
 
 <!-- DETAIL PANEL -->
@@ -34669,7 +34664,6 @@ function loadAppData(){
   var _primeraVez=true;
   db.collection('equipos').onSnapshot(function(s){
     equipos=s.docs.map(function(d){return d.data();});
-    resolverQRPendiente();
     if(_primeraVez){_primeraVez=false;switchView('dashboard');}
     if(_modoCampo) actualizarStatsCampo();
     else if(curView==='dashboard')renderDashboard();
@@ -34688,155 +34682,35 @@ function loadAppData(){
     if(curView==='reparaciones')renderReparaciones();
   });
   loadEscaneos();
-  // celulares, licencias y catalogo ya no se cargan aqui:
-  // se bajan al entrar a su vista (ver cargarSiHaceFalta)
+  loadCelulares();
+  loadLicencias();
+  loadCatalogo();
   loadPersonal();
   checkQRHash();
 }
 
-// Normaliza un codigo para comparar: quita espacios (incluido el no-rompible) y sube a mayusculas
-var APP_VERSION = 'v-INV-3';
-var _hashInicial = window.location.hash || '';
-var _queryInicial = (function(){
-  var m = String(window.location.search||'').match(/[?&]eq=([^&]+)/);
-  return m ? '#'+decodeURIComponent(m[1]) : '';
-})();
-// Lo que la app recibio al cargar, para mostrarlo en pantalla
-var _codigoInicial = (_hashInicial || _queryInicial || '').replace(/^#/,'');
-
-function normCode(v){
-  return String(v===null||v===undefined?'':v).replace(/[\s\u00a0]+/g,'').toUpperCase();
-}
-
-var _qrPendiente = null;
-var _qrTimer = null;
-
-// Trae UN solo equipo desde Firebase, sin esperar a que carguen los 382.
-// Prueba primero por ID de documento (mas barato) y luego por numero de activo.
-function buscarEquipoRapido(code, alEncontrar, alFallar){
-  if(!code || typeof db === 'undefined'){ alFallar(); return; }
-
-  function usar(data){
-    if(!data){ alFallar(); return; }
-    // Meterlo en la lista para que openPanel lo encuentre
-    var ya = equipos.some(function(e){return e.id === data.id;});
-    if(!ya) equipos.push(data);
-    alEncontrar(data);
-  }
-
-  db.collection('equipos').doc(code).get()
-    .then(function(doc){
-      if(doc.exists){ usar(doc.data()); return; }
-      // No era un ID de documento: buscar por numero de activo
-      return db.collection('equipos').where('af','==',code).limit(1).get()
-        .then(function(snap){
-          if(snap && !snap.empty){ usar(snap.docs[0].data()); }
-          else { alFallar(); }
-        });
-    })
-    .catch(function(err){
-      console.warn('Lectura rapida fallo:', err && err.message);
-      alFallar();
-    });
-}
-
-// Intenta abrir el equipo del QR usando la lista ya cargada. Devuelve true si lo logro.
-function resolverQRPendiente(){
-  if(!_qrPendiente) return false;
-  if(!equipos.length) return false;
-  var code = _qrPendiente;
-  var eq = equipos.find(function(e){return normCode(e.af) === code;});
-  if(!eq) eq = equipos.find(function(e){return normCode(e.id) === code;});
-  if(!eq) return false;
-  abrirDesdeQR(eq);
-  return true;
-}
-
-function abrirDesdeQR(eq){
-  _qrPendiente = null;
-  _hashInicial = '';
-  _queryInicial = '';
-  if(_qrTimer){ clearInterval(_qrTimer); _qrTimer = null; }
-  window.location.hash = '';
-  // En modo pegado el escaneo marca la etiqueta, no abre el equipo
-  if(typeof modoPegadoActivo === 'function' && modoPegadoActivo()){
-    marcarEtiquetaPegada(eq);
-    switchView('etiquetado');
-    return;
-  }
-  openPanel(eq.id);
-}
-
 function checkQRHash(){
-  // El hash puede perderse durante el login, por eso se guarda al cargar la pagina
-  var hash = window.location.hash || _hashInicial || _queryInicial || '';
+  var hash = window.location.hash;
   if(!hash) return;
-  // Acepta el numero de activo (600683) y el ID interno viejo (EQ0031 / OBS0007)
-  var raw = decodeURIComponent(hash.replace(/^#/,''));
-  var code = normCode(raw.split(/[#\/]/).pop());
-  if(!code) return;
-  _qrPendiente = code;
-  toast('Buscando '+code+'...');
-  // Si los equipos ya estan cargados, abre de inmediato
-  if(resolverQRPendiente()) return;
-
-  // Lectura rapida: un solo documento en vez de los 382
-  buscarEquipoRapido(code,
-    function(data){ if(_qrPendiente) abrirDesdeQR(data); },
-    function(){ /* sin suerte: queda el respaldo de abajo */ }
-  );
-
-  // Respaldo por si la lectura rapida falla (sin permisos, sin red, dato raro).
-  // loadAppData tambien reintenta en cuanto llegan los datos de Firebase.
-  var intentos = 0;
-  if(_qrTimer) clearInterval(_qrTimer);
-  _qrTimer = setInterval(function(){
-    intentos++;
-    if(resolverQRPendiente()) return;
-    if(intentos > 100){
-      clearInterval(_qrTimer); _qrTimer = null;
-      var fallido = _qrPendiente;
-      _qrPendiente = null;
-      diagnosticoQR(fallido);
-    }
-  }, 300);
-}
-
-// Muestra en pantalla por que fallo el escaneo (util en celular, sin consola)
-function diagnosticoQR(code){
-  var lineas = [];
-  lineas.push('Codigo escaneado: "'+code+'"');
-  lineas.push('Equipos cargados: '+equipos.length);
-
-  if(equipos.length === 0){
-    lineas.push('');
-    lineas.push('La lista esta vacia: no habia sesion iniciada o');
-    lineas.push('los datos no alcanzaron a cargar. Entra a la app');
-    lineas.push('primero y vuelve a escanear.');
-    alert(lineas.join('\n'));
-    return;
+  // Formato: #EQ001 o #inventario-ti/#EQ001
+  var match = hash.match(/[#/](EQ[A-Z0-9]+|OBS[A-Z0-9]+)/);
+  if(match){
+    var eqId = match[1];
+    // Esperar a que equipos carguen y abrir el panel
+    var intentos = 0;
+    var check = setInterval(function(){
+      intentos++;
+      var eq = equipos.find(function(e){return e.id===eqId;});
+      if(eq){
+        clearInterval(check);
+        window.location.hash = '';
+        openPanel(eqId);
+      } else if(intentos > 20){
+        clearInterval(check);
+        toast('Equipo '+eqId+' no encontrado');
+      }
+    }, 300);
   }
-
-  // Buscar parecidos: que contengan el codigo o esten contenidos en el
-  var cerca = equipos.filter(function(e){
-    var a = normCode(e.af), i = normCode(e.id);
-    return (a && (a.indexOf(code)>=0 || code.indexOf(a)>=0))
-        || (i && (i.indexOf(code)>=0 || code.indexOf(i)>=0));
-  }).slice(0,5);
-
-  if(cerca.length){
-    lineas.push('');
-    lineas.push('Parecidos encontrados:');
-    cerca.forEach(function(e){
-      lineas.push('  af="'+e.af+'"  id="'+e.id+'"  '+(e.modelo||e.marca||''));
-    });
-  } else {
-    lineas.push('');
-    lineas.push('Ningun equipo se le parece.');
-    lineas.push('Ejemplo de af cargados: '
-      + equipos.slice(0,3).map(function(e){return '"'+e.af+'"';}).join(', '));
-  }
-  alert(lineas.join('\n'));
 }
 // Escuchar cambios de hash (cuando se escanea QR con cámara nativa)
 window.addEventListener('hashchange', function(){
@@ -34851,188 +34725,13 @@ function fbSave(e){
 }
 
 // VIEW SWITCH
-// ══ CONTROL DE ETIQUETADO ══
-// Marca que equipos ya tienen su etiqueta QR pegada fisicamente.
-// El "modo pegado" hace que escanear MARQUE en vez de abrir el panel.
-// Se guarda en localStorage porque al escanear con la camara la pagina
-// se recarga y se perderia en memoria. Caduca solo a las 2 horas.
-var ETIQ_MODO_HORAS = 2;
-var etiqFiltro = {area:'', responsable:'', estado:'faltantes'};
-
-function modoPegadoActivo(){
-  try{
-    var t = parseInt(localStorage.getItem('etiq_modo_hasta')||'0', 10);
-    if(!t) return false;
-    if(Date.now() > t){ localStorage.removeItem('etiq_modo_hasta'); return false; }
-    return true;
-  }catch(e){ return false; }
-}
-
-function toggleModoPegado(){
-  try{
-    if(modoPegadoActivo()){
-      localStorage.removeItem('etiq_modo_hasta');
-      toast('Modo pegado apagado');
-    } else {
-      localStorage.setItem('etiq_modo_hasta', String(Date.now() + ETIQ_MODO_HORAS*3600*1000));
-      toast('Modo pegado activo por '+ETIQ_MODO_HORAS+' horas');
-    }
-  }catch(e){ toast('No se pudo cambiar el modo'); }
-  if(curView==='etiquetado') renderEtiquetado();
-}
-
-// Marca un equipo como etiquetado. Devuelve true si lo marco ahora.
-function marcarEtiquetaPegada(eq){
-  if(!eq) return false;
-  if(eq.etiqueta_pegada){
-    toast('⚠️ '+(eq.af||eq.id)+' ya estaba marcada el '+(eq.etiqueta_fecha||'?'));
-    return false;
-  }
-  var fecha = nowStr();
-  eq.etiqueta_pegada = true;
-  eq.etiqueta_fecha = fecha;
-  db.collection('equipos').doc(eq.id).update({etiqueta_pegada:true, etiqueta_fecha:fecha})
-    .then(function(){
-      var n = equipos.filter(function(x){return x.etiqueta_pegada;}).length;
-      toast('✅ '+(eq.af||eq.id)+' · '+(eq.modelo||eq.marca||'')+' — llevas '+n);
-    })
-    .catch(function(err){
-      eq.etiqueta_pegada = false;
-      eq.etiqueta_fecha = null;
-      toast('No se pudo guardar: '+(err && err.message));
-    });
-  if(curView==='etiquetado') renderEtiquetado();
-  return true;
-}
-
-function etiqSetFiltro(campo, valor){
-  etiqFiltro[campo] = valor;
-  renderEtiquetado();
-}
-
-function renderEtiquetado(){
-  var cont = document.getElementById('view-etiquetado');
-  if(!cont) return;
-
-  var total = equipos.length;
-  var pegadas = equipos.filter(function(e){return e.etiqueta_pegada;});
-  var hoy = new Date().toLocaleDateString('es-MX');
-  var deHoy = pegadas.filter(function(e){
-    return String(e.etiqueta_fecha||'').indexOf(hoy) === 0;
-  }).length;
-  var faltan = total - pegadas.length;
-  var pct = total ? Math.round(pegadas.length*100/total) : 0;
-  var activo = modoPegadoActivo();
-
-  var areas = [...new Set(equipos.map(function(e){return e.area||'';}).filter(Boolean))].sort();
-  var resps = [...new Set(equipos.map(function(e){return e.responsable||'';}).filter(Boolean))].sort();
-
-  var lista = equipos.filter(function(e){
-    if(etiqFiltro.area && (e.area||'') !== etiqFiltro.area) return false;
-    if(etiqFiltro.responsable && (e.responsable||'') !== etiqFiltro.responsable) return false;
-    if(etiqFiltro.estado==='faltantes' && e.etiqueta_pegada) return false;
-    if(etiqFiltro.estado==='pegadas' && !e.etiqueta_pegada) return false;
-    return true;
-  }).sort(function(a,b){
-    return String(a.responsable||'zzz').localeCompare(String(b.responsable||'zzz'));
-  });
-
-  function opts(arr, sel){
-    return arr.map(function(x){
-      return '<option value="'+x.replace(/"/g,'&quot;')+'"'+(x===sel?' selected':'')+'>'+x+'</option>';
-    }).join('');
-  }
-
-  var h = '<div style="padding:14px 16px;">';
-
-  h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">'
-    + '<div style="font-size:17px;font-weight:600;color:#1c1e21;">Control de etiquetado</div>'
-    + '<button onclick="toggleModoPegado()" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border:none;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;'
-    + (activo?'background:#dcfce7;color:#15803d;':'background:#f1f5f9;color:#475569;')+'">'
-    + '<i class="ti ti-qrcode"></i>'+(activo?'Modo pegado ACTIVO':'Activar modo pegado')+'</button>'
-    + '</div>';
-
-  if(activo){
-    h += '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:12px;color:#15803d;">'
-       + 'Escanear ahora <b>marca la etiqueta como pegada</b> en vez de abrir el equipo. Se apaga solo en '+ETIQ_MODO_HORAS+' horas.'
-       + '</div>';
-  }
-
-  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:12px;">'
-    + '<div class="stat-card"><div class="lbl">Pegadas</div><div class="val" style="color:#16a34a;">'+pegadas.length+'</div></div>'
-    + '<div class="stat-card"><div class="lbl">Faltan</div><div class="val">'+faltan+'</div></div>'
-    + '<div class="stat-card"><div class="lbl">Hoy</div><div class="val" style="color:#1d4ed8;">'+deHoy+'</div></div>'
-    + '</div>';
-
-  h += '<div style="height:6px;background:#e5e7eb;border-radius:20px;overflow:hidden;margin-bottom:5px;">'
-    + '<div style="width:'+pct+'%;height:100%;background:#16a34a;"></div></div>'
-    + '<div style="font-size:11px;color:#9ca3af;margin-bottom:14px;">'+pct+'% del inventario etiquetado</div>';
-
-  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">'
-    + '<select class="fi-sm" onchange="etiqSetFiltro(\'area\',this.value)"><option value="">Todas las áreas</option>'+opts(areas, etiqFiltro.area)+'</select>'
-    + '<select class="fi-sm" onchange="etiqSetFiltro(\'responsable\',this.value)"><option value="">Todos los responsables</option>'+opts(resps, etiqFiltro.responsable)+'</select>'
-    + '<select class="fi-sm" onchange="etiqSetFiltro(\'estado\',this.value)">'
-    + '<option value="faltantes"'+(etiqFiltro.estado==='faltantes'?' selected':'')+'>Faltantes</option>'
-    + '<option value="pegadas"'+(etiqFiltro.estado==='pegadas'?' selected':'')+'>Pegadas</option>'
-    + '<option value=""'+(etiqFiltro.estado===''?' selected':'')+'>Todas</option>'
-    + '</select>'
-    + '<span style="font-size:11px;color:#6b7280;align-self:center;">'+lista.length+' equipo(s)</span>'
-    + '</div>';
-
-  if(!lista.length){
-    h += '<div style="padding:28px;text-align:center;color:#9ca3af;font-size:13px;">Sin equipos con estos filtros.</div>';
-  } else {
-    h += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">';
-    lista.forEach(function(e, i){
-      var resp = (e.responsable||'').trim();
-      var ini = resp ? resp.split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2) : '?';
-      h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;'+(i?'border-top:1px solid #f1f3f5;':'')+'">'
-        + '<i class="ti '+(e.etiqueta_pegada?'ti-circle-check':'ti-circle')+'" style="font-size:19px;flex-shrink:0;color:'+(e.etiqueta_pegada?'#16a34a':'#cbd5e1')+';"></i>'
-        + '<div style="width:29px;height:29px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;'
-        + (resp?'background:#eff6ff;color:#1d4ed8;':'background:#f1f5f9;color:#94a3b8;')+'">'+ini+'</div>'
-        + '<div style="flex:1;min-width:0;cursor:pointer;" onclick="openPanel(\''+e.id+'\')">'
-        + '<div style="font-size:13px;color:'+(resp?'#1c1e21':'#9ca3af')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(resp||'Sin responsable')+'</div>'
-        + '<div style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(e.af||e.id)+' · '+(e.modelo||e.marca||'')+' · '+(e.area||'')+'</div>'
-        + '</div>'
-        + (e.etiqueta_pegada
-            ? '<div style="font-size:10px;color:#9ca3af;white-space:nowrap;">'+(e.etiqueta_fecha||'')+'</div>'
-            : '<button onclick="marcarEtiquetaPegada(equipos.find(function(x){return x.id===\''+e.id+'\';}))" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;font-size:11px;color:#374151;cursor:pointer;white-space:nowrap;">Marcar</button>')
-        + '</div>';
-    });
-    h += '</div>';
-  }
-
-  h += '</div>';
-  cont.innerHTML = h;
-}
-
-// ── CARGA BAJO DEMANDA ──
-// Estas colecciones solo se bajan de Firebase cuando entras a su vista.
-// Antes se bajaban siempre, aunque solo vinieras a leer una etiqueta.
-var _yaCargado = {celulares:false, licencias:false, catalogo:false};
-
-function cargarSiHaceFalta(v){
-  try{
-    if(v==='celulares' && !_yaCargado.celulares){
-      _yaCargado.celulares = true; loadCelulares();
-    }
-    if(v==='licencias' && !_yaCargado.licencias){
-      _yaCargado.licencias = true; loadLicencias();
-    }
-    if(v==='simulador' && !_yaCargado.catalogo){
-      _yaCargado.catalogo = true; loadCatalogo();
-    }
-  }catch(err){ console.warn('carga bajo demanda:', err && err.message); }
-}
-
 function switchView(v){
   curView=v;
-  cargarSiHaceFalta(v);
   // Dashboard usa display directo, no clase hidden
   var db=document.getElementById('view-dashboard');
   if(db) db.style.display=(v==='dashboard')?'block':'none';
   // El resto usa clase hidden
-  ['inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos','etiquetado'].forEach(function(x){
+  ['inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos'].forEach(function(x){
     var el=document.getElementById('view-'+x);
     if(el) el.classList.toggle('hidden',x!==v);
     var b=document.getElementById('tnav-'+x);if(b)b.classList.toggle('on',x===v);
@@ -35047,7 +34746,6 @@ function switchView(v){
   if(v==='simulador')renderSimulador();
   if(v==='personal')renderPersonal();
   if(v==='licencias')renderLicencias();
-  if(v==='etiquetado')renderEtiquetado();
   if(v==='obsoletos')renderObsoletos();
   if(v==='obsoletos')renderObsoletos();
 }
@@ -35348,7 +35046,9 @@ function renderObsoletos(){
 
   console.log('renderObsoletos: total equipos='+equipos.length, equipos.map(function(e){return e.id+':'+e.estado;}).slice(0,10));
 
-  var data = equipos.filter(esObsoleto);
+  var data = equipos.filter(function(e){
+    return e.estado==='Obsoleto' || e.estado==='Baja' || e._tipo==='obsoleto';
+  });
 
   console.log('Obsoletos encontrados:', data.length, data.map(function(e){return e.id;}));
 
@@ -35557,7 +35257,7 @@ function renderLicencias(){
     +'<div class="tbl-box"><div class="tbl-hdr">'
     +'<span class="tbl-hdr-title">'+data.length+' licencia'+(data.length!==1?'s':'')+'</span>'
     +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar software..." value="'+licFilter.q+'" oninput="licFilter.q=this.value;renderLicencias()" style="width:160px;">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+licFilter.q+'" onkeydown="if(event.key==='Enter'){licFilter.q=this.value;renderLicencias();}" style="width:160px;" title="Escribe y presiona Enter para buscar">'
     +'<select class="fi-sm" onchange="licFilter.categoria=this.value;renderLicencias()">'+filCat+'</select>'
     +'<select class="fi-sm" onchange="licFilter.estado=this.value;renderLicencias()">'+filEst+'</select>'
     +(licFilter.q||licFilter.categoria||licFilter.estado?'<button class="btn btn-sm" onclick="licFilter={q:\'\',categoria:\'\',estado:\'\'};renderLicencias()">✕ Limpiar</button>':'')
@@ -35705,7 +35405,7 @@ function renderPersonal(){
     +'<div class="tbl-box"><div class="tbl-hdr">'
     +'<span class="tbl-hdr-title">'+data.length+' empleados</span>'
     +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar por nombre, puesto..." value="'+personalFilter.q+'" oninput="personalFilter.q=this.value;renderPersonal()" style="width:200px;">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+personalFilter.q+'" onkeydown="if(event.key==='Enter'){personalFilter.q=this.value;renderPersonal();}" style="width:200px;" title="Escribe y presiona Enter para buscar">'
     +'<select class="fi-sm" onchange="personalFilter.direccion=this.value;renderPersonal()">'+filDir+'</select>'
     +'<select class="fi-sm" onchange="personalFilter.departamento=this.value;renderPersonal()">'+filDep+'</select>'
     +'<button class="btn btn-blue btn-sm" onclick="openFormPersonal()">+ Nuevo empleado</button>'
@@ -35759,7 +35459,7 @@ function renderSimulador(){
   var rows=candidatos.slice(0,20).map(function(e){
     var anios=calcAnios(e.fecha).toFixed(1);
     var precio=e.tipo==='Laptop'?precioLap:precioDesk;
-    return '<tr><td style="padding:7px 12px;font-size:11px;font-weight:500;">'+(e.af||e.id)+'</td>'
+    return '<tr><td style="padding:7px 12px;font-size:11px;font-weight:500;">'+e.id+'</td>'
       +'<td style="padding:7px 12px;font-size:11px;">'+e.marca+' '+e.modelo+'</td>'
       +'<td style="padding:7px 12px;"><span class="pill '+vidaClass(parseFloat(anios))+'">'+anios+' años</span></td>'
       +'<td style="padding:7px 12px;"><span class="'+estadoPill(e.estado)+'">'+e.estado+'</span></td>'
@@ -35804,7 +35504,7 @@ function renderSimulador(){
     +'</div>'
     +(costoTotal>presupuesto?'<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#dc2626;">⚠️ El costo de reemplazo supera el presupuesto por $'+(costoTotal-presupuesto).toLocaleString('es-MX')+'</div>':'')
     +(costoTotal<=presupuesto&&candidatos.length?'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#16a34a;">✅ Presupuesto suficiente para renovar los '+candidatos.length+' equipos</div>':'')
-    +'<div class="tbl-box"><div style="overflow-x:auto;"><table><thead><tr><th>No. Activo</th><th>Equipo</th><th>Antigüedad</th><th>Estado</th><th>Responsable</th><th>Precio</th></tr></thead>'
+    +'<div class="tbl-box"><div style="overflow-x:auto;"><table><thead><tr><th>ID</th><th>Equipo</th><th>Antigüedad</th><th>Estado</th><th>Responsable</th><th>Precio</th></tr></thead>'
     +'<tbody>'+rows+'</tbody></table></div>'
     +(candidatos.length>20?'<div style="text-align:center;padding:8px;font-size:11px;color:#9ca3af;">Mostrando 20 de '+candidatos.length+' equipos</div>':'')
     +'</div>'
@@ -35885,11 +35585,11 @@ function renderResguardoTab(equipoId){
   var docs=e.resguardos||[];
 
   var docsHTML=docs.length?docs.map(function(d,i){
-    var ext=(d.url||'').split('.').pop().toLowerCase();
-    var esImg=['jpg','jpeg','png','gif','webp'].indexOf(ext)>=0;
-    var esPDF=ext==='pdf';
+    var url=d.url||'';
+    var esPDF=url.indexOf('data:application/pdf')===0||url.toLowerCase().indexOf('.pdf')>=0;
+    var esImg=!esPDF&&(url.indexOf('data:image/')===0||/\.(jpg|jpeg|png|gif|webp)$/i.test(url));
     return '<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">'
-      +'<span style="font-size:24px;">'+(esImg?'🖼':esPDF?'📋':'📄')+'</span>'
+      +'<span style="font-size:24px;">'+(esPDF?'📋':esImg?'🖼':'📄')+'</span>'
       +'<div style="flex:1;">'
       +'<div style="font-size:12px;font-weight:500;color:#111827;">'+(d.nombre||'Resguardo '+(i+1))+'</div>'
       +'<div style="font-size:10px;color:#9ca3af;">Subido: '+d.fecha+(d.por?' por '+d.por:'')+'</div>'
@@ -35906,7 +35606,7 @@ function renderResguardoTab(equipoId){
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
     +'<span style="font-size:12px;font-weight:500;color:#374151;">Resguardos firmados</span>'
     +'<label class="btn btn-sm btn-blue" style="cursor:pointer;font-size:11px;">'
-    +'📎 Subir resguardo firmado'
+    +'📎 Subir PDF/foto de resguardo'
     +'<input type="file" accept="image/*,.pdf" capture="environment" style="display:none;" onchange="subirResguardo(\''+equipoId+'\',this)">'
     +'</label>'
     +'</div>'
@@ -36105,7 +35805,7 @@ function renderDashboard(){
     // HEADER
     +'<div class="sw-hdr">'
     +'<div><div class="sw-h1">IT Asset Dashboard</div>'
-    +'<div class="sw-sub">Cafiver · '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' · '+APP_VERSION+' · QR recibido: '+(_codigoInicial||'NINGUNO')+'</div></div>'
+    +'<div class="sw-sub">Cafiver · '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</div></div>'
     +'<div style="display:flex;gap:8px;">'
     +'<button onclick="exportCSV()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:0.5px solid #e5e7eb;border-radius:6px;background:#fff;font-size:11px;color:#374151;cursor:pointer;"><i class="ti ti-download"></i> Export</button>'
     +'<button onclick="openFormEquipo()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:6px;background:#1d4ed8;font-size:11px;font-weight:500;color:#fff;cursor:pointer;"><i class="ti ti-plus"></i> Nuevo equipo</button>'
@@ -36461,7 +36161,7 @@ function buildFicha(id){
   var e=equipos.find(function(x){return x.id===id;});if(!e)return '';
   var reps=reparaciones.filter(function(r){return r.equipo_id===id;});
   var totalRep=reps.reduce(function(a,r){return a+(parseFloat(r.costo)||0);},0);
-  var qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=100x100&data='+encodeURIComponent('https://nubecafiver.github.io/inventario-ti/#'+(e.af||e.id))+'&color=1a73e8';
+  var qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=100x100&data='+encodeURIComponent('https://nubecafiver.github.io/inventario-ti/#'+e.id)+'&color=1a73e8';
   return '<div class="ficha-header">'
     +'<img src="'+qrUrl+'" width="90" height="90" style="border-radius:6px;flex-shrink:0;">'
     +'<div style="flex:1;">'
@@ -36536,7 +36236,7 @@ function renderQR(){
   });
   w.innerHTML=
     '<div class="qr-toolbar">'
-    +'<input class="fi-sm" type="text" id="qr-search" placeholder="🔍 Buscar equipos..." style="width:220px;" oninput="renderQR()" value="'+(q||'')+'">'
+    +'<input class="fi-sm" type="text" id="qr-search" placeholder="🔍 Buscar... (Enter)" style="width:220px;" onkeydown="if(event.key==='Enter'){renderQR();}" value="'+(q||'')+'">'
     +'<select class="fi-sm" id="qr-area-filter" onchange="renderQR()">'
     +'<option value="">Todas las áreas</option>'
     +areas2.map(function(a){return '<option value="'+a+'"'+(filterArea===a?' selected':'')+'>'+a+'</option>';}).join('')
@@ -36546,7 +36246,7 @@ function renderQR(){
     +'</div>'
     +'<div class="qr-grid">'
     +data.map(function(e){
-      var qrUrl='https://nubecafiver.github.io/inventario-ti/#'+(e.af||e.id);
+      var qrUrl='https://nubecafiver.github.io/inventario-ti/#'+e.id;
       return '<div class="qr-card">'        +makeQR(qrUrl,150)        +'<div class="qr-id">'+(e.af||e.id)+'</div>'        +'<div class="qr-lbl">'+(e.modelo||e.marca||'')+'</div>'        +(e.serie?'<div class="qr-sub">S/N: '+e.serie+'</div>':'')+'<div style="display:flex;gap:4px;width:100%;">'
         +'<button class="btn btn-sm" style="flex:1;justify-content:center;" onclick="openPanel(\''+e.id+'\')">👁 Ver</button>'
         +'<button class="btn btn-sm" style="flex:1;justify-content:center;" onclick="printFichaId(\''+e.id+'\')">🖨</button>'
@@ -36587,7 +36287,7 @@ function renderReparaciones(){
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'
     +'<div><div class="dash-title">Reparaciones</div><div class="dash-sub">'+data.length+' registro(s)</div></div>'
     +'<div style="display:flex;gap:8px;align-items:center;">'
-    +'<input class="fi-sm" type="text" id="rep-filter-q" placeholder="🔍 Buscar..." style="width:190px;" oninput="renderReparaciones()">'
+    +'<input class="fi-sm" type="text" id="rep-filter-q" placeholder="🔍 Buscar... (Enter)" style="width:190px;" onkeydown="if(event.key==='Enter'){renderReparaciones();}">'
     +'<button class="btn btn-blue btn-sm" onclick="openFormRepFor(\'\')">+ Nueva</button>'
     +'</div></div>'
     +(data.length?'<div style="background:#e8f0fe;border:1px solid #b8d0f5;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;display:flex;gap:24px;">'
@@ -36656,20 +36356,9 @@ function toggleCelularFields(){
 // DETECTAR MÓVIL
 function isMobile(){ return window.innerWidth <= 900 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); }
 
-// Obsoletos y bajas viven en la misma coleccion que los activos.
-// Se detectan por estado, por _tipo, o por el prefijo OBS del ID
-// (los que se dieron de alta desde el formulario de obsoletos y
-// quedaron sin estado capturado).
-function esObsoleto(e){
-  if(!e) return false;
-  if(e.estado==='Obsoleto' || e.estado==='Baja' || e._tipo==='obsoleto') return true;
-  return String(e.id||'').toUpperCase().indexOf('OBS') === 0;
-}
-
 function renderInventario(){
   var w=document.getElementById('view-inventario');if(!w)return;
   var data=equipos.filter(function(e){
-    if(esObsoleto(e))return false;
     var q=invFilter.q.toLowerCase();
     if(q&&!(e.nombre+e.modelo+e.marca+e.plaza+e.area+e.serie+e.ip+e.so+e.usuario+(e.responsable||'')).toLowerCase().includes(q))return false;
     if(invFilter.tipo&&e.tipo!==invFilter.tipo)return false;
@@ -36696,7 +36385,7 @@ function renderInventario(){
     +'<div class="tbl-hdr">'
     +'<span class="tbl-hdr-title">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
     +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="🔍 Buscar..." value="'+invFilter.q+'" oninput="invFilter.q=this.value;renderInventario()" style="width:190px;">'
+    +'<input class="fi-sm" type="text" placeholder="🔍 Buscar... (Enter)" value="'+invFilter.q+'" id="inv-search-tabla" onkeydown="if(event.key==='Enter'){invFilter.q=this.value;renderInventario();}" style="width:190px;" title="Escribe y presiona Enter para buscar">'
     +'<select class="fi-sm" onchange="invFilter.area=this.value;renderInventario()">'
     +'<option value="">Todas las áreas</option>'
     +areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')
@@ -36726,14 +36415,14 @@ function renderInventario(){
     +'</select>'
     +'<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()">'
     +'<option value="">Todos los estados</option>'
-    +['Bueno','Regular','Malo'].map(function(t){return '<option value="'+t+'"'+(invFilter.estado===t?' selected':'')+'>'+t+'</option>';}).join('')
+    +['Bueno','Regular','Malo','Baja'].map(function(t){return '<option value="'+t+'"'+(invFilter.estado===t?' selected':'')+'>'+t+'</option>';}).join('')
     +'</select>'
     +'<button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Nuevo</button>'
     +'</div></div>'
     +'<div style="overflow-x:auto;"><table>'
     +'<thead><tr>'
-    +['af','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado',''].map(function(c,i){
-      var lbl=['No. Activo','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Acciones'][i];
+    +['id','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado',''].map(function(c,i){
+      var lbl=['ID','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Acciones'][i];
       if(!c)return '<th>'+lbl+'</th>';
       return '<th onclick="sortBy(\''+c+'\')" >'+lbl+(sortCol===c?(sortAsc?' ▲':' ▼'):' ⇅')+'</th>';
     }).join('')
@@ -36741,7 +36430,7 @@ function renderInventario(){
     +(data.length?data.map(function(e){
       var rc=rowClass(e.fecha);
       return '<tr class="'+rc+'" style="cursor:pointer;" ondblclick="openPanel(\''+e.id+'\')">'
-        +'<td style="font-family:monospace;font-size:11px;font-weight:600;color:#1c1e21;">'+(e.af||'—')+'</td>'
+        +'<td style="font-family:monospace;font-size:10px;color:#9aa0a6;">'+e.id+'</td>'
         +'<td>'+tipoPill(e.tipo)+'</td>'
         +'<td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;">'+e.area+'</td>'
         +'<td style="white-space:nowrap;font-size:11px;">'+e.plaza+'</td>'
@@ -36775,12 +36464,12 @@ function renderInventario(){
     var tipos=[...new Set(equipos.map(function(e){return e.tipo;}).filter(Boolean))].sort();
     var filAreas='<select class="fi-sm" onchange="invFilter.area=this.value;renderInventario()"><option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
     var filTipos='<select class="fi-sm" onchange="invFilter.tipo=this.value;renderInventario()"><option value="">Todos los tipos</option>'+tipos.map(function(t){return '<option value="'+t+'"'+(invFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>';
-    var filEstados='<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()"><option value="">Todos los estados</option>'+['Bueno','Regular','Malo'].map(function(s){return '<option value="'+s+'"'+(invFilter.estado===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
+    var filEstados='<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()"><option value="">Todos los estados</option>'+['Bueno','Regular','Malo','Baja','Obsoleto'].map(function(s){return '<option value="'+s+'"'+(invFilter.estado===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
     w.innerHTML='<div style="padding:0;">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid #f3f4f6;flex-wrap:wrap;gap:8px;">'
       +'<span style="font-size:13px;font-weight:500;color:#111827;">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
       +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
-      +'<input class="fi-sm" type="text" placeholder="Buscar..." value="'+invFilter.q+'" oninput="invFilter.q=this.value;renderInventario()" style="width:150px;">'
+      +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+invFilter.q+'" onkeydown="if(event.key==='Enter'){invFilter.q=this.value;renderInventario();}" style="width:150px;" title="Escribe y presiona Enter para buscar">'
       +filAreas+filTipos+filEstados+toggleBtn
       +'<button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Nuevo</button>'
       +'</div></div>'
@@ -36844,6 +36533,7 @@ function renderInventarioCards(data){
       +'<button class="btn btn-sm" data-act="ver" data-id="'+eid+'" style="flex:1;font-size:11px;justify-content:center;">&#128065; Ver</button>'
       +'<button class="btn btn-sm" data-act="edit" data-id="'+eid+'" style="font-size:11px;" title="Editar">&#9999;</button>'
       +'<button class="btn btn-sm" data-act="res" data-id="'+eid+'" style="font-size:11px;" title="Resguardo">&#128196;</button>'
+      +'<button class="btn btn-sm" data-act="fotos" data-id="'+eid+'" style="font-size:11px;" title="Ver fotos">&#128247;</button>'
       +'</div>'
       +'</div>'
       +'</div>';
@@ -36916,7 +36606,7 @@ function makeQRUrl(id){
 }
 
 function etiqHTML(e){
-  return '<img class="elogo" src="'+LOGO_B64+'" alt="CAFIVER">'    +'<div class="einfo">'    +'<img class="eqr" src="'+makeQRUrl(e.af||e.id)+'" alt="QR">'    +'<div class="edata">'    +'<div class="eid">'+(e.af||e.id)+'</div>'    +'<div class="emod">'+(e.modelo||e.marca||'')+'</div>'    +(e.serie?'<div class="eser">S/N: '+e.serie+'</div>':'')    +'</div>'    +'</div>';
+  return '<img class="elogo" src="'+LOGO_B64+'" alt="CAFIVER">'    +'<div class="einfo">'    +'<img class="eqr" src="'+makeQRUrl(e.id)+'" alt="QR">'    +'<div class="edata">'    +'<div class="eid">'+(e.af||e.id)+'</div>'    +'<div class="emod">'+(e.modelo||e.marca||'')+'</div>'    +(e.serie?'<div class="eser">S/N: '+e.serie+'</div>':'')    +'</div>'    +'</div>';
 }
 
 
@@ -37089,14 +36779,17 @@ function openScanner(){
       zxingReader.decodeFromVideoDevice(deviceId, 'scanner-video', function(result, err){
         if(result){
           var data = result.getText();
-          // Acepta numero de activo (600314), ID interno viejo (EQ0031)
-          // y la URL completa (https://.../#600314)
-          var code = normCode(String(data).split(/[#\/]/).pop());
-          if(code && code !== lastScannedId){
-            lastScannedId = code;
-            setStatus('✅ QR detectado: '+code,'success');
+          var eqId = null;
+          if(data.includes('#EQ')){
+            eqId = data.split('#')[1].trim();
+          } else if(data.startsWith('EQ')){
+            eqId = data.trim();
+          }
+          if(eqId && eqId !== lastScannedId){
+            lastScannedId = eqId;
+            setStatus('✅ QR detectado: '+eqId,'success');
             if(navigator.vibrate) navigator.vibrate([100,50,100]);
-            setTimeout(function(){ procesarEscaneo(code); }, 300);
+            setTimeout(function(){ procesarEscaneo(eqId); }, 300);
           }
         }
         if(err && !(err instanceof ZXing.NotFoundException)){
@@ -37129,24 +36822,15 @@ function openFormRepForScan(){
   if(id) openFormRepFor(id);
 }
 
-function procesarEscaneo(codigo){
+function procesarEscaneo(eqId){
   closeScanner();
   lastScannedId = null;
 
-  var code = normCode(codigo);
-  var equipo = equipos.find(function(e){return normCode(e.af) === code;});
-  if(!equipo) equipo = equipos.find(function(e){return normCode(e.id) === code;});
+  var equipo = equipos.find(function(e){return e.id===eqId;});
   if(!equipo){
-    diagnosticoQR(code);
+    toast('❌ Equipo '+eqId+' no encontrado en el inventario');
     return;
   }
-  // En modo pegado el escaneo marca la etiqueta, no abre el equipo
-  if(typeof modoPegadoActivo === 'function' && modoPegadoActivo()){
-    marcarEtiquetaPegada(equipo);
-    switchView('etiquetado');
-    return;
-  }
-  var eqId = equipo.id;
 
   // Mostrar popup de éxito
   var titleEl=document.getElementById('scan-success-title'); titleEl.textContent=equipo.nombre||equipo.modelo; titleEl.dataset.eqid=eqId;
@@ -37234,7 +36918,6 @@ var celFilter={q:'',estado:'',area:'',plaza:'',estado_asig:''};
 
 function exportCSV(){
   var data=equipos.filter(function(e){
-    if(esObsoleto(e))return false;
     if(invFilter.tipo&&e.tipo!==invFilter.tipo)return false;
     if(invFilter.estado&&e.estado!==invFilter.estado)return false;
     if(invFilter.plaza&&e.plaza!==invFilter.plaza)return false;
@@ -37606,7 +37289,7 @@ function renderCelulares(){
     +(hayFiltro?'<span style="font-size:11px;color:#1d4ed8;">· $'+filtMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>':'')
     +'</div>'
     +'<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar..." value="'+celFilter.q+'" oninput="celFilter.q=this.value;renderCelulares()" style="width:130px;">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+celFilter.q+'" onkeydown="if(event.key==='Enter'){celFilter.q=this.value;renderCelulares();}" style="width:130px;" title="Escribe y presiona Enter para buscar">'
     +'<select class="fi-sm" onchange="celFilter.marca=this.value;renderCelulares()">'+filM+'</select>'
     +'<select class="fi-sm" onchange="celFilter.plaza=this.value;renderCelulares()">'+filP+'</select>'
     +'<select class="fi-sm" onchange="celFilter.status=this.value;renderCelulares()">'+filS+'</select>'
@@ -37683,6 +37366,7 @@ document.addEventListener('click', function(ev){
     else if(act==='edit') editEquipo(id);
     else if(act==='obs-edit') openFormObsoleto(id);
     else if(act==='res') generarResguardoDePanel2(id);
+    else if(act==='fotos') { openPanel(id); setTimeout(function(){ dpTab('fotos'); }, 300); }
     else if(act==='del') deleteEquipo(id);
     return;
   }
@@ -37749,7 +37433,7 @@ function imprimirQRs(dataEquipos){
       af: e.af||e.id,
       modelo: e.modelo||e.marca||'',
       serie: e.serie||'',
-      url: 'https://api.qrserver.com/v1/create-qr-code/?size=53x53&data='+encodeURIComponent(BASE_URL+(e.af||e.id))+'&color=000000&bgcolor=ffffff&margin=1'
+      url: 'https://api.qrserver.com/v1/create-qr-code/?size=53x53&data='+encodeURIComponent(BASE_URL+e.id)+'&color=000000&bgcolor=ffffff&margin=1'
     };
   });
 
@@ -37830,25 +37514,6 @@ function generarQRDataURLPDF(text, size){
   });
 }
 
-// Escribe centrado bajando el tamano solo lo necesario para que quepa a lo ancho.
-// Asi los textos largos no se salen y los cortos quedan grandes.
-function pdfTextoAjustado(doc, txt, cx, yy, maxW, sizeIni, sizeMin){
-  if(!txt) return;
-  var s = sizeIni;
-  doc.setFontSize(s);
-  while(s > sizeMin && doc.getTextWidth(txt) > maxW){
-    s -= 0.25;
-    doc.setFontSize(s);
-  }
-  // Si aun al minimo no cabe, recortar
-  if(doc.getTextWidth(txt) > maxW){
-    while(txt.length > 4 && doc.getTextWidth(txt) > maxW){
-      txt = txt.slice(0, -1);
-    }
-  }
-  doc.text(txt, cx, yy, {align:'center'});
-}
-
 async function descargarPDFEtiquetas(){
   if(typeof window.jspdf === 'undefined'){
     toast('La libreria PDF no esta cargada. Verifica tu conexion.');
@@ -37869,7 +37534,7 @@ async function descargarPDFEtiquetas(){
 
   toast('Generando PDF... espera un momento');
 
-  var etiqW=25, etiqH=50, cols=8, rowsPerPage=5;
+  var etiqW=25, etiqH=50, cols=4, rowsPerPage=5;
   var marginX=8, marginY=8;
   var jsPDF = window.jspdf.jsPDF;
   var doc = new jsPDF({unit:'mm', format:'letter', orientation:'portrait'});
@@ -37881,7 +37546,7 @@ async function descargarPDFEtiquetas(){
   var qrDataURLs = [];
   for(var i=0; i<total; i++){
     var e = data[i];
-    var dataUrl = await generarQRDataURLPDF(BASE_URL + (e.af||e.id), 180);
+    var dataUrl = await generarQRDataURLPDF(BASE_URL + e.id, 180);
     qrDataURLs.push(dataUrl);
   }
 
@@ -37901,33 +37566,32 @@ async function descargarPDFEtiquetas(){
     doc.setLineWidth(0.2);
     doc.rect(x, y, etiqW, etiqH);
 
-    // Logo (mas chico para dejarle espacio al texto)
-    var logoSz=9;
+    // Logo
+    var logoSz=14;
     doc.addImage(LOGO_B64,'JPEG', x+(etiqW-logoSz)/2, y+1.5, logoSz, logoSz);
 
     // QR — usar el dataURL pre-generado para ESTE equipo
-    var qrSz=20;
+    var qrSz=18;
     if(qrDataURLs[i]){
-      doc.addImage(qrDataURLs[i],'PNG', x+(etiqW-qrSz)/2, y+11, qrSz, qrSz);
+      doc.addImage(qrDataURLs[i],'PNG', x+(etiqW-qrSz)/2, y+1.5+logoSz+1, qrSz, qrSz);
     }
-
-    var cx = x+etiqW/2;
-    var maxW = etiqW-3;
 
     // No. Activo
     doc.setFont('helvetica','bold');
+    doc.setFontSize(7.5);
     doc.setTextColor(0,0,0);
-    pdfTextoAjustado(doc, String(e.af||e.id), cx, y+37, maxW, 11, 7);
+    doc.text(String(e.af||e.id), x+etiqW/2, y+37, {align:'center'});
 
     // Modelo
     doc.setFont('helvetica','normal');
-    doc.setTextColor(0,0,0);
-    pdfTextoAjustado(doc, String(e.modelo||e.marca||''), cx, y+42, maxW, 7.5, 4.5);
+    doc.setFontSize(5.5);
+    doc.text(String(e.modelo||e.marca||'').substring(0,18), x+etiqW/2, y+41, {align:'center'});
 
     // S/N
     if(e.serie){
-      doc.setTextColor(40,40,40);
-      pdfTextoAjustado(doc, 'S/N: '+String(e.serie), cx, y+47, maxW, 6.5, 4);
+      doc.setFontSize(4.5);
+      doc.setTextColor(90,90,90);
+      doc.text('S/N: '+String(e.serie).substring(0,18), x+etiqW/2, y+45, {align:'center'});
     }
   }
 
@@ -38022,7 +37686,7 @@ function switchViewCampo(v){
   if(v==='campo'){
     curView='campo';
     if(vc) vc.style.display='flex';
-    ['dashboard','inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos','etiquetado'].forEach(function(x){
+    ['dashboard','inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos'].forEach(function(x){
       var el=document.getElementById('view-'+x);
       if(el){if(x==='dashboard')el.style.display='none';else el.classList.add('hidden');}
     });
@@ -38074,6 +37738,13 @@ function renderRecientesCampo(){
   el.querySelectorAll('.campo-rec-item').forEach(function(div){
     div.onclick=function(){openPanel(this.dataset.eid);};
   });
+}
+
+function limpiarBusquedaInv(){
+  invFilter.q='';
+  var el=document.getElementById('inv-search-tabla');
+  if(el) el.value='';
+  renderInventario();
 }
 </script>
 
