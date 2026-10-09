@@ -35257,7 +35257,7 @@ function renderLicencias(){
     +'<div class="tbl-box"><div class="tbl-hdr">'
     +'<span class="tbl-hdr-title">'+data.length+' licencia'+(data.length!==1?'s':'')+'</span>'
     +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+licFilter.q+'" onkeydown="if(event.key==='Enter'){licFilter.q=this.value;renderLicencias();}" style="width:160px;" title="Escribe y presiona Enter para buscar">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+licFilter.q+'" onkeydown="if(event.keyCode===13){licFilter.q=this.value;renderLicencias();}" style="width:160px;" title="Escribe y presiona Enter para buscar">'
     +'<select class="fi-sm" onchange="licFilter.categoria=this.value;renderLicencias()">'+filCat+'</select>'
     +'<select class="fi-sm" onchange="licFilter.estado=this.value;renderLicencias()">'+filEst+'</select>'
     +(licFilter.q||licFilter.categoria||licFilter.estado?'<button class="btn btn-sm" onclick="licFilter={q:\'\',categoria:\'\',estado:\'\'};renderLicencias()">✕ Limpiar</button>':'')
@@ -35405,7 +35405,7 @@ function renderPersonal(){
     +'<div class="tbl-box"><div class="tbl-hdr">'
     +'<span class="tbl-hdr-title">'+data.length+' empleados</span>'
     +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+personalFilter.q+'" onkeydown="if(event.key==='Enter'){personalFilter.q=this.value;renderPersonal();}" style="width:200px;" title="Escribe y presiona Enter para buscar">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+personalFilter.q+'" onkeydown="if(event.keyCode===13){personalFilter.q=this.value;renderPersonal();}" style="width:200px;" title="Escribe y presiona Enter para buscar">'
     +'<select class="fi-sm" onchange="personalFilter.direccion=this.value;renderPersonal()">'+filDir+'</select>'
     +'<select class="fi-sm" onchange="personalFilter.departamento=this.value;renderPersonal()">'+filDep+'</select>'
     +'<button class="btn btn-blue btn-sm" onclick="openFormPersonal()">+ Nuevo empleado</button>'
@@ -36236,7 +36236,7 @@ function renderQR(){
   });
   w.innerHTML=
     '<div class="qr-toolbar">'
-    +'<input class="fi-sm" type="text" id="qr-search" placeholder="🔍 Buscar... (Enter)" style="width:220px;" onkeydown="if(event.key==='Enter'){renderQR();}" value="'+(q||'')+'">'
+    +'<input class="fi-sm" type="text" id="qr-search" placeholder="🔍 Buscar... (Enter)" style="width:220px;" onkeydown="if(event.keyCode===13){renderQR();}" value="'+(q||'')+'">'
     +'<select class="fi-sm" id="qr-area-filter" onchange="renderQR()">'
     +'<option value="">Todas las áreas</option>'
     +areas2.map(function(a){return '<option value="'+a+'"'+(filterArea===a?' selected':'')+'>'+a+'</option>';}).join('')
@@ -36287,7 +36287,7 @@ function renderReparaciones(){
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'
     +'<div><div class="dash-title">Reparaciones</div><div class="dash-sub">'+data.length+' registro(s)</div></div>'
     +'<div style="display:flex;gap:8px;align-items:center;">'
-    +'<input class="fi-sm" type="text" id="rep-filter-q" placeholder="🔍 Buscar... (Enter)" style="width:190px;" onkeydown="if(event.key==='Enter'){renderReparaciones();}">'
+    +'<input class="fi-sm" type="text" id="rep-filter-q" placeholder="🔍 Buscar... (Enter)" style="width:190px;" onkeydown="if(event.keyCode===13){renderReparaciones();}">'
     +'<button class="btn btn-blue btn-sm" onclick="openFormRepFor(\'\')">+ Nueva</button>'
     +'</div></div>'
     +(data.length?'<div style="background:#e8f0fe;border:1px solid #b8d0f5;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;display:flex;gap:24px;">'
@@ -36385,7 +36385,7 @@ function renderInventario(){
     +'<div class="tbl-hdr">'
     +'<span class="tbl-hdr-title">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
     +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="🔍 Buscar... (Enter)" value="'+invFilter.q+'" id="inv-search-tabla" onkeydown="if(event.key==='Enter'){invFilter.q=this.value;renderInventario();}" style="width:190px;" title="Escribe y presiona Enter para buscar">'
+    +'<input class="fi-sm" type="text" placeholder="🔍 Buscar... (Enter)" value="'+invFilter.q+'" id="inv-search-tabla" onkeydown="if(event.keyCode===13){invFilter.q=this.value;renderInventario();}" style="width:190px;" title="Escribe y presiona Enter para buscar">'
     +'<select class="fi-sm" onchange="invFilter.area=this.value;renderInventario()">'
     +'<option value="">Todas las áreas</option>'
     +areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')
@@ -36469,7 +36469,7 @@ function renderInventario(){
       +'<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid #f3f4f6;flex-wrap:wrap;gap:8px;">'
       +'<span style="font-size:13px;font-weight:500;color:#111827;">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
       +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
-      +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+invFilter.q+'" onkeydown="if(event.key==='Enter'){invFilter.q=this.value;renderInventario();}" style="width:150px;" title="Escribe y presiona Enter para buscar">'
+      +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+invFilter.q+'" onkeydown="if(event.keyCode===13){invFilter.q=this.value;renderInventario();}" style="width:150px;" title="Escribe y presiona Enter para buscar">'
       +filAreas+filTipos+filEstados+toggleBtn
       +'<button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Nuevo</button>'
       +'</div></div>'
@@ -37289,7 +37289,7 @@ function renderCelulares(){
     +(hayFiltro?'<span style="font-size:11px;color:#1d4ed8;">· $'+filtMPE.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})+'/mes</span>':'')
     +'</div>'
     +'<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">'
-    +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+celFilter.q+'" onkeydown="if(event.key==='Enter'){celFilter.q=this.value;renderCelulares();}" style="width:130px;" title="Escribe y presiona Enter para buscar">'
+    +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+celFilter.q+'" onkeydown="if(event.keyCode===13){celFilter.q=this.value;renderCelulares();}" style="width:130px;" title="Escribe y presiona Enter para buscar">'
     +'<select class="fi-sm" onchange="celFilter.marca=this.value;renderCelulares()">'+filM+'</select>'
     +'<select class="fi-sm" onchange="celFilter.plaza=this.value;renderCelulares()">'+filP+'</select>'
     +'<select class="fi-sm" onchange="celFilter.status=this.value;renderCelulares()">'+filS+'</select>'
