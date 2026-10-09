@@ -36360,7 +36360,7 @@ function renderInventario(){
   var w=document.getElementById('view-inventario');if(!w)return;
   var data=equipos.filter(function(e){
     var q=invFilter.q.toLowerCase();
-    if(q&&!(e.nombre+e.modelo+e.marca+e.plaza+e.area+e.serie+e.ip+e.so+e.usuario+(e.responsable||'')).toLowerCase().includes(q))return false;
+    if(q&&!(e.nombre+e.modelo+e.marca+e.plaza+e.area+e.serie+e.ip+e.so+e.usuario+(e.responsable||'')+(e.af||'')).toLowerCase().includes(q))return false;
     if(invFilter.tipo&&e.tipo!==invFilter.tipo)return false;
     if(invFilter.estado&&e.estado!==invFilter.estado)return false;
     if(invFilter.plaza&&e.plaza!==invFilter.plaza)return false;
@@ -36385,7 +36385,7 @@ function renderInventario(){
     +'<div class="tbl-hdr">'
     +'<span class="tbl-hdr-title">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
     +'<div class="tbl-tools">'
-    +'<input class="fi-sm" type="text" placeholder="🔍 Buscar... (Enter)" value="'+invFilter.q+'" id="inv-search-tabla" onkeydown="if(event.keyCode===13){invFilter.q=this.value;renderInventario();}" style="width:190px;" title="Escribe y presiona Enter para buscar">'
+    +'<input class="fi-sm" type="text" placeholder="🔍 Buscar..." value="'+invFilter.q+'" id="inv-search-tabla" oninput="clearTimeout(window._invST);window._invST=setTimeout(function(){invFilter.q=document.getElementById(\'inv-search-tabla\').value;renderInventario();},350);" onkeydown="if(event.keyCode===13){clearTimeout(window._invST);invFilter.q=this.value;renderInventario();}" style="width:190px;">'
     +'<select class="fi-sm" onchange="invFilter.area=this.value;renderInventario()">'
     +'<option value="">Todas las áreas</option>'
     +areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')
@@ -36421,8 +36421,8 @@ function renderInventario(){
     +'</div></div>'
     +'<div style="overflow-x:auto;"><table>'
     +'<thead><tr>'
-    +['id','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado',''].map(function(c,i){
-      var lbl=['ID','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Acciones'][i];
+    +['af','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado',''].map(function(c,i){
+      var lbl=['N° Activo','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Acciones'][i];
       if(!c)return '<th>'+lbl+'</th>';
       return '<th onclick="sortBy(\''+c+'\')" >'+lbl+(sortCol===c?(sortAsc?' ▲':' ▼'):' ⇅')+'</th>';
     }).join('')
@@ -36430,7 +36430,7 @@ function renderInventario(){
     +(data.length?data.map(function(e){
       var rc=rowClass(e.fecha);
       return '<tr class="'+rc+'" style="cursor:pointer;" ondblclick="openPanel(\''+e.id+'\')">'
-        +'<td style="font-family:monospace;font-size:10px;color:#9aa0a6;">'+e.id+'</td>'
+        +'<td style="font-family:monospace;font-size:11px;font-weight:600;color:#374151;">'+(e.af?e.af:'—')+'</td>'
         +'<td>'+tipoPill(e.tipo)+'</td>'
         +'<td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;">'+e.area+'</td>'
         +'<td style="white-space:nowrap;font-size:11px;">'+e.plaza+'</td>'
@@ -36469,7 +36469,7 @@ function renderInventario(){
       +'<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid #f3f4f6;flex-wrap:wrap;gap:8px;">'
       +'<span style="font-size:13px;font-weight:500;color:#111827;">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
       +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
-      +'<input class="fi-sm" type="text" placeholder="Buscar... (Enter)" value="'+invFilter.q+'" onkeydown="if(event.keyCode===13){invFilter.q=this.value;renderInventario();}" style="width:150px;" title="Escribe y presiona Enter para buscar">'
+      +'<input class="fi-sm" type="text" placeholder="🔍 Buscar..." value="'+invFilter.q+'" id="inv-search-cards" oninput="clearTimeout(window._invSTC);window._invSTC=setTimeout(function(){invFilter.q=document.getElementById(\'inv-search-cards\').value;renderInventario();},350);" onkeydown="if(event.keyCode===13){clearTimeout(window._invSTC);invFilter.q=this.value;renderInventario();}" style="width:150px;">'
       +filAreas+filTipos+filEstados+toggleBtn
       +'<button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Nuevo</button>'
       +'</div></div>'
@@ -36504,9 +36504,9 @@ function renderInventarioCards(data){
       // Banda superior de color
       +'<div style="height:3px;background:'+vcol+';"></div>'
       +'<div style="padding:11px 13px;">'
-      // Fila 1: ID + Tipo
+      // Fila 1: N° Activo + Tipo
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">'
-      +'<span style="font-family:monospace;font-size:10px;color:#9ca3af;letter-spacing:.5px;">'+eid+'</span>'
+      +'<span style="font-family:monospace;font-size:10px;color:#6b7280;font-weight:600;letter-spacing:.5px;" title="N° Activo Fijo">'+(e.af?'AF-'+e.af:'Sin AF')+'</span>'
       +tipoPill(e.tipo)
       +'</div>'
       // Fila 2: Marca Modelo (destacado)
@@ -36927,10 +36927,10 @@ function exportCSV(){
     if(invFilter.q){var q=invFilter.q.toLowerCase();if(!(e.nombre+e.modelo+e.marca+e.plaza+e.area+e.serie+e.ip+e.so+(e.responsable||'')).toLowerCase().includes(q))return false;}
     return true;
   });
-  var headers=['ID','Tipo','Marca','Modelo','Serie','Responsable','Area','Plaza','Estado','S.O.','RAM','IP','Procesador','Fecha Compra','Precio'];
+  var headers=['N° Activo','ID','Tipo','Marca','Modelo','Serie','Responsable','Area','Plaza','Estado','S.O.','RAM','IP','Procesador','Fecha Compra','Precio'];
   var rows=[headers];
   data.forEach(function(e){
-    rows.push([e.id,e.tipo,e.marca,e.modelo,e.serie,e.responsable,e.area,e.plaza,e.estado,e.so,e.ram,e.ip,e.procesador,e.fecha,e.precio||'']);
+    rows.push([e.af||'',e.id,e.tipo,e.marca,e.modelo,e.serie,e.responsable,e.area,e.plaza,e.estado,e.so,e.ram,e.ip,e.procesador,e.fecha,e.precio||'']);
   });
   var csv='﻿'+rows.map(function(r){
     return r.map(function(v){
@@ -37744,6 +37744,8 @@ function limpiarBusquedaInv(){
   invFilter.q='';
   var el=document.getElementById('inv-search-tabla');
   if(el) el.value='';
+  var elc=document.getElementById('inv-search-cards');
+  if(elc) elc.value='';
   renderInventario();
 }
 </script>
