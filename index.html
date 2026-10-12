@@ -34159,7 +34159,7 @@ table.mts tr:hover td{background:#f9fafb;}
 </div>
 
 <!-- CONFIRM -->
-<div id="confirm-overlay" class="hidden">
+<div id="confirm-overlay" class="hidden" onclick="if(event.target===this)closeConfirm()">
   <div class="confirm-card">
     <h3 id="confirm-title">¿Confirmar?</h3>
     <p id="confirm-msg"></p>
@@ -34600,6 +34600,16 @@ function ini(n){return (n||'?').split(' ').map(function(w){return w[0]||'';}).jo
 function nowStr(){return new Date().toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'});}
 function setSyncUI(s,m){var p=document.getElementById('topbar-sync'),t=document.getElementById('topbar-sync-txt');if(p)p.className='sync-pill '+s;if(t)t.textContent=m;}
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3000);}
+var _confirmCb=null;
+function confirmAction(title,msg,cb){
+  _confirmCb=cb;
+  document.getElementById('confirm-title').textContent=title;
+  document.getElementById('confirm-msg').textContent=msg;
+  var ok=document.getElementById('confirm-ok');
+  ok.onclick=function(){closeConfirm();if(_confirmCb)_confirmCb();};
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
+function closeConfirm(){document.getElementById('confirm-overlay').classList.add('hidden');_confirmCb=null;}
 function fmt$(n){return n?'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:2}):'—';}
 function cleanObj(o){return JSON.parse(JSON.stringify(o,function(k,v){return v===undefined?null:v;}));}
 function tipoPill(t){var m={Desktop:'pill-desktop',Laptop:'pill-laptop',Servidor:'pill-servidor',Impresora:'pill-impresora',Celular:'pill-celular',Otro:'pill-otro'};return '<span class="pill '+(m[t]||'pill-otro')+'">'+t+'</span>';}
