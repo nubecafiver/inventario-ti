@@ -34675,6 +34675,7 @@ function loadAppData(){
     if(curView==='inventario')renderInventario();
     if(curView==='qr')renderQR();
     if(curView==='obsoletos')renderObsoletos();
+    if(curView==='etiquetas')renderEtiquetas();
     setSyncUI('ok','En linea');
   },function(){setSyncUI('error','Error');});
   // Real-time transferencias
@@ -37085,6 +37086,112 @@ function closeCelDetail(){var d=document.getElementById('overlay-cel-detail');if
 
 // ── RENDER CELULARES ────────────────────────────────────────
 var celFilter={q:'',marca:'',plaza:'',areas:[],status:''};
+
+// ============================================================
+//  CONTROL DE ETIQUETADO
+// ============================================================
+var etiqFilter={q:'',area:'',plaza:'',solo:'todos'};
+
+function toggleEtiquetado(id){
+  var e=equipos.find(function(x){return x.id===id;}); if(!e) return;
+  var nuevo=!e.etiquetado;
+  db.collection('equipos').doc(id).update({etiquetado:nuevo,etiquetadoTs:nuevo?nowStr():'',etiquetadoBy:curUser?curUser.name:''})
+    .then(function(){toast(nuevo?'✅ Marcado como etiquetado':'⬜ Desmarcado');})
+    .catch(function(){toast('Error al guardar');});
+}
+
+function renderEtiquetas(){
+  var w=document.getElementById('view-etiquetas');if(!w)return;
+  var areas=[],plazas=[];
+  equipos.forEach(function(e){
+    if(e.area&&areas.indexOf(e.area)<0)areas.push(e.area);
+    if(e.plaza&&plazas.indexOf(e.plaza)<0)plazas.push(e.plaza);
+  });
+  areas.sort();plazas.sort();
+  var q=etiqFilter.q.toLowerCase();
+  var data=equipos.filter(function(e){
+    if(q&&!(e.nombre+e.marca+e.modelo+e.serie+(e.af||'')+(e.responsable||'')+(e.area||'')+(e.plaza||'')).toLowerCase().includes(q))return false;
+    if(etiqFilter.area&&e.area!==etiqFilter.area)return false;
+    if(etiqFilter.plaza&&e.plaza!==etiqFilter.plaza)return false;
+    if(etiqFilter.solo==='si'&&!e.etiquetado)return false;
+    if(etiqFilter.solo==='no'&&e.etiquetado)return false;
+    return true;
+  });
+  data.sort(function(a,b){
+    if(a.etiquetado===b.etiquetado)return (a.area||'').localeCompare(b.area||'');
+    return a.etiquetado?1:-1;
+  });
+  var tot=equipos.length;
+  var etiq=equipos.filter(function(e){return e.etiquetado;}).length;
+  var pct=tot?Math.round(etiq/tot*100):0;
+  var html='<div style="padding:16px 20px;max-width:1100px;margin:0 auto;">'
+    // Resumen
+    +'<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">'
+    +'<div style="background:#fff;border-radius:10px;padding:14px 20px;flex:1;min-width:140px;border:0.5px solid #e5e7eb;">'
+    +'<div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Total equipos</div>'
+    +'<div style="font-size:26px;font-weight:700;color:#111827;">'+tot+'</div></div>'
+    +'<div style="background:#fff;border-radius:10px;padding:14px 20px;flex:1;min-width:140px;border:0.5px solid #e5e7eb;">'
+    +'<div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Etiquetados</div>'
+    +'<div style="font-size:26px;font-weight:700;color:#16a34a;">'+etiq+'</div></div>'
+    +'<div style="background:#fff;border-radius:10px;padding:14px 20px;flex:1;min-width:140px;border:0.5px solid #e5e7eb;">'
+    +'<div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Pendientes</div>'
+    +'<div style="font-size:26px;font-weight:700;color:#dc2626;">'+(tot-etiq)+'</div></div>'
+    +'<div style="background:#fff;border-radius:10px;padding:14px 20px;flex:1;min-width:180px;border:0.5px solid #e5e7eb;">'
+    +'<div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Progreso</div>'
+    +'<div style="font-size:22px;font-weight:700;color:#1d4ed8;margin-bottom:6px;">'+pct+'%</div>'
+    +'<div style="background:#e5e7eb;border-radius:4px;height:6px;"><div style="background:#1d4ed8;height:6px;border-radius:4px;width:'+pct+'%;transition:width .4s;"></div></div>'
+    +'</div></div>'
+    // Filtros
+    +'<div style="background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:12px;border:0.5px solid #e5e7eb;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+    +'<input class="fi-sm" type="text" id="etiq-search" placeholder="🔍 Buscar equipo..." value="'+etiqFilter.q+'" '
+    +'oninput="clearTimeout(window._etiqST);window._etiqST=setTimeout(function(){etiqFilter.q=document.getElementById(\'etiq-search\').value;renderEtiquetas();},300);" style="width:200px;">'
+    +'<select class="fi-sm" onchange="etiqFilter.area=this.value;renderEtiquetas()">'
+    +'<option value="">Todas las áreas</option>'
+    +areas.map(function(a){return '<option value="'+a+'"'+(etiqFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')
+    +'</select>'
+    +'<select class="fi-sm" onchange="etiqFilter.plaza=this.value;renderEtiquetas()">'
+    +'<option value="">Todas las plazas</option>'
+    +plazas.map(function(p){return '<option value="'+p+'"'+(etiqFilter.plaza===p?' selected':'')+'>'+p+'</option>';}).join('')
+    +'</select>'
+    +'<select class="fi-sm" onchange="etiqFilter.solo=this.value;renderEtiquetas()">'
+    +'<option value="todos"'+(etiqFilter.solo==='todos'?' selected':'')+'>Todos</option>'
+    +'<option value="no"'+(etiqFilter.solo==='no'?' selected':'')+'>⬜ Sin etiquetar</option>'
+    +'<option value="si"'+(etiqFilter.solo==='si'?' selected':'')+'>✅ Ya etiquetados</option>'
+    +'</select>'
+    +'<span style="font-size:11px;color:#9ca3af;margin-left:auto;">'+data.length+' equipos</span>'
+    +'</div>'
+    // Tabla
+    +'<div style="background:#fff;border-radius:10px;border:0.5px solid #e5e7eb;overflow:hidden;">'
+    +'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
+    +'<thead><tr style="background:#f9fafb;">'
+    +'<th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;width:56px;">Etiq.</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">N° Activo</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Equipo</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Área / Plaza</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Responsable</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Fecha etiq.</th>'
+    +'</tr></thead><tbody>'
+    +(data.length?data.map(function(e,i){
+      var etiq=!!e.etiquetado;
+      var bg=i%2===0?'#fff':'#f9fafb';
+      return '<tr style="background:'+bg+';border-top:0.5px solid #f3f4f6;">'
+        +'<td style="padding:10px 16px;text-align:center;">'
+        +'<button onclick="toggleEtiquetado(\''+e.id+'\')" title="'+(etiq?'Quitar etiqueta':'Marcar como etiquetado')+'" '
+        +'style="width:28px;height:28px;border-radius:6px;border:1.5px solid '+(etiq?'#16a34a':'#d1d5db')+';background:'+(etiq?'#dcfce7':'#fff')+';cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">'
+        +(etiq?'✅':'⬜')+'</button></td>'
+        +'<td style="padding:10px 16px;font-family:monospace;font-size:11px;font-weight:600;color:#374151;">'+(e.af||'—')+'</td>'
+        +'<td style="padding:10px 16px;">'
+        +'<div style="font-size:12px;font-weight:600;color:#111827;">'+e.marca+' '+e.modelo+'</div>'
+        +'<div style="font-size:10px;color:#9ca3af;">'+(e.nombre||'')+(e.serie?' · '+e.serie:'')+'</div></td>'
+        +'<td style="padding:10px 16px;font-size:11px;color:#374151;">'+(e.area||'—')+'<br><span style="color:#9ca3af;">'+(e.plaza||'')+'</span></td>'
+        +'<td style="padding:10px 16px;font-size:11px;color:#374151;">'+(e.responsable||'—')+'</td>'
+        +'<td style="padding:10px 16px;font-size:10px;color:#9ca3af;">'+(e.etiquetadoTs||'—')+'</td>'
+        +'</tr>';
+    }).join(''):'<tr><td colspan="6" style="text-align:center;padding:40px;color:#9ca3af;font-size:13px;">Sin resultados</td></tr>')
+    +'</tbody></table></div></div>'
+    +'</div>';
+  w.innerHTML=html;
+}
 
 function renderCelulares(){
   var w=document.getElementById('view-celulares');if(!w)return;
