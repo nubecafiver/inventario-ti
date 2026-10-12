@@ -37100,8 +37100,62 @@ function toggleEtiquetado(id){
     .catch(function(){toast('Error al guardar');});
 }
 
+function verDuplicadosAF(){
+  // Agrupa por AF
+  var grupos={};
+  equipos.forEach(function(e){
+    var af=(e.af||'').trim();
+    if(!af)return;
+    if(!grupos[af])grupos[af]=[];
+    grupos[af].push(e);
+  });
+  var dups=Object.keys(grupos).filter(function(k){return grupos[k].length>1;}).sort();
+  var w=document.getElementById('view-etiquetas');if(!w)return;
+  if(!dups.length){
+    w.innerHTML='<div style="padding:40px;text-align:center;color:#16a34a;font-size:14px;font-weight:600;">✅ No hay N° Activo duplicados</div>'
+      +'<div style="text-align:center;"><button class="btn btn-sm" onclick="etiqModo=\'control\';renderEtiquetas()">← Volver</button></div>';
+    return;
+  }
+  var html='<div style="padding:16px 20px;max-width:900px;margin:0 auto;">'
+    +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">'
+    +'<button class="btn btn-sm" onclick="etiqModo=\'control\';renderEtiquetas()">← Volver</button>'
+    +'<h2 style="font-size:15px;font-weight:700;color:#dc2626;margin:0;">⚠️ '+dups.length+' N° Activo duplicado'+(dups.length!==1?'s':'')+' encontrado'+(dups.length!==1?'s':'')+'</h2>'
+    +'</div>'
+    +'<div style="background:#fff;border-radius:10px;border:0.5px solid #fca5a5;overflow:hidden;">'
+    +dups.map(function(af,gi){
+      var grupo=grupos[af];
+      return '<div style="border-bottom:1px solid #fef2f2;padding:12px 16px;background:'+(gi%2===0?'#fff':'#fff7f7')+'">'
+        +'<div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px;">AF: '+af+' — '+grupo.length+' equipos con este número</div>'
+        +'<table style="width:100%;border-collapse:collapse;">'
+        +'<thead><tr style="font-size:10px;color:#9ca3af;text-transform:uppercase;">'
+        +'<th style="padding:4px 8px;text-align:left;">Nombre</th>'
+        +'<th style="padding:4px 8px;text-align:left;">Marca/Modelo</th>'
+        +'<th style="padding:4px 8px;text-align:left;">Serie</th>'
+        +'<th style="padding:4px 8px;text-align:left;">Área</th>'
+        +'<th style="padding:4px 8px;text-align:left;">Responsable</th>'
+        +'<th style="padding:4px 8px;"></th>'
+        +'</tr></thead><tbody>'
+        +grupo.map(function(e){
+          return '<tr style="font-size:11px;border-top:0.5px solid #fee2e2;">'
+            +'<td style="padding:6px 8px;font-weight:600;">'+(e.nombre||'—')+'</td>'
+            +'<td style="padding:6px 8px;">'+e.marca+' '+e.modelo+'</td>'
+            +'<td style="padding:6px 8px;font-family:monospace;color:#6b7280;">'+(e.serie||'—')+'</td>'
+            +'<td style="padding:6px 8px;">'+(e.area||'—')+'<br><span style="color:#9ca3af;">'+(e.plaza||'')+'</span></td>'
+            +'<td style="padding:6px 8px;">'+(e.responsable||'—')+'</td>'
+            +'<td style="padding:6px 8px;"><button class="btn btn-sm" onclick="editEquipo(\''+e.id+'\')" style="font-size:10px;">✏️ Editar</button></td>'
+            +'</tr>';
+        }).join('')
+        +'</tbody></table></div>';
+    }).join('')
+    +'</div></div>';
+  w.innerHTML=html;
+}
+
+var etiqModo='control';
+
 function renderEtiquetas(){
   var w=document.getElementById('view-etiquetas');if(!w)return;
+  if(etiqModo==='duplicados'){verDuplicadosAF();return;}
   var areas=[],plazas=[];
   equipos.forEach(function(e){
     if(e.area&&areas.indexOf(e.area)<0)areas.push(e.area);
@@ -37158,7 +37212,8 @@ function renderEtiquetas(){
     +'<option value="no"'+(etiqFilter.solo==='no'?' selected':'')+'>⬜ Sin etiquetar</option>'
     +'<option value="si"'+(etiqFilter.solo==='si'?' selected':'')+'>✅ Ya etiquetados</option>'
     +'</select>'
-    +'<span style="font-size:11px;color:#9ca3af;margin-left:auto;">'+data.length+' equipos</span>'
+    +'<button onclick="etiqModo=\'duplicados\';renderEtiquetas();" style="margin-left:auto;padding:6px 14px;border-radius:7px;border:1.5px solid #f59e0b;background:#fffbeb;color:#92400e;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Ver activos con N° repetido">⚠️ Ver AF duplicados</button>'
+    +'<span style="font-size:11px;color:#9ca3af;">'+data.length+' equipos</span>'
     +'</div>'
     // Tabla
     +'<div style="background:#fff;border-radius:10px;border:0.5px solid #e5e7eb;overflow:hidden;">'
