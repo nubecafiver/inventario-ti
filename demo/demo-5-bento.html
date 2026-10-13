@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAFIVER TI — Bento Box (DEMO 5)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+/* Estilo: Bento Box Grid (ui-ux-pro-max). Rejilla 4→2→1, tarjetas modulares, esquinas 24px, sombras suaves, fondo #F5F5F7. */
+:root{--page:#f5f5f7;--card:#fff;--ink:#1d1d1f;--ink2:#424245;--mut:#5f5f66;--line:#e3e3e8;--acc:#0a4fd0;--accb:#e8efff;
+--ok:#0b6b34;--okb:#e2f5ea;--wn:#8a4b00;--wnb:#fff1d6;--bd:#a4161a;--bdb:#fde7e7;--nt:#3b3b42;--ntb:#eeeef2;--gap:16px;--rad:24px;--shadow:0 4px 6px rgba(0,0,0,.05);--hover:1.02}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--page);color:var(--ink);font-size:14px;line-height:1.5}
+.demo{background:#7c2d12;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:6px 10px}
+header{max-width:1240px;margin:auto;display:flex;align-items:center;gap:14px;padding:18px 24px 6px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}.brand small{display:block;font-weight:400;font-size:12px;color:var(--mut)}
+.logo{width:38px;height:38px;border-radius:12px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px}
+nav{display:flex;gap:4px;margin-left:12px;background:#e9e9ee;border-radius:99px;padding:4px}
+nav button{all:unset;box-sizing:border-box;padding:7px 16px;border-radius:99px;cursor:pointer;font-weight:500;color:var(--ink2);min-height:34px}
+nav button[aria-current=page]{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+nav button:focus-visible,:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.sp{flex:1}
+.who{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--mut)}.who select{font:inherit;font-size:13px;min-height:36px;border-radius:99px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:4px 12px}
+main{max-width:1240px;margin:auto;padding:14px 24px 44px}
+h1{font-size:26px;letter-spacing:-.02em}.hsub{color:var(--mut);margin:2px 0 16px}
+/* BENTO */
+.bento{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(158px,auto);gap:var(--gap)}
+.t{background:var(--card);border-radius:var(--rad);box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;min-width:0;transition:transform .2s ease,box-shadow .2s ease;position:relative}
+button.t{all:unset;box-sizing:border-box;background:var(--card);border-radius:var(--rad);box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;min-width:0;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}
+button.t:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+@media(prefers-reduced-motion:no-preference){button.t:hover{transform:scale(var(--hover));box-shadow:0 10px 24px rgba(0,0,0,.09)}}
+.t.s22{grid-column:span 2;grid-row:span 2}.t.s21{grid-column:span 2}.t.s12{grid-row:span 2}
+.lab{font-size:13px;font-weight:600;color:var(--ink2);display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.big{font-size:44px;font-weight:700;letter-spacing:-.03em;line-height:1.05;margin-top:auto}.hero .big{font-size:84px;color:var(--acc)}
+.cap{font-size:12px;color:var(--mut);margin-top:4px}
+.st{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.st.g{background:var(--okb);color:var(--ok)}.st.a{background:var(--wnb);color:var(--wn)}.st.r{background:var(--bdb);color:var(--bd)}.st.n{background:var(--ntb);color:var(--nt)}
+.t.r .big{color:var(--bd)}.t.na{background:#fafafc;border:1.5px dashed #c9c9d1;box-shadow:none}.t.na .big{font-size:20px;color:var(--mut);font-weight:600;line-height:1.3}
+.bar{margin-top:14px}.bar .trk{position:relative;height:24px;border-radius:99px;overflow:hidden;display:flex;background:#eee}
+.bar .z{height:100%}.z1{background:#ffcdd2}.z2{background:#fff3b0}.z3{background:#c8e6c9}.bar .v{position:absolute;left:0;top:8px;height:8px;background:var(--acc);border-radius:0 99px 99px 0}.bar .g{position:absolute;top:0;width:3px;height:100%;background:#000}
+.bar .lb{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:6px;gap:6px}
+.list{display:grid;gap:8px;margin-top:10px;overflow:auto;max-height:100%;padding-right:2px}.list:focus-visible{outline:3px solid var(--acc);outline-offset:2px;border-radius:12px}
+.it{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:#fafafc;border-radius:16px;padding:10px 12px;border-left:5px solid #d97706}.it.r{border-color:var(--bd);background:#fff7f7}.it b{display:block;font-size:13px}.it small{color:var(--mut);font-size:12px}
+.btn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:99px;padding:7px 14px;min-height:38px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.btn:hover{background:#f0f0f4}.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}.btn.pri:hover{background:#083fa8}.btn[aria-disabled=true]{background:var(--ntb);color:var(--nt);border-style:dashed;cursor:not-allowed}
+.tl{margin-top:10px;display:grid;gap:12px;overflow:auto;border-left:2px solid var(--line);padding-left:14px;margin-left:5px}.tl div{position:relative;font-size:13px}.tl div:before{content:"";position:absolute;left:-20px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--acc)}.tl small{display:block;color:var(--mut);font-size:12px}
+.empty{color:var(--mut);padding:14px 0;font-size:13px}
+.note{background:var(--accb);color:#0b2a6b;border-radius:16px;padding:12px 16px;font-size:12.5px;margin-top:var(--gap)}
+/* lista */
+.card{background:var(--card);border-radius:var(--rad);box-shadow:var(--shadow);padding:8px 8px 4px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);text-align:left;padding:12px 14px;font-weight:600}
+td{padding:13px 14px;border-top:1px solid var(--line)}tr.row{cursor:pointer}tr.row:hover td{background:#f8f8fb}tr.row:focus-visible{outline:3px solid var(--acc);outline-offset:-3px}
+.pghd{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}.back{margin-bottom:8px}
+.modal{position:fixed;inset:0;background:rgba(29,29,31,.45);display:none;align-items:flex-start;justify-content:center;padding:70px 16px;overflow:auto;z-index:30;backdrop-filter:blur(3px)}.modal.on{display:flex}
+.mc{background:#fff;border-radius:var(--rad);width:100%;max-width:640px;box-shadow:0 24px 60px rgba(0,0,0,.28)}.mh{padding:18px 22px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}.mh h3{font-size:17px}
+.mb{padding:18px 22px}.mf{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+dl{display:grid;grid-template-columns:130px 1fr;gap:8px 14px}dt{font-size:12px;font-weight:600;color:var(--mut)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:99px;font-size:13px;display:none;z-index:40}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(max-width:1000px){.bento{grid-template-columns:repeat(2,1fr)}.t.s22{grid-column:span 2}.t.s12{grid-row:auto}}
+@media(max-width:620px){main,header{padding-left:14px;padding-right:14px}.bento{grid-template-columns:1fr}.t.s22,.t.s21{grid-column:auto}.t.s12,.t.s22{grid-row:auto}.hero .big{font-size:64px}nav{margin-left:0}.btn,.who select{min-height:44px}dl{grid-template-columns:1fr}.who{width:100%}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="demo">DEMO 5 — Datos de ejemplo inventados. Sin conexión a Firebase ni a datos reales de CAFIVER.</div>
+<header>
+  <div class="brand"><div class="logo"><i class="ti ti-shield-check" aria-hidden="true"></i></div><div>CAFIVER TI<small>Centro de Gestión y Control de Tecnología</small></div></div>
+  <nav aria-label="Principal"><button data-v="inicio" aria-current="page">Inicio</button><button data-v="procesos">Procesos</button></nav>
+  <span class="sp"></span>
+  <label class="who">Sesión como<select id="who" aria-label="Simular sesión"><option value="A">Persona A — Director de TI</option><option value="C">Persona C — Responsable de proceso</option><option value="D">Persona D — Técnico de TI</option></select></label>
+</header>
+<main id="main"></main>
+<div class="modal" id="modal"><div class="mc" id="mc" role="dialog" aria-modal="true" aria-label="Detalle"></div></div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+/* ===== DATOS INVENTADOS ===== */
+function addD(d){var x=new Date();x.setDate(x.getDate()+d);return x.toISOString().slice(0,10)}
+var TODAY=addD(0),NM={A:'Persona A',B:'Persona B',C:'Persona C',D:'Persona D'};
+var ES={borrador:'Borrador',en_revision:'En revisión',pendiente_aprobacion:'Pendiente de aprobación',aprobado:'Aprobado',publicado:'Publicado',en_revision_periodica:'En revisión periódica',obsoleto:'Obsoleto'};
+function P(id,n,resp,part,est,rev,doc,esp,por){return{id:id,n:n,resp:resp,part:part,est:est,rev:rev,doc:doc,esp:esp||0,por:por||resp}}
+var PROC=[
+ P('PRO-001','Gestión de incidentes','C',['B'],'publicado',addD(18),true),
+ P('PRO-002','Gestión de cambios','C',[],'pendiente_aprobacion',null,false,6),
+ P('PRO-003','Administración de licencias','C',['B'],'en_revision',null,false),
+ P('PRO-004','Gestión de respaldos','D',[],'borrador',null,false),
+ P('PRO-005','Altas y bajas de personal de TI','C',[],'publicado',addD(-12),true),
+ P('PRO-006','Seguridad informática','C',['D'],'borrador',null,false),
+ P('PRO-007','Gestión de solicitudes','C',['B','D'],'publicado',addD(75),true),
+ P('PRO-008','Administración de usuarios y accesos','C',[],'en_revision_periodica',addD(-40),true),
+ P('PRO-009','Gestión de proveedores','B',['A'],'aprobado',null,false),
+ P('PRO-010','Documentación técnica','D',['C'],'publicado',addD(140),false),
+ P('PRO-011','Gestión de proyectos','C',[],'pendiente_aprobacion',null,false,2,'A'),
+ P('PRO-012','Gestión de problemas recurrentes','B',['A'],'obsoleto',null,false)
+];
+var ACT=[{t:'Hace 2 días',x:'PRO-011 enviado a aprobación',w:'Persona A'},{t:'Hace 6 días',x:'PRO-002 enviado a aprobación',w:'Persona C'},{t:'Hace 3 semanas',x:'PRO-007 publicado (v2)',w:'Persona A'}];
+var MIN=5,META=60,cur='A',view='inicio',fkey='',ftitle='',ret=null;
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function vig(p){return p.est==='publicado'||p.est==='en_revision_periodica'}
+function venc(p){return vig(p)&&p.rev&&p.rev<TODAY}
+function solo(p){return p.est!=='obsoleto'&&!p.part.length}
+function calc(){var A=PROC.filter(function(p){return p.est!=='obsoleto'}),n=A.length,d=A.filter(function(p){return p.doc&&vig(p)}).length;
+  return{n:n,d:d,pct:n>=MIN?Math.round(d/n*100):null,pen:PROC.filter(function(p){return p.est==='pendiente_aprobacion'}).length,ven:PROC.filter(venc).length,pub:PROC.filter(vig).length,so:PROC.filter(solo).length}}
+function say(t){var e=document.getElementById('toast');e.textContent=t;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(function(){e.style.display='none'},3200)}
+/* ===== INICIO (mosaico) ===== */
+function vInicio(){
+  var c=calc(),h='<h1>Resumen de TI</h1><p class="hsub">Procesos y procedimientos · '+new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})+'</p>';
+  if(cur==='D')return h+'<div class="bento"><div class="t s21"><div class="lab">Vista de Técnico de TI</div><p class="cap" style="margin-top:12px;font-size:14px;color:var(--ink2)">El resumen es para Dirección y administración. Consulta los procedimientos publicados en <b>Procesos</b>.</p></div></div>';
+  var st=c.pct===null?['n','Muestra insuficiente','ti-info-circle']:c.pct>=META?['g','Cumple la meta','ti-circle-check']:c.pct>=META*.6?['a','Bajo la meta','ti-alert-triangle']:['r','Muy bajo la meta','ti-alert-octagon'];
+  h+='<div class="bento">';
+  h+='<button class="t s22 hero" data-go="doc" aria-label="Procesos documentados '+(c.pct===null?c.d+' de '+c.n:c.pct+' por ciento')+'. Ver registros"><div class="lab">Procesos documentados<span class="st '+st[0]+'"><i class="ti '+st[2]+'" aria-hidden="true"></i>'+st[1]+'</span></div><div class="big" style="font-size:'+(c.pct===null?'56px':'84px')+'">'+(c.pct===null?c.d+' de '+c.n:c.pct+'%')+'</div><div class="cap">'+c.d+' de '+c.n+' procesos cuentan con versión publicada completa</div>';
+  if(c.pct!==null)h+='<div class="bar"><div class="trk" role="img" aria-label="Documentados '+c.pct+' por ciento, meta '+META+' por ciento"><div class="z z1" style="width:'+META*.6+'%"></div><div class="z z2" style="width:'+META*.4+'%"></div><div class="z z3" style="width:'+(100-META)+'%"></div><div class="v" style="width:'+c.pct+'%"></div><div class="g" style="left:'+META+'%"></div></div><div class="lb"><span>0%</span><span>Marca negra = meta '+META+'%</span><span>100%</span></div></div>';
+  h+='</button>';
+  h+='<button class="t'+(c.pen?'':' ')+'" data-go="pen"><div class="lab">Esperan aprobación<span class="st '+(c.pen?'a':'g')+'"><i class="ti '+(c.pen?'ti-hourglass':'ti-circle-check')+'" aria-hidden="true"></i>'+(c.pen?'Decisión':'Al día')+'</span></div><div class="big">'+c.pen+'</div><div class="cap">Procedimientos</div></button>';
+  h+='<button class="t'+(c.ven?' r':'')+'" data-go="venc"><div class="lab">Revisión vencida<span class="st '+(c.ven?'r':'g')+'"><i class="ti '+(c.ven?'ti-alert-octagon':'ti-circle-check')+'" aria-hidden="true"></i>'+(c.ven?'Atención':'Al día')+'</span></div><div class="big">'+c.ven+'</div><div class="cap">Publicados atrasados</div></button>';
+  h+='<button class="t" data-go="pub"><div class="lab">Publicados vigentes<span class="st n"><i class="ti ti-file-check" aria-hidden="true"></i>Info</span></div><div class="big">'+c.pub+'</div><div class="cap">Versión en uso</div></button>';
+  h+='<button class="t" data-go="solo"><div class="lab">Dependen de una persona<span class="st '+(c.so?'a':'g')+'"><i class="ti '+(c.so?'ti-user-exclamation':'ti-circle-check')+'" aria-hidden="true"></i>'+(c.so?'Riesgo':'Cubierto')+'</span></div><div class="big">'+c.so+'</div><div class="cap">Sin participantes</div></button>';
+  /* decisiones 2x2 */
+  var ven=PROC.filter(venc),pen=PROC.filter(function(p){return p.est==='pendiente_aprobacion'});
+  h+='<section class="t s22" aria-labelledby="dt"><div class="lab" id="dt">Requiere tu decisión</div><div class="list" tabindex="0" aria-label="Lista de decisiones">';
+  ven.forEach(function(p){h+='<div class="it r"><div><b>'+esc(p.n)+'</b><small>'+p.id+' · <span class="st r"><i class="ti ti-clock-exclamation" aria-hidden="true"></i>Vencida hace '+Math.round((new Date(TODAY)-new Date(p.rev))/864e5)+' d</span></small></div><button class="btn" data-open="'+p.id+'">Ver</button></div>'});
+  pen.forEach(function(p){h+='<div class="it"><div><b>'+esc(p.n)+'</b><small>'+p.id+' · espera '+p.esp+' d · lo envió '+NM[p.por]+'</small></div><button class="btn pri" data-open="'+p.id+'">Decidir</button></div>'});
+  if(!ven.length&&!pen.length)h+='<p class="empty">No hay decisiones pendientes.</p>';
+  h+='</div></section>';
+  h+='<section class="t s12" aria-labelledby="at"><div class="lab" id="at">Actividad reciente</div><div class="tl">'+ACT.slice(0,6).map(function(a){return '<div>'+esc(a.x)+'<small>'+esc(a.w)+' · '+esc(a.t)+'</small></div>'}).join('')+'</div></section>';
+  h+='<div class="t na" aria-label="Tickets abiertos: no disponible"><div class="lab">Tickets abiertos<span class="st n">Próxima fase</span></div><div class="big" style="margin-top:auto">No disponible</div><div class="cap">Se mostrará con la mesa de ayuda.</div></div>';
+  h+='<div class="t na" aria-label="Equipos en reparación: no disponible"><div class="lab">Equipos en reparación<span class="st n">Se conecta</span></div><div class="big" style="margin-top:auto">No disponible</div><div class="cap">Leerá tu inventario existente.</div></div>';
+  h+='</div><p class="note"><b>Cómo se calcula.</b> Documentado = versión publicada con objetivo, alcance, responsable y al menos una actividad. El porcentaje solo se muestra con ≥'+MIN+' procesos registrados. La meta ('+META+'%) la define la Dirección y es configurable. En la app real no habrá flechas de tendencia hasta tener registros mensuales guardados.</p>';
+  return h
+}
+/* ===== LISTA ===== */
+var TT={doc:'Documentados',pen:'Pendientes de aprobación',venc:'Revisión vencida',pub:'Publicados vigentes',solo:'Dependen de una persona'};
+function vProcesos(){
+  var L=PROC.filter(function(p){return cur==='D'?vig(p):true});
+  var F={doc:function(p){return p.doc&&vig(p)},pen:function(p){return p.est==='pendiente_aprobacion'},venc:venc,pub:vig,solo:solo};
+  if(fkey&&F[fkey])L=L.filter(F[fkey]);
+  var h=(fkey?'<button class="btn back" id="bk"><i class="ti ti-arrow-left" aria-hidden="true"></i>Volver al resumen</button>':'')+'<div class="pghd"><div><h1>Procesos y procedimientos</h1><p class="hsub" style="margin:0">'+(cur==='D'?'Solo ves procedimientos publicados vigentes.':'Lista completa.')+(fkey?' Filtro: <b>'+ftitle+'</b>.':'')+'</p></div></div>';
+  h+='<div class="card"><table><caption class="sr">Procesos</caption><tr><th>Código</th><th>Proceso</th><th>Responsable</th><th>Estado</th><th>Próx. revisión</th></tr>';
+  if(!L.length)h+='<tr><td colspan="5" class="empty" style="text-align:center">No hay procesos con este filtro.</td></tr>';
+  L.forEach(function(p){var c=p.est==='publicado'?'g':(p.est==='pendiente_aprobacion'||p.est==='en_revision')?'a':'n';
+    h+='<tr class="row" tabindex="0" role="button" data-open="'+p.id+'"><td>'+p.id+'</td><td><b>'+esc(p.n)+'</b></td><td>'+NM[p.resp]+'</td><td><span class="st '+c+'">'+ES[p.est]+'</span></td><td>'+(p.rev?(venc(p)?'<span class="st r"><i class="ti ti-clock-exclamation" aria-hidden="true"></i>'+p.rev+' · vencida</span>':p.rev):'—')+'</td></tr>'});
+  return h+'</table></div>'
+}
+/* ===== DETALLE ===== */
+function openP(id){
+  var p=PROC.filter(function(x){return x.id===id})[0],seg=p.por===cur,dir=cur==='A',a='';
+  if(p.est==='pendiente_aprobacion')a='<button class="btn pri" data-do="aprobar" '+(dir&&!seg?'':'aria-disabled="true"')+'>Aprobar</button><button class="btn" data-do="rechazar" '+(dir?'':'aria-disabled="true"')+'>Rechazar con motivo</button>'+(!dir?'<span class="cap">Solo el Director de TI decide.</span>':seg?'<span class="cap">Segregación de funciones: no puedes aprobar lo que tú enviaste.</span>':'');
+  else if(p.est==='aprobado')a='<button class="btn pri" data-do="publicar" '+(dir?'':'aria-disabled="true"')+'>Publicar</button>';
+  ret=document.activeElement;var mc=document.getElementById('mc');mc.setAttribute('aria-label',p.id+' '+p.n);
+  mc.innerHTML='<div class="mh"><h3>'+p.id+' · '+esc(p.n)+'</h3><button class="btn" id="cl" aria-label="Cerrar"><i class="ti ti-x" aria-hidden="true"></i></button></div><div class="mb"><dl><dt>Estado</dt><dd>'+ES[p.est]+'</dd><dt>Responsable</dt><dd>'+NM[p.resp]+'</dd><dt>Participantes</dt><dd>'+(p.part.length?p.part.map(function(x){return NM[x]}).join(', '):'<b style="color:var(--wn)">Ninguno: depende de una sola persona</b>')+'</dd><dt>Próxima revisión</dt><dd>'+(p.rev||'—')+'</dd><dt>Enviado por</dt><dd>'+NM[p.por]+'</dd></dl></div><div class="mf" id="mf">'+(a||'<span class="cap">Sin acciones disponibles en este estado.</span>')+'</div>';
+  document.getElementById('modal').classList.add('on');document.getElementById('cl').focus();
+  document.querySelectorAll('#mf [data-do]').forEach(function(b){b.onclick=function(){
+    if(b.getAttribute('aria-disabled')){say('No disponible con tu rol o por segregación de funciones');return}
+    var d=b.dataset.do;
+    if(d==='rechazar'){var m=prompt('Motivo del rechazo (obligatorio):');if(!m){say('El motivo es obligatorio. No se aplicó.');return}p.est='borrador';ACT.unshift({t:'Ahora',x:p.id+' devuelto a borrador: '+m,w:NM[cur]});say(p.id+' devuelto a borrador')}
+    if(d==='aprobar'){p.est='aprobado';ACT.unshift({t:'Ahora',x:p.id+' aprobado',w:NM[cur]});say(p.id+' aprobado. Falta publicarlo.')}
+    if(d==='publicar'){p.est='publicado';p.rev=addD(365);p.doc=true;ACT.unshift({t:'Ahora',x:p.id+' publicado',w:NM[cur]});say(p.id+' publicado')}
+    closeM();render()}});
+}
+function closeM(){document.getElementById('modal').classList.remove('on');if(ret&&document.contains(ret))ret.focus();ret=null}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeM()});
+document.getElementById('modal').onclick=function(e){if(e.target===this)closeM()};
+/* ===== ARRANQUE ===== */
+function render(){
+  document.querySelectorAll('nav button').forEach(function(b){if(b.dataset.v===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  document.getElementById('main').innerHTML=view==='inicio'?vInicio():vProcesos();
+  document.querySelectorAll('[data-open]').forEach(function(b){b.onclick=function(){openP(b.dataset.open)};if(b.tagName==='TR')b.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();b.click()}}});
+  document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){fkey=b.dataset.go;ftitle=TT[fkey];view='procesos';render();window.scrollTo(0,0)}});
+  var bk=document.getElementById('bk');if(bk)bk.onclick=function(){fkey='';view='inicio';render()};
+}
+document.querySelectorAll('nav button').forEach(function(b){b.onclick=function(){view=b.dataset.v;fkey='';render()}});
+document.getElementById('who').onchange=function(){cur=this.value;render()};
+render();
+</script>
+</body>
+</html>
