@@ -7,18 +7,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
-:root{--bg:#eef2f7;--card:#fff;--ink:#1c1e21;--mut:#6b7280;--line:#e8eaed;--blue:#1a73e8;--side:#0f172a;
+:root{--bg:#eef2f7;--card:#fff;--ink:#1c1e21;--mut:#4b5563;--line:#e8eaed;--blue:#1a73e8;--side:#0f172a;
 --ok:#2e7d32;--okbg:#e6f4ea;--warn:#b45309;--warnbg:#fff8e1;--bad:#c62828;--badbg:#fce8e6;--gray:#5f6368;--graybg:#f0f2f5;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Inter,sans-serif;background:var(--bg);color:var(--ink);font-size:13px;display:flex;min-height:100vh}
 .demo-banner{position:fixed;top:0;left:0;right:0;z-index:50;background:#7c2d12;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:6px 10px}
 aside{width:224px;background:var(--side);color:#cbd5e1;padding:44px 0 12px;display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh}
-.logo{padding:0 16px 14px;font-weight:700;color:#fff;font-size:15px}.logo small{display:block;font-weight:400;font-size:10px;color:#64748b}
-.sec{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#475569;padding:12px 16px 4px}
+.logo{padding:0 16px 14px;font-weight:700;color:#fff;font-size:15px}.logo small{display:block;font-weight:400;font-size:11px;color:#94a3b8}
+.sec{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#8fa0b8;padding:12px 16px 4px}
 .nav{display:flex;gap:9px;align-items:center;padding:8px 16px;cursor:pointer;color:#94a3b8;border:0;background:none;width:100%;text-align:left;font:inherit;font-size:12px}
 .nav:hover{color:#e2e8f0}.nav.on{color:#fff;background:rgba(129,140,248,.15);box-shadow:inset 3px 0 #818cf8}
-.nav.off{opacity:.45;cursor:not-allowed}
-.nav small{margin-left:auto;font-size:8px;background:#334155;border-radius:9px;padding:1px 6px}
+.nav.off{cursor:not-allowed}.nav.off:hover{color:#94a3b8}
+.nav small{margin-left:auto;font-size:10px;background:#334155;color:#e2e8f0;border-radius:9px;padding:1px 7px}
 .roleBox{margin:auto 12px 0;padding:10px;background:rgba(255,255,255,.06);border-radius:10px}
 .roleBox label{font-size:10px;color:#94a3b8;display:block;margin-bottom:5px}
 select,input,textarea{font:inherit;font-size:12px;padding:6px 9px;border:1.5px solid #e0e2e6;border-radius:8px;background:#fff;color:var(--ink);outline:none}
@@ -28,11 +28,11 @@ h1{font-size:19px;margin-bottom:3px}.sub{color:var(--mut);margin-bottom:16px}
 .grid{display:grid;gap:12px}.g4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .kpi{cursor:pointer;transition:.15s}.kpi:hover{border-color:var(--blue);transform:translateY(-1px)}
-.kpi .v{font-size:26px;font-weight:700}.kpi .l{font-size:11px;color:var(--mut)}.kpi .d{font-size:10px;color:#9aa0a6;margin-top:4px}
+.kpi .v{font-size:26px;font-weight:700}.kpi .l{font-size:11px;color:var(--mut)}.kpi .d{font-size:10px;color:#6b7280;margin-top:4px}
 .kpi.act{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,115,232,.15)}
-.na,.kpi .v.na{color:#9aa0a6;font-size:14px;font-weight:500;line-height:1.5;padding-top:4px}
+.na,.kpi .v.na{color:#6b7280;font-size:14px;font-weight:500;line-height:1.5;padding-top:4px}
 .pill{display:inline-flex;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
-.p-borrador{background:var(--graybg);color:var(--gray)}.p-en_revision{background:#e8f0fe;color:var(--blue)}
+.p-borrador{background:var(--graybg);color:var(--gray)}.p-en_revision{background:#e8f0fe;color:#1557b0}
 .p-pendiente_aprobacion{background:var(--warnbg);color:var(--warn)}.p-aprobado{background:#e0f2f1;color:#00695c}
 .p-publicado{background:var(--okbg);color:var(--ok)}.p-en_revision_periodica{background:#f3e8fd;color:#7b1fa2}.p-obsoleto{background:var(--badbg);color:var(--bad)}
 table{width:100%;border-collapse:collapse}th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);background:#fafbfc}
@@ -40,23 +40,31 @@ td{padding:9px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top}tr.r{curs
 .bar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 10px;align-items:center}
 .btn{display:inline-flex;gap:5px;align-items:center;padding:6px 13px;border-radius:8px;border:1px solid #dde1e7;background:#fff;font:inherit;font-size:12px;cursor:pointer}
 .btn:hover{background:#f0f2f5}.btn.pri{background:linear-gradient(135deg,#1a73e8,#1557b0);color:#fff;border-color:transparent}
-.btn.no{background:#fafafa;color:#b0b4ba;cursor:not-allowed}
+.btn.no{background:#f3f4f6;color:#4b5563;border-style:dashed;cursor:not-allowed}
 .modal{position:fixed;inset:0;background:rgba(15,20,35,.5);display:none;align-items:flex-start;justify-content:center;padding:50px 16px 16px;overflow:auto;z-index:60}
 .modal.on{display:flex}.mc{background:#fff;border-radius:16px;width:100%;max-width:880px;box-shadow:0 16px 48px rgba(0,0,0,.25)}
 .mh{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.mh h3{font-size:15px}
 .mb{padding:14px 20px 20px}.mf{padding:12px 20px;border-top:1px solid var(--line);background:#fafbfc;border-radius:0 0 16px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:12px}.tab{padding:8px 14px;cursor:pointer;color:var(--mut);border-bottom:2px solid transparent;font-weight:500}.tab.on{color:var(--blue);border-color:var(--blue)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:12px}.tab{padding:10px 14px;cursor:pointer;color:var(--mut);border:0;border-bottom:2px solid transparent;background:none;font:inherit;font-weight:500}.tab.on{color:#1557b0;border-color:var(--blue)}
 dl{display:grid;grid-template-columns:150px 1fr;gap:6px 12px}dt{color:var(--mut);font-size:11px;font-weight:600}dd{white-space:pre-wrap}
 .step{display:grid;grid-template-columns:30px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f6}.step b.n{background:var(--blue);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:11px}
 .step small{color:var(--mut);display:block}
 .flow{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0 12px}.flow span{font-size:10px;padding:3px 8px;border-radius:12px;background:var(--graybg);color:var(--gray)}.flow span.cur{background:var(--blue);color:#fff;font-weight:600}.flow span.done{background:var(--okbg);color:var(--ok)}
 .note{background:var(--warnbg);border:1px solid #fde68a;color:#78350f;border-radius:10px;padding:9px 12px;font-size:12px;margin:8px 0}
 .note.err{background:var(--badbg);border-color:#fecaca;color:#7f1d1d}.note.ok{background:var(--okbg);border-color:#bbf7d0;color:#14532d}
-.empty{text-align:center;color:#9aa0a6;padding:22px}
+.empty{text-align:center;color:#6b7280;padding:22px}
 .pg{height:8px;background:#eef0f3;border-radius:5px;overflow:hidden;margin-top:5px}.pg i{display:block;height:100%;background:var(--blue)}
 .tl{border-left:2px solid var(--line);margin-left:6px;padding-left:14px}.tl div{position:relative;padding:5px 0}.tl div:before{content:"";position:absolute;left:-19px;top:11px;width:8px;height:8px;border-radius:50%;background:var(--blue)}
 .tl small{color:var(--mut)}
 .chk label{display:flex;gap:6px;align-items:center;padding:3px 0}
+
+:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}
+aside :focus-visible{outline-color:#a5b4fc}
+.kpi,.btn,.nav,tr.r td{transition:background-color .15s,border-color .15s,transform .15s}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#mnav{display:none;width:100%;margin-bottom:10px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.kpi:hover{transform:none}}
+@media(max-width:800px){.g4{grid-template-columns:1fr 1fr}.kpi .v{font-size:22px}#mnav{display:block;min-height:44px}.btn,select,input,.tab{min-height:44px}.nav{min-height:44px}}
 @media(max-width:800px){aside{display:none}main{padding:50px 12px}dl{grid-template-columns:1fr}}
 </style>
 </head>
@@ -85,9 +93,10 @@ dl{display:grid;grid-template-columns:150px 1fr;gap:6px 12px}dt{color:var(--mut)
   </div>
 </aside>
 
+<div id="live" class="sr" role="status" aria-live="polite"></div>
 <main id="main"></main>
 
-<div class="modal" id="modal"><div class="mc" id="mc"></div></div>
+<div class="modal" id="modal"><div class="mc" id="mc" role="dialog" aria-modal="true" aria-label="Detalle"></div></div>
 
 <script>
 /* ===== DATOS DE EJEMPLO (INVENTADOS) ===== */
@@ -178,7 +187,7 @@ function aplicar(p,id){
     if(id==='obsoleto'){p.vp=null;p.rev=null}
     p.estado=v.estado;log(p,id,(motivo?'Motivo: '+motivo:'')+' → '+ESTADOS[v.estado]);
   }
-  openProc(p.id);render();
+  openProc(p.id);render();say(p.id+': estado actual '+ESTADOS[p.versiones[p.versiones.length-1].estado]);
 }
 /* ===== INDICADORES (fórmulas documentadas) ===== */
 var MIN=5;
@@ -205,26 +214,28 @@ function venc(p){return p.vp&&p.rev&&p.rev<TODAY}
 /* ===== VISTAS ===== */
 function pill(e){return '<span class="pill p-'+e+'">'+ESTADOS[e]+'</span>'}
 function render(){
+  var mn=document.getElementById('mnav');if(mn)mn.value=view;
   document.getElementById('whoRoles').textContent=cur.roles.map(function(r){return ROLES[r].n}).join(', ');
   document.querySelectorAll('.nav[data-v]').forEach(function(b){b.classList.toggle('on',b.dataset.v===view)});
   var m=document.getElementById('main');
-  m.innerHTML=({inicio:vInicio,procesos:vProcesos,inventario:vInv,usuarios:vUsuarios,auditoria:vAud})[view]();
+  m.innerHTML='<select id="mnav" aria-label="Ir a"><option value="inicio">Inicio</option><option value="procesos">Procesos y procedimientos</option><option value="inventario">Inventario</option><option value="usuarios">Usuarios y roles</option><option value="auditoria">Auditoría</option></select>'+({inicio:vInicio,procesos:vProcesos,inventario:vInv,usuarios:vUsuarios,auditoria:vAud})[view]();
+  var mn2=document.getElementById('mnav');mn2.value=view;mn2.onchange=function(){view=mn2.value;render()};
   bind();
 }
 function vInicio(){
   var K=kpis().slice(0,4),L=visibles();
   var h='<h1>Inicio — Dashboard ejecutivo</h1><div class="sub">Solo se muestran indicadores de módulos que ya existen. Los demás aparecen como "no disponible" hasta construirse.</div>';
   if(!has('ver_todo')&&!has('ver_publicados'))return h+'<div class="note err">Tu rol (Solicitante) no tiene acceso a indicadores de procesos. En la app real verías solo tus propios tickets (módulo futuro).</div>';
-  h+='<h3 style="margin:6px 0 8px">Procesos <small style="color:#9aa0a6;font-weight:400">(datos de ejemplo)</small></h3><div class="grid g4">';
+  h+='<h3 style="margin:6px 0 8px">Procesos <small style="color:#6b7280;font-weight:400">(datos de ejemplo)</small></h3><div class="grid g4">';
   K.forEach(function(k){h+='<div class="card kpi" data-go="'+k.k+'"><div class="l">'+k.l+'</div><div class="v">'+k.v+'</div><div class="d">'+k.d+'</div></div>'});
   h+='</div><div class="note ok" style="margin-top:10px">Haz clic en una tarjeta para ir a los registros que la componen.</div>';
-  h+='<h3 style="margin:16px 0 8px">Inventario <small style="color:#9aa0a6;font-weight:400">(en la app real: lectura de tus colecciones actuales)</small></h3>'+
+  h+='<h3 style="margin:16px 0 8px">Inventario <small style="color:#6b7280;font-weight:400">(en la app real: lectura de tus colecciones actuales)</small></h3>'+
      '<div class="grid g4"><div class="card kpi"><div class="l">Total de equipos</div><div class="v na">se conecta a datos reales</div></div>'+
      '<div class="card kpi"><div class="l">En reparación</div><div class="v na">se conecta a datos reales</div></div>'+
      '<div class="card kpi"><div class="l">Garantías por vencer</div><div class="v na">se conecta a datos reales</div></div></div>';
   h+='<h3 style="margin:16px 0 8px">Módulos aún no construidos</h3><div class="grid g4">';
   ['Tickets abiertos','Cumplimiento de SLA','Cambios pendientes','Proyectos retrasados','Contratos por vencer','Respaldos con fallas'].forEach(function(x){
-    h+='<div class="card"><div class="l" style="color:#6b7280">'+x+'</div><div class="v na">No disponible</div><div class="d" style="font-size:10px;color:#9aa0a6">Módulo en fase posterior. No se muestran cifras inventadas.</div></div>'});
+    h+='<div class="card"><div class="l" style="color:#6b7280">'+x+'</div><div class="v na">No disponible</div><div class="d" style="font-size:10px;color:#6b7280">Módulo en fase posterior. No se muestran cifras inventadas.</div></div>'});
   return h+'</div>';
 }
 function vProcesos(){
@@ -236,7 +247,7 @@ function vProcesos(){
      FLUJO.map(function(e){return '<option value="'+e+'"'+(filtro.estado===e?' selected':'')+'>'+ESTADOS[e]+'</option>'}).join('')+'</select>'+
      (filtro.kpi?'<button class="btn" id="clr">Quitar filtro de tarjeta ✕</button>':'')+
      '<span style="flex:1"></span>'+
-     (has('crear')?'<button class="btn pri" id="nuevo"><i class="ti ti-plus"></i>Nuevo proceso</button><button class="btn" id="cat"><i class="ti ti-list"></i>Cargar catálogo inicial (21 borradores vacíos)</button>':'<button class="btn no" title="Tu rol no puede crear procesos">Nuevo proceso</button>')+'</div>';
+     (has('crear')?'<button class="btn pri" id="nuevo"><i class="ti ti-plus"></i>Nuevo proceso</button><button class="btn" id="cat"><i class="ti ti-list"></i>Cargar catálogo inicial (21 borradores vacíos)</button>':'<button class="btn no" aria-disabled="true" title="Tu rol no puede crear procesos">Nuevo proceso</button>')+'</div>';
   var kf=K.filter(function(k){return k.k===filtro.kpi})[0],q=filtro.q.toLowerCase();
   var rows=L.filter(function(p){return (!kf||kf.f(p))&&(!filtro.estado||p.estado===filtro.estado)&&(!q||(p.nombre+p.id+p.cat).toLowerCase().indexOf(q)>=0)});
   h+='<div class="card" style="padding:0;overflow:auto"><table><tr><th>Código</th><th>Proceso</th><th>Categoría</th><th>Responsable</th><th>Estado</th><th>Versión</th><th>Próx. revisión</th></tr>';
@@ -244,14 +255,14 @@ function vProcesos(){
   rows.forEach(function(p){
     var rv=p.rev?(venc(p)?'<span style="color:var(--bad);font-weight:600">'+p.rev+' · vencida</span>':p.rev):'—';
     h+='<tr class="r" data-id="'+p.id+'"><td>'+p.id+'</td><td><b>'+esc(p.nombre)+'</b></td><td>'+esc(p.cat)+'</td><td>'+esc(userName(p.resp))+'</td><td>'+pill(p.estado)+
-       '</td><td>v'+p.vt+(p.vp&&p.vp!==p.vt?' <small style="color:#9aa0a6">(vigente v'+p.vp+')</small>':'')+'</td><td>'+rv+'</td></tr>'});
+       '</td><td>v'+p.vt+(p.vp&&p.vp!==p.vt?' <small style="color:#6b7280">(vigente v'+p.vp+')</small>':'')+'</td><td>'+rv+'</td></tr>'});
   return h+'</table></div>';
 }
 function vInv(){return '<h1>Inventario de equipos</h1><div class="sub">Este módulo ya existe en tu app y <b>no se reconstruye</b>.</div><div class="card"><p>En la app real esta opción abre tu inventario actual sin cambios (equipos, QR, reparaciones, celulares, licencias, personal, obsoletos y etiquetas).</p><p style="margin-top:8px">Lo nuevo será que tickets, cambios y proyectos <b>apunten al ID del equipo</b> (por ejemplo <code>EQ…</code>), sin copiar sus datos.</p></div>'}
 function vUsuarios(){
   if(!has('admin'))return '<h1>Usuarios y roles</h1><div class="note err">Solo el Administrador de la plataforma puede gestionar roles. (En la app real, esto también lo bloquean las reglas de Firestore, no solo la interfaz.)</div>';
   var h='<h1>Usuarios y roles</h1><div class="sub">Cada usuario puede tener uno o varios roles. Los cambios quedan en la auditoría.</div><div class="card" style="padding:0"><table><tr><th>Usuario</th><th>Roles</th><th></th></tr>';
-  USERS.forEach(function(u,i){h+='<tr><td><b>'+esc(u.nombre)+'</b><br><small style="color:#9aa0a6">'+esc(u.email)+'</small></td><td>'+u.roles.map(function(r){return '<span class="pill p-en_revision" style="margin-right:4px">'+ROLES[r].n+'</span>'}).join('')+'</td><td><button class="btn" data-ed="'+i+'">Cambiar roles</button></td></tr>'});
+  USERS.forEach(function(u,i){h+='<tr><td><b>'+esc(u.nombre)+'</b><br><small style="color:#6b7280">'+esc(u.email)+'</small></td><td>'+u.roles.map(function(r){return '<span class="pill p-en_revision" style="margin-right:4px">'+ROLES[r].n+'</span>'}).join('')+'</td><td><button class="btn" data-ed="'+i+'">Cambiar roles</button></td></tr>'});
   h+='</table></div><h3 style="margin:16px 0 8px">Qué puede hacer cada rol (en procesos)</h3><div class="card" style="padding:0"><table><tr><th>Rol</th><th>Alcance</th></tr>'+
   '<tr><td>Director de TI</td><td>Ve todo · aprueba procedimientos (no los que él editó) · publica · ve indicadores y auditoría</td></tr>'+
   '<tr><td>Administrador</td><td>Ve y edita todo · crea procesos · publica · gestiona roles y catálogos</td></tr>'+
@@ -271,11 +282,11 @@ function vAud(){
 function openProc(id,tab){
   var p=PROC.filter(function(x){return x.id===id})[0],v=p.versiones[p.versiones.length-1];tab=tab||'ficha';
   var idx=FLUJO.indexOf(v.estado);
-  var h='<div class="mh"><div><h3>'+p.id+' · '+esc(p.nombre)+'</h3><div style="margin-top:3px">'+pill(p.estado)+' <small style="color:#6b7280">versión de trabajo v'+p.vt+(p.vp?' · vigente v'+p.vp:' · sin versión vigente')+'</small></div></div><button class="btn" onclick="closeM()">✕</button></div><div class="mb">';
-  h+='<div class="flow">'+FLUJO.map(function(e,i){return '<span class="'+(i<idx?'done':i===idx?'cur':'')+'">'+ESTADOS[e]+'</span>'}).join('')+'</div>';
-  h+='<div class="tabs">'+[['ficha','Ficha'],['pasos','Pasos ('+v.c.pasos.length+')'],['vers','Versiones ('+p.versiones.length+')'],['hist','Historial']].map(function(t){return '<div class="tab'+(tab===t[0]?' on':'')+'" onclick="openProc(\''+id+'\',\''+t[0]+'\')">'+t[1]+'</div>'}).join('')+'</div>';
-  function list(a){return a&&a.length?a.map(function(x){return '• '+esc(x)}).join('\n'):'<span style="color:#9aa0a6">Sin registrar</span>'}
-  function val(x){return x?esc(x):'<span style="color:#9aa0a6">Sin registrar</span>'}
+  var h='<div class="mh"><div><h3>'+p.id+' · '+esc(p.nombre)+'</h3><div style="margin-top:3px">'+pill(p.estado)+' <small style="color:#6b7280">versión de trabajo v'+p.vt+(p.vp?' · vigente v'+p.vp:' · sin versión vigente')+'</small></div></div><button class="btn" onclick="closeM()" aria-label="Cerrar"><i class="ti ti-x" aria-hidden="true"></i></button></div><div class="mb">';
+  h+='<div class="flow" aria-label="Flujo de estados">'+FLUJO.map(function(e,i){return '<span class="'+(i<idx?'done':i===idx?'cur':'')+'">'+ESTADOS[e]+'</span>'}).join('')+'</div>';
+  h+='<div class="tabs" role="tablist">'+[['ficha','Ficha'],['pasos','Pasos ('+v.c.pasos.length+')'],['vers','Versiones ('+p.versiones.length+')'],['hist','Historial']].map(function(t){return '<button class="tab'+(tab===t[0]?' on':'')+'" role="tab" aria-selected="'+(tab===t[0])+'" onclick="openProc(\''+id+'\',\''+t[0]+'\')">'+t[1]+'</button>'}).join('')+'</div>';
+  function list(a){return a&&a.length?a.map(function(x){return '• '+esc(x)}).join('\n'):'<span style="color:#6b7280">Sin registrar</span>'}
+  function val(x){return x?esc(x):'<span style="color:#6b7280">Sin registrar</span>'}
   if(tab==='ficha')h+='<dl><dt>Categoría</dt><dd>'+esc(p.cat)+'</dd><dt>Responsable</dt><dd>'+esc(userName(p.resp))+'</dd><dt>Participantes</dt><dd>'+(p.part.length?p.part.map(userName).join(', '):'<span style="color:var(--bad)">Ninguno — el proceso depende de una sola persona</span>')+'</dd>'+
     '<dt>Objetivo</dt><dd>'+val(v.c.objetivo)+'</dd><dt>Alcance</dt><dd>'+val(v.c.alcance)+'</dd><dt>Riesgos</dt><dd>'+list(v.c.riesgos)+'</dd><dt>Controles</dt><dd>'+list(v.c.controles)+'</dd><dt>Próxima revisión</dt><dd>'+(p.rev||'—')+'</dd><dt>Aprobación</dt><dd>'+(v.aprob?'Aprobó '+esc(userName(v.aprob.por))+' el '+v.aprob.en:'Sin aprobación registrada')+'</dd></dl>';
   if(tab==='pasos'){if(!v.c.pasos.length)h+='<div class="empty">Esta versión aún no tiene actividades registradas.</div>';
@@ -284,13 +295,18 @@ function openProc(id,tab){
   if(tab==='hist'){var hs=AUD.filter(function(a){return a.r===p.id});h+=hs.length?'<div class="tl">'+hs.map(function(a){return '<div><b>'+esc(a.a)+'</b> <small>'+esc(a.u)+' · '+a.f+'</small><br><small>'+esc(a.d)+'</small></div>'}).join('')+'</div>':'<div class="empty">Sin eventos en esta sesión de demo.</div>'}
   h+='</div><div class="mf">';
   var ac=acciones(p);
-  if(!ac.length)h+='<span style="color:#9aa0a6">Sin acciones disponibles en este estado.</span>';
-  ac.forEach(function(a){h+='<button class="btn'+(a.ok?' pri':' no')+'" '+(a.ok?'onclick="aplicar(PROC.filter(function(x){return x.id===\''+p.id+'\'})[0],\''+a.id+'\')"':'onclick="alert(\''+a.why.replace(/'/g,'')+'\')"')+'>'+a.label+'</button>'});
+  if(!ac.length)h+='<span style="color:#6b7280">Sin acciones disponibles en este estado.</span>';
+  ac.forEach(function(a){h+='<button class="btn'+(a.ok?' pri':' no')+'" '+(a.ok?'':'aria-disabled="true" ')+(a.ok?'onclick="aplicar(PROC.filter(function(x){return x.id===\''+p.id+'\'})[0],\''+a.id+'\')"':'onclick="alert(\''+a.why.replace(/'/g,'')+'\')"')+'>'+a.label+'</button>'});
   h+='</div>';
-  var mc=document.getElementById('mc');mc.innerHTML=h;document.getElementById('modal').classList.add('on');
+  var mc=document.getElementById('mc');if(!document.getElementById('modal').classList.contains('on'))_ret=document.activeElement;mc.innerHTML=h;mc.setAttribute('aria-label',p.id+' '+p.nombre);document.getElementById('modal').classList.add('on');var f=mc.querySelector('.mh button');if(f)f.focus();
 }
-function closeM(){document.getElementById('modal').classList.remove('on')}
+function closeM(){document.getElementById('modal').classList.remove('on');if(_ret&&document.contains(_ret)){_ret.focus()}_ret=null}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.getElementById('modal').classList.contains('on'))closeM()});
+function say(t){var l=document.getElementById('live');l.textContent='';setTimeout(function(){l.textContent=t},30)}
+var _ret=null;
+function activable(el){el.setAttribute('tabindex','0');el.setAttribute('role','button');el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();el.click()}}}
 function bind(){
+  document.querySelectorAll('[data-id],[data-go],[data-f]').forEach(activable);
   document.querySelectorAll('[data-id]').forEach(function(r){r.onclick=function(){openProc(r.dataset.id)}});
   document.querySelectorAll('[data-go]').forEach(function(r){r.onclick=function(){filtro.kpi=r.dataset.go;filtro.estado='';view='procesos';render()}});
   document.querySelectorAll('[data-f]').forEach(function(r){r.onclick=function(){filtro.kpi=filtro.kpi===r.dataset.f?'':r.dataset.f;render()}});
@@ -309,7 +325,7 @@ function nuevoProc(){
 }
 function editRoles(i){
   var u=USERS[i];
-  var h='<div class="mh"><h3>Roles de '+esc(u.nombre)+'</h3><button class="btn" onclick="closeM()">✕</button></div><div class="mb chk">'+
+  var h='<div class="mh"><h3>Roles de '+esc(u.nombre)+'</h3><button class="btn" onclick="closeM()" aria-label="Cerrar"><i class="ti ti-x" aria-hidden="true"></i></button></div><div class="mb chk">'+
    Object.keys(ROLES).map(function(r){return '<label><input type="checkbox" value="'+r+'" '+(u.roles.indexOf(r)>=0?'checked':'')+'> '+ROLES[r].n+'</label>'}).join('')+
    '<div class="note">Regla de seguridad: siempre debe quedar al menos un Administrador.</div></div><div class="mf"><button class="btn pri" id="sv">Guardar</button></div>';
   document.getElementById('mc').innerHTML=h;document.getElementById('modal').classList.add('on');
