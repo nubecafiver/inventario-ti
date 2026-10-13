@@ -118,9 +118,9 @@ function vInicio(){
   h+='<button class="t" data-go="solo"><div class="lab">Dependen de una persona<span class="st '+(c.so?'a':'g')+'"><i class="ti '+(c.so?'ti-user-exclamation':'ti-circle-check')+'" aria-hidden="true"></i>'+(c.so?'Riesgo':'Cubierto')+'</span></div><div class="big">'+c.so+'</div><div class="cap">Sin participantes</div></button>';
   /* decisiones 2x2 */
   var ven=PROC.filter(venc),pen=PROC.filter(function(p){return p.est==='pendiente_aprobacion'});
-  h+='<section class="t s22" aria-labelledby="dt"><div class="lab" id="dt">Requiere tu decisión</div><div class="list" tabindex="0" aria-label="Lista de decisiones">';
+  h+='<section class="t s22" aria-labelledby="dt"><div class="lab" id="dt">'+(cur==='A'?'Requiere tu decisión':'Pendientes de seguimiento')+'</div><div class="list" tabindex="0" aria-label="Lista de decisiones">';
   ven.forEach(function(p){h+='<div class="it r"><div><b>'+esc(p.n)+'</b><small>'+p.id+' · <span class="st r"><i class="ti ti-clock-exclamation" aria-hidden="true"></i>Vencida hace '+Math.round((new Date(TODAY)-new Date(p.rev))/864e5)+' d</span></small></div><button class="btn" data-open="'+p.id+'">Ver</button></div>'});
-  pen.forEach(function(p){h+='<div class="it"><div><b>'+esc(p.n)+'</b><small>'+p.id+' · espera '+p.esp+' d · lo envió '+NM[p.por]+'</small></div><button class="btn pri" data-open="'+p.id+'">Decidir</button></div>'});
+  pen.forEach(function(p){h+='<div class="it"><div><b>'+esc(p.n)+'</b><small>'+p.id+' · espera '+p.esp+' d · lo envió '+NM[p.por]+'</small></div><button class="btn'+(cur==='A'?' pri':'')+'" data-open="'+p.id+'">'+(cur==='A'?'Decidir':'Ver')+'</button></div>'});
   if(!ven.length&&!pen.length)h+='<p class="empty">No hay decisiones pendientes.</p>';
   h+='</div></section>';
   h+='<section class="t s12" aria-labelledby="at"><div class="lab" id="at">Actividad reciente</div><div class="tl">'+ACT.slice(0,6).map(function(a){return '<div>'+esc(a.x)+'<small>'+esc(a.w)+' · '+esc(a.t)+'</small></div>'}).join('')+'</div></section>';
