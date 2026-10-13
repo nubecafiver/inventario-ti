@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es-MX" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAFIVER TI — Centro de comando (DEMO 2)</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+/* Tokens semánticos. Estilo: Data-Dense Dashboard. Series 1 de la paleta validada del skill dataviz. */
+:root{color-scheme:light;--bg:#f1f4f9;--surf:#ffffff;--surf2:#f6f8fb;--line:#d9dfe8;--ink:#0f1729;--ink2:#3b4658;--mut:#556178;
+--s1:#2a78d6;--on-s1:#fff;--ok:#0f6b3a;--okbg:#e3f4ea;--warn:#8a4b00;--warnbg:#fff1d6;--bad:#a4161a;--badbg:#fde7e7;--ring:#1d4ed8;--grid:#e3e8ef}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0a0e1a;--surf:#121829;--surf2:#0e1322;--line:#27304a;--ink:#eef2fb;--ink2:#c3ccdf;--mut:#9aa7c0;
+--s1:#3987e5;--on-s1:#04101f;--ok:#6ee7a0;--okbg:#0f2a1d;--warn:#fbbf5a;--warnbg:#33260a;--bad:#ff8b8b;--badbg:#3a1416;--ring:#93b4ff;--grid:#1f2740}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){color-scheme:light}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Fira Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+.num,.mono{font-family:'Fira Code',ui-monospace,monospace}
+.demo{background:#7c2d12;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:6px 10px}
+header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--surf)}
+header h1{font-size:17px;font-weight:700}header small{color:var(--mut);display:block;font-weight:400;font-size:12px}
+.sp{flex:1}
+label.f{display:flex;gap:6px;align-items:center;color:var(--ink2);font-size:12px}
+select,.btn{font:inherit;font-size:13px;color:var(--ink);background:var(--surf2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-height:36px;cursor:pointer}
+.btn:hover,select:hover{border-color:var(--s1)}
+.btn[aria-pressed=true]{background:var(--s1);color:var(--on-s1);border-color:var(--s1)}
+:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+main{padding:16px 20px 28px;max-width:1500px;margin:auto}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--mut);margin:18px 0 8px;font-weight:600}
+.grid{display:grid;gap:10px}.kpis{grid-template-columns:repeat(auto-fill,minmax(176px,1fr))}.two{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+button.kpi{all:unset;box-sizing:border-box;display:block;background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;transition:border-color .15s,background-color .15s}
+button.kpi:hover{border-color:var(--s1)}button.kpi:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+button.kpi[aria-pressed=true]{border-color:var(--s1);box-shadow:inset 0 0 0 1px var(--s1)}
+.kl{font-size:12px;color:var(--ink2);min-height:32px}.kv{font-family:'Fira Code',monospace;font-size:26px;font-weight:600;margin-top:2px}.kv.na{font-size:15px;color:var(--mut);font-family:'Fira Sans'}
+.kd{font-size:11px;color:var(--mut);margin-top:2px}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px}
+.t-ok{background:var(--okbg);color:var(--ok)}.t-warn{background:var(--warnbg);color:var(--warn)}.t-bad{background:var(--badbg);color:var(--bad)}.t-n{background:var(--surf2);color:var(--ink2);border:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-size:13px}th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:7px 8px;border-bottom:1px solid var(--grid)}.scroll{overflow-x:auto}
+.ch-hd{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}.ch-hd b{font-size:14px}
+svg text{font-family:'Fira Sans',sans-serif;fill:var(--ink2);font-size:12px}svg .v{fill:var(--ink);font-family:'Fira Code',monospace;font-weight:600}
+.bar{fill:var(--s1)}.bar:hover,.bar:focus{fill:var(--ring)}.badbar{fill:var(--bad)}
+.gridl{stroke:var(--grid);stroke-width:1}
+#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);padding:6px 9px;border-radius:7px;font-size:12px;display:none;z-index:9;max-width:240px}
+.note{border:1px dashed var(--line);border-radius:10px;padding:10px 12px;color:var(--ink2);font-size:12px;background:var(--surf2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+@media(max-width:700px){main{padding:12px}.kpis{grid-template-columns:1fr 1fr}.btn,select{min-height:44px}}
+</style>
+</head>
+<body>
+<div class="demo">DEMO 2 — Datos de ejemplo inventados. Sin conexión a Firebase ni a datos reales de CAFIVER.</div>
+<header>
+  <i class="ti ti-shield-check" aria-hidden="true" style="font-size:24px;color:var(--s1)"></i>
+  <h1>CAFIVER TI · Centro de comando<small>Vista del Director de TI — módulo Procesos y procedimientos</small></h1>
+  <span class="sp"></span>
+  <label class="f">Ventana de revisión
+    <select id="win" aria-label="Ventana de revisión próxima"><option value="30">30 días</option><option value="60">60 días</option><option value="90">90 días</option></select></label>
+  <label class="f">Datos
+    <select id="ds" aria-label="Conjunto de datos de ejemplo"><option value="full">12 procesos</option><option value="few">3 procesos (prueba de muestra insuficiente)</option></select></label>
+  <button class="btn" id="th" aria-pressed="true"><i class="ti ti-moon" aria-hidden="true"></i> Tema oscuro</button>
+</header>
+<main>
+  <h2>Indicadores de procesos <span style="text-transform:none;letter-spacing:0">— clic en una tarjeta para ver los registros que la componen</span></h2>
+  <div class="grid kpis" id="kpis"></div>
+
+  <div class="grid two" style="margin-top:12px">
+    <section class="card" aria-labelledby="c1t"><div class="ch-hd"><b id="c1t">Procesos por estado</b><button class="btn" id="tb1" aria-pressed="false">Ver tabla</button></div><div id="c1"></div></section>
+    <section class="card" aria-labelledby="c2t"><div class="ch-hd"><b id="c2t">Revisiones programadas por mes</b><button class="btn" id="tb2" aria-pressed="false">Ver tabla</button></div><div id="c2"></div></section>
+  </div>
+
+  <h2 id="dt">Registros</h2>
+  <div class="card scroll" id="detail" aria-live="polite"></div>
+
+  <h2>Otros módulos</h2>
+  <div class="grid kpis" id="future"></div>
+  <p class="note" style="margin-top:10px"><b>Definiciones.</b> Documentado: versión publicada con objetivo, alcance, responsable y ≥1 actividad. El porcentaje solo se muestra con ≥5 procesos registrados; con menos se muestra "n de m". Próximo a revisión: publicado con fecha de revisión entre hoy y hoy + la ventana elegida. Vencido: fecha de revisión anterior a hoy. "Depende de una persona": sin participantes registrados.</p>
+</main>
+<div id="tip" role="tooltip"></div>
+<script>
+/* ===== DATOS INVENTADOS ===== */
+function addD(d){var x=new Date();x.setDate(x.getDate()+d);return x.toISOString().slice(0,10)}
+var TODAY=addD(0);
+function P(id,n,cat,resp,part,est,vp,rev,doc,esperaDias){return{id:id,n:n,cat:cat,resp:resp,part:part,est:est,vp:vp,rev:rev,doc:doc,esp:esperaDias||0}}
+var ALL=[
+ P('PRO-001','Gestión de incidentes','Servicio','Persona A',['B'],'publicado',1,addD(18),true),
+ P('PRO-002','Gestión de cambios','Cambios','Persona A',[],'pendiente_aprobacion',null,null,false,6),
+ P('PRO-003','Administración de licencias','Activos','Persona C',['B'],'en_revision',null,null,false),
+ P('PRO-004','Gestión de respaldos','Continuidad','Persona D',[],'borrador',null,null,false),
+ P('PRO-005','Altas y bajas de personal de TI','Accesos','Persona A',[],'publicado',1,addD(-12),true),
+ P('PRO-006','Seguridad informática','Seguridad','Persona C',['D'],'borrador',null,null,false),
+ P('PRO-007','Gestión de solicitudes','Servicio','Persona A',['B','D'],'publicado',2,addD(75),true),
+ P('PRO-008','Administración de usuarios y accesos','Accesos','Persona C',[],'en_revision_periodica',1,addD(-40),true),
+ P('PRO-009','Gestión de proveedores','Proveedores','Persona B',['A'],'aprobado',null,null,false),
+ P('PRO-010','Documentación técnica','Documentación','Persona D',['C'],'publicado',1,addD(140),false),
+ P('PRO-011','Gestión de proyectos','Proyectos','Persona A',[],'pendiente_aprobacion',null,null,false,2),
+ P('PRO-012','Gestión de problemas recurrentes','Servicio','Persona B',['A'],'obsoleto',null,null,false)
+];
+var ESTADOS=[['borrador','Borrador'],['en_revision','En revisión'],['pendiente_aprobacion','Pendiente de aprobación'],['aprobado','Aprobado'],['publicado','Publicado'],['en_revision_periodica','En revisión periódica'],['obsoleto','Obsoleto']];
+var EL={};ESTADOS.forEach(function(e){EL[e[0]]=e[1]});
+var MIN=5,win=30,selKpi='',data=ALL;
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function pubVig(p){return !!p.vp&&(p.est==='publicado'||p.est==='en_revision_periodica')}
+function activos(){return data.filter(function(p){return p.est!=='obsoleto'})}
+function prox(p){return pubVig(p)&&p.rev&&p.rev>=TODAY&&p.rev<=addD(win)}
+function venc(p){return pubVig(p)&&p.rev&&p.rev<TODAY}
+function solo(p){return p.est!=='obsoleto'&&!p.part.length}
+/* ===== INDICADORES ===== */
+function KPIS(){
+  var A=activos(),n=A.length,doc=A.filter(function(p){return p.doc&&pubVig(p)}).length;
+  function c(f){return data.filter(f).length}
+  return [
+   {k:'reg',l:'Procesos registrados',v:n,d:'No obsoletos',f:function(p){return p.est!=='obsoleto'}},
+   {k:'doc',l:'Documentados',v:n>=MIN?Math.round(doc/n*100)+'%':doc+' de '+n,d:n>=MIN?doc+' de '+n+' procesos':'Muestra insuficiente (<'+MIN+')',f:function(p){return p.doc&&pubVig(p)}},
+   {k:'rev',l:'En revisión',v:c(function(p){return p.est==='en_revision'}),d:'Estado En revisión',f:function(p){return p.est==='en_revision'}},
+   {k:'pen',l:'Pendientes de aprobación',v:c(function(p){return p.est==='pendiente_aprobacion'}),d:'Esperan al Director',f:function(p){return p.est==='pendiente_aprobacion'}},
+   {k:'pub',l:'Publicados vigentes',v:c(pubVig),d:'Con versión vigente',f:pubVig},
+   {k:'prox',l:'Revisión en '+win+' días',v:c(prox),d:'Próximos a revisión',f:prox},
+   {k:'venc',l:'Revisión vencida',v:c(venc),d:'Requieren acción',f:venc,bad:true},
+   {k:'solo',l:'Dependen de una persona',v:c(solo),d:'Sin participantes',f:solo,warn:true}
+  ];
+}
+function renderKpis(){
+  var h='';KPIS().forEach(function(k){
+    var tag=k.bad&&k.v>0?'<span class="tag t-bad"><i class="ti ti-alert-triangle" aria-hidden="true"></i>Atención</span>':k.warn&&k.v>0?'<span class="tag t-warn"><i class="ti ti-user-exclamation" aria-hidden="true"></i>Riesgo</span>':'';
+    h+='<button class="kpi" data-k="'+k.k+'" aria-pressed="'+(selKpi===k.k)+'"><div class="kl">'+k.l+'</div><div class="kv">'+k.v+'</div><div class="kd">'+k.d+' '+tag+'</div></button>'});
+  document.getElementById('kpis').innerHTML=h;
+  document.querySelectorAll('button.kpi').forEach(function(b){b.onclick=function(){selKpi=selKpi===b.dataset.k?'':b.dataset.k;renderKpis();renderDetail()}});
+}
+function renderDetail(){
+  var K=KPIS(),k=K.filter(function(x){return x.k===selKpi})[0];
+  var rows=k?data.filter(k.f):data.filter(function(p){return venc(p)||p.est==='pendiente_aprobacion'||solo(p)});
+  document.getElementById('dt').textContent=k?'Registros: '+k.l:'Requieren atención (vencidos, pendientes de aprobación o sin respaldo)';
+  var h='<table><caption class="sr">Registros</caption><tr><th>Código</th><th>Proceso</th><th>Responsable</th><th>Estado</th><th>Revisión</th><th>Motivo</th></tr>';
+  if(!rows.length)h+='<tr><td colspan="6" style="color:var(--mut);padding:18px;text-align:center">No hay registros para este indicador.</td></tr>';
+  rows.forEach(function(p){
+    var m=[];if(venc(p))m.push('<span class="tag t-bad"><i class="ti ti-clock-exclamation" aria-hidden="true"></i>Vencida hace '+Math.round((new Date(TODAY)-new Date(p.rev))/864e5)+' d</span>');
+    if(p.est==='pendiente_aprobacion')m.push('<span class="tag t-warn"><i class="ti ti-hourglass" aria-hidden="true"></i>Esperando '+p.esp+' d</span>');
+    if(solo(p))m.push('<span class="tag t-n"><i class="ti ti-user" aria-hidden="true"></i>Sin participantes</span>');
+    h+='<tr><td class="mono">'+p.id+'</td><td>'+esc(p.n)+'</td><td>'+esc(p.resp)+'</td><td>'+EL[p.est]+'</td><td class="mono">'+(p.rev||'—')+'</td><td>'+m.join(' ')+'</td></tr>'});
+  document.getElementById('detail').innerHTML=h+'</table>';
+}
+/* ===== GRÁFICAS (SVG, serie única, etiquetas directas, tooltip, tabla alterna) ===== */
+var tip=document.getElementById('tip');
+function showTip(e,t){tip.textContent=t;tip.style.display='block';var x=(e.clientX||e.target.getBoundingClientRect().x)+12,y=(e.clientY||e.target.getBoundingClientRect().y)-8;tip.style.left=Math.min(x,innerWidth-250)+'px';tip.style.top=y+'px'}
+function hideTip(){tip.style.display='none'}
+function barsH(el,items,asTable){
+  if(asTable){el.innerHTML='<div class="scroll"><table><tr><th>Estado</th><th>Procesos</th></tr>'+items.map(function(i){return '<tr><td>'+i.l+'</td><td class="mono">'+i.v+'</td></tr>'}).join('')+'</table></div>';return}
+  var W=520,rowH=30,H=items.length*rowH+8,max=Math.max.apply(null,items.map(function(i){return i.v}))||1,L=170,s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Procesos por estado: '+items.map(function(i){return i.l+' '+i.v}).join(', ')+'">';
+  items.forEach(function(i,n){var y=n*rowH+4,w=Math.max(i.v/max*(W-L-50),i.v?4:0);
+    s+='<text x="'+(L-8)+'" y="'+(y+17)+'" text-anchor="end">'+i.l+'</text>';
+    s+='<path class="bar" tabindex="0" data-t="'+i.l+': '+i.v+' proceso(s)" d="M'+L+','+y+'h'+Math.max(w-4,0)+'a4,4 0 0 1 4,4v14a4,4 0 0 1 -4,4h-'+Math.max(w-4,0)+'z" '+(i.v?'':'style="display:none"')+'/>';
+    s+='<text class="v" x="'+(L+w+6)+'" y="'+(y+17)+'">'+i.v+'</text>'});
+  el.innerHTML=s+'</svg>';
+}
+function barsV(el,items,asTable){
+  if(asTable){el.innerHTML='<div class="scroll"><table><tr><th>Mes</th><th>Revisiones</th></tr>'+items.map(function(i){return '<tr><td>'+i.l+'</td><td class="mono">'+i.v+(i.bad?' (vencidas)':'')+'</td></tr>'}).join('')+'</table></div>';return}
+  var W=520,H=210,B=34,T=18,max=Math.max.apply(null,items.map(function(i){return i.v}))||1,bw=44,gap=(W-40-items.length*bw)/(items.length-1||1);
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Revisiones por mes: '+items.map(function(i){return i.l+' '+i.v}).join(', ')+'">';
+  [0,.5,1].forEach(function(f){var y=H-B-f*(H-B-T);s+='<line class="gridl" x1="30" x2="'+W+'" y1="'+y+'" y2="'+y+'"/>'});
+  items.forEach(function(i,n){var x=36+n*(bw+gap),h=i.v/max*(H-B-T),y=H-B-h;
+    if(i.v)s+='<path class="'+(i.bad?'badbar':'bar')+'" tabindex="0" data-t="'+i.l+': '+i.v+(i.bad?' vencida(s)':' revisión(es)')+'" d="M'+x+','+(H-B)+'v-'+(h-4)+'a4,4 0 0 1 4,-4h'+(bw-8)+'a4,4 0 0 1 4,4v'+(h-4)+'z"/>';
+    s+='<text class="v" x="'+(x+bw/2)+'" y="'+(y-5)+'" text-anchor="middle">'+i.v+'</text><text x="'+(x+bw/2)+'" y="'+(H-B+16)+'" text-anchor="middle">'+i.l+'</text>'});
+  el.innerHTML=s+'</svg><div style="font-size:12px;color:var(--ink2);margin-top:4px"><span class="tag t-bad"><i class="ti ti-alert-triangle" aria-hidden="true"></i>Barra roja = ya vencidas</span></div>';
+}
+function charts(){
+  barsH(document.getElementById('c1'),ESTADOS.map(function(e){return{l:e[1],v:data.filter(function(p){return p.est===e[0]}).length}}),tb1.getAttribute('aria-pressed')==='true');
+  var M=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'],items=[{l:'Vencidas',v:data.filter(venc).length,bad:true}];
+  for(var i=0;i<5;i++){var d=new Date();d.setDate(1);d.setMonth(d.getMonth()+i);var key=d.toISOString().slice(0,7);
+    items.push({l:M[d.getMonth()],v:data.filter(function(p){return pubVig(p)&&p.rev&&p.rev>=TODAY&&p.rev.slice(0,7)===key}).length})}
+  barsV(document.getElementById('c2'),items,tb2.getAttribute('aria-pressed')==='true');
+  document.querySelectorAll('[data-t]').forEach(function(b){b.onmousemove=function(e){showTip(e,b.dataset.t)};b.onmouseleave=hideTip;b.onfocus=function(e){showTip(e,b.dataset.t)};b.onblur=hideTip});
+}
+var tb1=document.getElementById('tb1'),tb2=document.getElementById('tb2');
+[tb1,tb2].forEach(function(b){b.onclick=function(){var on=b.getAttribute('aria-pressed')==='true';b.setAttribute('aria-pressed',!on);b.textContent=on?'Ver tabla':'Ver gráfica';charts()}});
+/* ===== OTROS MÓDULOS ===== */
+document.getElementById('future').innerHTML=['Tickets abiertos','Cumplimiento de SLA','Cambios pendientes','Proyectos retrasados','Contratos por vencer','Respaldos con fallas','Equipos en reparación'].map(function(t,i){
+  return '<div class="kpi" style="cursor:default;display:block;background:var(--surf);border:1px dashed var(--line);border-radius:10px;padding:10px 12px"><div class="kl">'+t+'</div><div class="kv na">No disponible</div><div class="kd">'+(i===6?'Se conecta al inventario existente':'Módulo en fase posterior')+'</div></div>'}).join('');
+/* ===== CONTROLES ===== */
+document.getElementById('win').onchange=function(){win=+this.value;all()};
+document.getElementById('ds').onchange=function(){data=this.value==='few'?ALL.slice(0,3):ALL;selKpi='';all()};
+var th=document.getElementById('th');
+th.onclick=function(){var d=document.documentElement,dark=d.dataset.theme==='dark';d.dataset.theme=dark?'light':'dark';th.setAttribute('aria-pressed',!dark);th.innerHTML='<i class="ti ti-'+(dark?'sun':'moon')+'" aria-hidden="true"></i> Tema '+(dark?'claro':'oscuro')};
+function all(){renderKpis();renderDetail();charts()}
+all();
+</script>
+</body>
+</html>

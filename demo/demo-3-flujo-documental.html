@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAFIVER TI — Flujo documental (DEMO 3)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+/* Estilo: Fluent 2 (calmo, empresarial, redondeado). Navegación superior + panel dividido. */
+:root{color-scheme:light;--bg:#f5f5f7;--surf:#fff;--line:#e0e0e6;--ink:#1b1b1f;--ink2:#444450;--mut:#5c5c6b;--br:#0f6cbd;--brh:#115ea3;--brbg:#e6f1fb;
+--ok:#0e700e;--okbg:#e4f4e4;--warn:#7a4a00;--warnbg:#fdf0d5;--bad:#b10e1c;--badbg:#fde7e9;--add:#e4f4e4;--del:#fde7e9}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;height:100vh;display:flex;flex-direction:column}
+.demo{background:#7c2d12;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:5px 10px}
+nav{display:flex;align-items:center;gap:4px;background:var(--surf);border-bottom:1px solid var(--line);padding:0 16px;min-height:52px;flex-wrap:wrap}
+.brand{font-weight:700;margin-right:14px;display:flex;gap:8px;align-items:center}
+.tabn{padding:14px 12px;color:var(--mut);border:0;background:none;font:inherit;font-weight:500;border-bottom:3px solid transparent;cursor:pointer}
+.tabn.on{color:var(--br);border-color:var(--br)}.tabn.off{opacity:.8;cursor:not-allowed}
+.sp{flex:1}
+select,input,textarea{font:inherit;font-size:13px;color:var(--ink);background:#fff;border:1px solid #c8c8d0;border-radius:6px;padding:7px 10px;min-height:36px;width:100%}
+nav select{width:auto}
+textarea{min-height:64px;resize:vertical}
+select:focus,input:focus,textarea:focus{border-color:var(--br);outline:2px solid var(--br);outline-offset:0}
+:focus-visible{outline:3px solid var(--br);outline-offset:2px}
+.btn{font:inherit;font-size:13px;font-weight:600;border:1px solid #c8c8d0;background:#fff;color:var(--ink);border-radius:6px;padding:7px 14px;min-height:36px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;transition:background-color .15s}
+.btn:hover{background:#f0f0f4}.btn.pri{background:var(--br);color:#fff;border-color:var(--br)}.btn.pri:hover{background:var(--brh)}
+.btn[aria-disabled=true]{background:#f0f0f4;color:var(--mut);border-style:dashed;cursor:not-allowed}
+.btn.sm{padding:3px 8px;min-height:30px;font-size:12px}
+.split{flex:1;display:grid;grid-template-columns:340px 1fr;min-height:0}
+.list{border-right:1px solid var(--line);background:var(--surf);display:flex;flex-direction:column;min-height:0}
+.lh{padding:12px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer;min-height:32px}
+.chip[aria-pressed=true]{background:var(--brbg);border-color:var(--br);color:#0b4f8a;font-weight:600}
+.items{overflow:auto;flex:1}
+.it{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:#fff;padding:12px 14px;cursor:pointer;font:inherit}
+.it:hover{background:#f7f7fa}.it[aria-current=true]{background:var(--brbg);box-shadow:inset 3px 0 var(--br)}
+.it b{display:block}.it small{color:var(--mut)}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:99px;font-size:11px;font-weight:600;margin-top:4px}
+.s-borrador{background:#ececf1;color:#42424e}.s-en_revision{background:var(--brbg);color:#0b4f8a}.s-pendiente_aprobacion{background:var(--warnbg);color:var(--warn)}
+.s-aprobado{background:#dff3f0;color:#0b5c53}.s-publicado{background:var(--okbg);color:var(--ok)}.s-en_revision_periodica{background:#efe6fa;color:#5a2c91}.s-obsoleto{background:var(--badbg);color:var(--bad)}
+.doc{overflow:auto;padding:20px 28px 40px;min-width:0}
+.doc h1{font-size:20px}.meta{color:var(--mut);font-size:13px;margin:2px 0 10px}
+.life{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0 14px}.life span{font-size:11px;padding:3px 9px;border-radius:99px;background:#ececf1;color:#42424e}.life .cur{background:var(--br);color:#fff;font-weight:600}.life .done{background:var(--okbg);color:var(--ok)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:10px 0 14px}.tab{background:none;border:0;border-bottom:3px solid transparent;font:inherit;padding:9px 14px;color:var(--mut);cursor:pointer;font-weight:500;min-height:40px}.tab[aria-selected=true]{color:var(--br);border-color:var(--br)}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+dl{display:grid;grid-template-columns:130px 1fr;gap:6px 14px}dt{color:var(--mut);font-size:12px;font-weight:600}
+.empty{color:var(--mut)}
+ol.steps{list-style:none;counter-reset:s}ol.steps li{counter-increment:s;display:grid;grid-template-columns:34px 1fr;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+ol.steps li:before{content:counter(s);background:var(--br);color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.kv{display:flex;gap:6px 16px;flex-wrap:wrap;color:var(--mut);font-size:12px;margin-top:3px}.kv b{color:var(--ink2);font-weight:600}
+.act{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px}
+.fld{display:grid;gap:3px;margin-bottom:10px}.fld label{font-size:12px;font-weight:600;color:var(--ink2)}.help{font-size:12px;color:var(--mut)}.err{font-size:12px;color:var(--bad);font-weight:600}
+.er{border-color:var(--bad)!important}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.step-ed{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fafafc}
+.tl{border-left:2px solid var(--line);margin-left:8px;padding-left:18px}.tl>div{position:relative;padding:6px 0}.tl>div:before{content:"";position:absolute;left:-25px;top:12px;width:12px;height:12px;border-radius:50%;background:var(--br);border:2px solid #fff;box-shadow:0 0 0 1px var(--br)}
+.tl small{color:var(--mut)}
+.diff{display:grid;gap:8px}.d{border-radius:8px;padding:8px 12px;border:1px solid var(--line)}.d.add{background:var(--add)}.d.del{background:var(--del)}.d.chg{background:var(--warnbg)}
+.d b{font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.banner{border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:12px;background:var(--warnbg);color:var(--warn)}.banner.ok{background:var(--okbg);color:var(--ok)}.banner.bad{background:var(--badbg);color:var(--bad)}
+.back{display:none}
+#live{position:absolute;left:-9999px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+@media(max-width:820px){.split{grid-template-columns:1fr}.back{display:inline-flex;margin-bottom:8px}
+ body.reading .list{display:none}body:not(.reading) .doc{display:none}.doc{padding:14px}dl{grid-template-columns:1fr}.g2,.g3{grid-template-columns:1fr}
+ .btn,select,input,.chip,.tab{min-height:44px}.tabn.hide-m{display:none}}
+</style>
+</head>
+<body>
+<div class="demo">DEMO 3 — Datos de ejemplo inventados. Sin conexión a Firebase ni a datos reales de CAFIVER.</div>
+<nav aria-label="Principal">
+  <span class="brand"><i class="ti ti-building-skyscraper" aria-hidden="true" style="color:var(--br);font-size:22px"></i>CAFIVER TI</span>
+  <button class="tabn hide-m off" aria-disabled="true">Inicio</button>
+  <button class="tabn on" aria-current="page">Procesos y procedimientos</button>
+  <button class="tabn hide-m off" aria-disabled="true">Inventario</button>
+  <span class="sp"></span>
+  <label style="font-size:12px;color:var(--mut)" for="who">Sesión como</label>
+  <select id="who"><option value="C">Persona C — Responsable de proceso</option><option value="D">Persona D — Técnico de TI</option><option value="A">Persona A — Director de TI</option></select>
+</nav>
+<div class="split">
+  <aside class="list" aria-label="Lista de procesos">
+    <div class="lh"><input id="q" type="search" placeholder="Buscar procedimiento…" aria-label="Buscar procedimiento"><div class="chips" id="chips"></div></div>
+    <div class="items" id="items"></div>
+  </aside>
+  <section class="doc" id="doc" aria-live="polite"></section>
+</div>
+<div id="live" role="status" aria-live="polite"></div>
+<script>
+/* ===== DATOS INVENTADOS ===== */
+var ES={borrador:'Borrador',en_revision:'En revisión',pendiente_aprobacion:'Pendiente de aprobación',aprobado:'Aprobado',publicado:'Publicado',en_revision_periodica:'En revisión periódica',obsoleto:'Obsoleto'};
+var FL=Object.keys(ES);
+var NM={A:'Persona A',C:'Persona C',D:'Persona D'};
+function st(d,r,s,e,res,ev,t,x){return{d:d,r:r,s:s,e:e,res:res,ev:ev,t:t,x:x}}
+var PROC=[
+ {id:'PRO-001',n:'Gestión de incidentes',resp:'C',vp:1,vers:[
+  {n:1,est:'publicado',por:'C',aprob:{por:'A',en:'2026-03-02'},obj:'[DEMO] Restablecer el servicio tras una interrupción.',alc:'[DEMO] Incidentes reportados a TI.',pasos:[st('[DEMO] Registrar el incidente','Técnico de TI','Mesa de ayuda','Reporte','Ticket creado','Folio','15 min','—'),st('[DEMO] Clasificar y priorizar','Técnico de TI','Mesa de ayuda','Ticket','Prioridad','Ticket actualizado','30 min','Crítico: escalar')]},
+  {n:2,est:'borrador',por:'C',obj:'[DEMO] Restablecer el servicio tras una interrupción.',alc:'[DEMO] Incidentes reportados a TI y a proveedores.',pasos:[st('[DEMO] Registrar el incidente','Técnico de TI','Mesa de ayuda','Reporte','Ticket creado','Folio','10 min','—'),st('[DEMO] Clasificar y priorizar','Técnico de TI','Mesa de ayuda','Ticket','Prioridad','Ticket actualizado','30 min','Crítico: escalar'),st('[DEMO] Confirmar cierre con el solicitante','Técnico de TI','Mesa de ayuda','Solución','Ticket cerrado','Confirmación','1 día','Sin respuesta: cerrar a los 3 días')]}]},
+ {id:'PRO-002',n:'Gestión de cambios',resp:'C',vp:null,vers:[{n:1,est:'pendiente_aprobacion',por:'C',obj:'[DEMO] Controlar cambios tecnológicos.',alc:'[DEMO] Aplicaciones e infraestructura.',pasos:[st('[DEMO] Solicitar el cambio','Solicitante','—','Solicitud','Folio','Formato','—','—')]}]},
+ {id:'PRO-003',n:'Administración de licencias',resp:'C',vp:null,vers:[{n:1,est:'borrador',por:'C',obj:'',alc:'',pasos:[]}]},
+ {id:'PRO-004',n:'Gestión de respaldos',resp:'D',vp:1,vers:[{n:1,est:'publicado',por:'D',aprob:{por:'A',en:'2026-01-15'},obj:'[DEMO] Resguardar la información crítica.',alc:'[DEMO] Servidores y bases de datos.',pasos:[st('[DEMO] Verificar la ejecución','Técnico de TI','Consola de respaldos','Bitácora','Resultado registrado','Captura','20 min','Falla: abrir incidente')]}]}
+];
+var cur='C',selId='PRO-001',selVer=null,tab='doc',filt='todos',q='',editing=false,cmpA=1,cmpB=2,errs={};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function say(t){var l=document.getElementById('live');l.textContent='';setTimeout(function(){l.textContent=t},30)}
+function P(id){return PROC.filter(function(p){return p.id===id})[0]}
+function work(p){return p.vers[p.vers.length-1]}
+function vigente(p){return p.vp?p.vers.filter(function(v){return v.n===p.vp})[0]:null}
+function estadoP(p){return work(p).est}
+/* permisos */
+function esTec(){return cur==='D'}
+function visibles(){return PROC.filter(function(p){
+  if(esTec()&&!p.vp)return false;
+  if(q&&(p.n+p.id).toLowerCase().indexOf(q.toLowerCase())<0)return false;
+  if(filt==='pub'&&!p.vp)return false;
+  if(filt==='mis'&&!(p.resp===cur&&work(p).est==='borrador'))return false;
+  if(filt==='pen'&&estadoP(p)!=='pendiente_aprobacion')return false;
+  return true})}
+function puedeEditar(p,v){return cur==='C'&&p.resp===cur&&v.est==='borrador'&&v===work(p)}
+function acciones(p,v){var o=[],e=v.est;if(v!==work(p))return o;
+  var dueno=cur==='C'&&p.resp===cur,dir=cur==='A';
+  if(e==='borrador'&&dueno)o.push({id:'enviar',l:'Enviar a revisión',ok:true,pri:true});
+  if(e==='en_revision'&&dueno)o.push({id:'solicitar',l:'Solicitar aprobación',ok:true,pri:true});
+  if(e==='pendiente_aprobacion'){var seg=v.por===cur;o.push({id:'aprobar',l:'Aprobar',ok:dir&&!seg,pri:true,why:!dir?'Solo el Director de TI aprueba.':seg?'Segregación de funciones: no puedes aprobar lo que tú editaste.':''})}
+  if(e==='aprobado')o.push({id:'publicar',l:'Publicar',ok:dir,pri:true,why:'Solo el Director de TI publica.'});
+  if((e==='publicado'||e==='en_revision_periodica')&&dueno)o.push({id:'nueva',l:'Crear nueva versión',ok:true});
+  return o}
+/* ===== LISTA ===== */
+function renderList(){
+  var ch=[['todos','Todos'],['pub','Publicados'],['mis','Mis borradores'],['pen','Pendientes']].filter(function(c){return !esTec()||c[0]==='todos'||c[0]==='pub'});
+  document.getElementById('chips').innerHTML=ch.map(function(c){return '<button class="chip" data-c="'+c[0]+'" aria-pressed="'+(filt===c[0])+'">'+c[1]+'</button>'}).join('');
+  document.querySelectorAll('.chip').forEach(function(b){b.onclick=function(){filt=b.dataset.c;renderList()}});
+  var L=visibles();
+  document.getElementById('items').innerHTML=L.length?L.map(function(p){var e=estadoP(p);
+    var lbl=esTec()?ES[vigente(p).est]:ES[e];var cls=esTec()?vigente(p).est:e;
+    return '<button class="it" data-id="'+p.id+'" aria-current="'+(p.id===selId)+'"><b>'+esc(p.n)+'</b><small>'+p.id+' · responsable '+NM[p.resp]+'</small><br><span class="pill s-'+cls+'">'+lbl+'</span>'+(p.vp&&e!==vigente(p).est&&!esTec()?' <small>vigente v'+p.vp+'</small>':'')+'</button>'}).join(''):'<div style="padding:20px;color:var(--mut)">No hay procedimientos con estos filtros.</div>';
+  document.querySelectorAll('.it').forEach(function(b){b.onclick=function(){selId=b.dataset.id;selVer=null;tab='doc';editing=false;errs={};document.body.classList.add('reading');renderAll()}});
+}
+/* ===== DOCUMENTO ===== */
+function stepsView(v){return v.pasos.length?'<ol class="steps">'+v.pasos.map(function(s){return '<li><div><b>'+esc(s.d)+'</b><div class="kv"><span>Responsable: <b>'+esc(s.r)+'</b></span><span>Sistema: <b>'+esc(s.s)+'</b></span><span>Tiempo objetivo: <b>'+esc(s.t)+'</b></span></div><div class="kv"><span>Entrada: <b>'+esc(s.e)+'</b></span><span>Resultado: <b>'+esc(s.res)+'</b></span></div><div class="kv"><span>Evidencia: <b>'+esc(s.ev)+'</b></span><span>Excepciones: <b>'+esc(s.x)+'</b></span></div></div></li>'}).join('')+'</ol>':'<p class="empty">Esta versión aún no tiene actividades registradas.</p>'}
+function renderDoc(){
+  var p=P(selId),el=document.getElementById('doc');
+  if(!p||(esTec()&&!p.vp)){el.innerHTML='<p class="empty">Selecciona un procedimiento de la lista.</p>';return}
+  var v=esTec()?vigente(p):(selVer?p.vers.filter(function(x){return x.n===selVer})[0]:work(p));if(!v)v=work(p);
+  var idx=FL.indexOf(v.est),h='<button class="btn back" id="bk"><i class="ti ti-arrow-left" aria-hidden="true"></i>Volver a la lista</button>';
+  h+='<h1>'+esc(p.n)+'</h1><div class="meta">'+p.id+' · Responsable '+NM[p.resp]+' · <span class="pill s-'+v.est+'">'+ES[v.est]+'</span> · v'+v.n+(p.vp&&v.n!==p.vp?' (vigente: v'+p.vp+')':'')+'</div>';
+  if(esTec())h+='<div class="banner ok"><i class="ti ti-eye" aria-hidden="true"></i> Modo lectura: ves únicamente la versión publicada vigente.</div>';
+  else h+='<div class="life" aria-label="Flujo de estados">'+FL.map(function(e,i){return '<span class="'+(i<idx?'done':i===idx?'cur':'')+'">'+ES[e]+'</span>'}).join('')+'</div>';
+  var ac=esTec()?[]:acciones(p,v);
+  if(ac.length)h+='<div class="act">'+ac.map(function(a){return '<button class="btn'+(a.pri&&a.ok?' pri':'')+'" data-a="'+a.id+'" '+(a.ok?'':'aria-disabled="true" title="'+esc(a.why)+'"')+'>'+a.l+'</button>'}).join('')+'</div><div id="why" class="help" role="status"></div>';
+  if(!esTec())h+='<div class="tabs" role="tablist">'+[['doc','Documento'],['ver','Versiones y comparación'],['apr','Aprobación']].map(function(t){return '<button class="tab" role="tab" data-t="'+t[0]+'" aria-selected="'+(tab===t[0])+'">'+t[1]+'</button>'}).join('')+'</div>';
+  if(tab==='doc'||esTec()){
+    if(editing&&puedeEditar(p,v))h+=editor(v);
+    else{
+      if(puedeEditar(p,v))h+='<div class="act"><button class="btn" id="ed"><i class="ti ti-edit" aria-hidden="true"></i>Editar borrador</button></div>';
+      else if(!esTec()&&v.est!=='borrador')h+='<div class="banner">Esta versión está bloqueada: los cambios se hacen en una nueva versión y la anterior se conserva.</div>';
+      h+='<div class="card"><dl><dt>Objetivo</dt><dd>'+(v.obj?esc(v.obj):'<span class="empty">Sin registrar</span>')+'</dd><dt>Alcance</dt><dd>'+(v.alc?esc(v.alc):'<span class="empty">Sin registrar</span>')+'</dd></dl></div><div class="card"><b>Actividades ('+v.pasos.length+')</b>'+stepsView(v)+'</div>'}
+  }
+  if(tab==='ver'&&!esTec())h+=compare(p);
+  if(tab==='apr'&&!esTec())h+='<div class="card"><div class="tl">'+timeline(p,v)+'</div></div>';
+  el.innerHTML=h;bindDoc(p,v);
+}
+function timeline(p,v){var o=['<div><b>Creada</b> como v'+v.n+' por '+NM[v.por]+'<br><small>Estado inicial: Borrador</small></div>'];
+  if(FL.indexOf(v.est)>=1&&v.est!=='obsoleto')o.push('<div><b>Enviada a revisión</b><br><small>'+NM[v.por]+'</small></div>');
+  if(FL.indexOf(v.est)>=2)o.push('<div><b>Aprobación solicitada</b><br><small>Esperando al Director de TI</small></div>');
+  if(v.aprob)o.push('<div><b>Aprobada</b> por '+NM[v.aprob.por]+'<br><small>'+v.aprob.en+' · '+NM[v.aprob.por]+' no participó en la edición</small></div>');
+  if(v.est==='publicado')o.push('<div><b>Publicada</b> y vigente</div>');
+  return o.join('')}
+function compare(p){
+  if(p.vers.length<2)return '<div class="card"><p class="empty">Este proceso solo tiene una versión. Crea una nueva versión para compararla.</p></div>';
+  var A=p.vers.filter(function(x){return x.n===cmpA})[0]||p.vers[0],B=p.vers.filter(function(x){return x.n===cmpB})[0]||p.vers[1];
+  var opts=function(sel){return p.vers.map(function(x){return '<option value="'+x.n+'"'+(x.n===sel?' selected':'')+'>v'+x.n+' ('+ES[x.est]+')</option>'}).join('')};
+  var h='<div class="card"><div class="g2"><div class="fld"><label for="ca">Versión base</label><select id="ca">'+opts(A.n)+'</select></div><div class="fld"><label for="cb">Comparar con</label><select id="cb">'+opts(B.n)+'</select></div></div><div class="diff" aria-live="polite">';
+  var any=false;
+  ['obj','alc'].forEach(function(k){if(A[k]!==B[k]){any=true;h+='<div class="d chg"><b>'+(k==='obj'?'Objetivo':'Alcance')+' cambió</b><div>Antes: '+esc(A[k]||'—')+'</div><div>Ahora: '+esc(B[k]||'—')+'</div></div>'}});
+  var n=Math.max(A.pasos.length,B.pasos.length);
+  for(var i=0;i<n;i++){var a=A.pasos[i],b=B.pasos[i];
+    if(a&&!b){any=true;h+='<div class="d del"><b>Paso '+(i+1)+' eliminado</b><div>'+esc(a.d)+'</div></div>'}
+    else if(!a&&b){any=true;h+='<div class="d add"><b>Paso '+(i+1)+' agregado</b><div>'+esc(b.d)+'</div></div>'}
+    else{var ch=[['d','descripción'],['r','responsable'],['s','sistema'],['e','entrada'],['res','resultado'],['ev','evidencia'],['t','tiempo'],['x','excepciones']].filter(function(f){return a[f[0]]!==b[f[0]]});
+      if(ch.length){any=true;h+='<div class="d chg"><b>Paso '+(i+1)+' modificado</b>'+ch.map(function(f){return '<div>'+f[1]+': «'+esc(a[f[0]])+'» → «'+esc(b[f[0]])+'»</div>'}).join('')+'</div>'}}}
+  if(!any)h+='<p class="empty">Las dos versiones son idénticas.</p>';
+  return h+'</div></div>'}
+/* ===== EDITOR ===== */
+var F=[['d','Descripción *'],['r','Responsable *'],['s','Sistema involucrado'],['e','Entrada necesaria'],['res','Resultado esperado'],['ev','Evidencia requerida'],['t','Tiempo objetivo'],['x','Excepciones']];
+function editor(v){
+  var h='<div class="card"><div class="fld"><label for="f-obj">Objetivo *</label><textarea id="f-obj" class="'+(errs.obj?'er':'')+'" aria-describedby="e-obj">'+esc(v.obj)+'</textarea><div class="err" id="e-obj">'+(errs.obj||'')+'</div></div>'+
+   '<div class="fld"><label for="f-alc">Alcance *</label><textarea id="f-alc" class="'+(errs.alc?'er':'')+'">'+esc(v.alc)+'</textarea><div class="err">'+(errs.alc||'')+'</div></div></div>';
+  h+='<div class="card"><b>Actividades paso a paso</b><div class="help" style="margin-bottom:8px">No inventes pasos técnicos: registra solo lo que realmente se hace.</div>';
+  v.pasos.forEach(function(s,i){h+='<div class="step-ed"><div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><b>Paso '+(i+1)+'</b><span class="sp" style="flex:1"></span>'+
+    '<button class="btn sm" data-mv="'+i+':-1" aria-label="Subir paso '+(i+1)+'"'+(i?'':' aria-disabled="true"')+'><i class="ti ti-arrow-up" aria-hidden="true"></i></button>'+
+    '<button class="btn sm" data-mv="'+i+':1" aria-label="Bajar paso '+(i+1)+'"'+(i<v.pasos.length-1?'':' aria-disabled="true"')+'><i class="ti ti-arrow-down" aria-hidden="true"></i></button>'+
+    '<button class="btn sm" data-rm="'+i+'" aria-label="Quitar paso '+(i+1)+'"><i class="ti ti-trash" aria-hidden="true"></i></button></div><div class="g3">'+
+    F.map(function(f){var er=errs['p'+i+f[0]];return '<div class="fld"><label for="s'+i+f[0]+'">'+f[1]+'</label><input id="s'+i+f[0]+'" data-i="'+i+'" data-k="'+f[0]+'" value="'+esc(s[f[0]])+'" class="'+(er?'er':'')+'"><div class="err">'+(er||'')+'</div></div>'}).join('')+'</div></div>'});
+  h+='<button class="btn" id="add"><i class="ti ti-plus" aria-hidden="true"></i>Agregar actividad</button></div>';
+  return h+'<div class="act"><button class="btn pri" id="save">Guardar borrador</button><button class="btn" id="cancel">Salir sin guardar</button></div>'}
+function readForm(v){v.obj=document.getElementById('f-obj').value;v.alc=document.getElementById('f-alc').value;
+  document.querySelectorAll('[data-i]').forEach(function(i){v.pasos[+i.dataset.i][i.dataset.k]=i.value})}
+function validar(v,estricto){var e={};
+  if(estricto){if(!v.obj.trim())e.obj='El objetivo es obligatorio para enviar a revisión.';if(!v.alc.trim())e.alc='El alcance es obligatorio para enviar a revisión.';if(!v.pasos.length)e.pasos='Agrega al menos una actividad.'}
+  v.pasos.forEach(function(s,i){if(!s.d.trim())e['p'+i+'d']='Escribe qué se hace en este paso.';if(!s.r.trim())e['p'+i+'r']='Indica quién lo hace.'});return e}
+/* ===== EVENTOS ===== */
+function bindDoc(p,v){
+  var bk=document.getElementById('bk');if(bk)bk.onclick=function(){document.body.classList.remove('reading')};
+  document.querySelectorAll('.tab').forEach(function(b){b.onclick=function(){tab=b.dataset.t;renderDoc()}});
+  var ed=document.getElementById('ed');if(ed)ed.onclick=function(){editing=true;errs={};renderDoc();document.getElementById('f-obj').focus()};
+  var ca=document.getElementById('ca'),cb=document.getElementById('cb');if(ca){ca.onchange=function(){cmpA=+ca.value;renderDoc()};cb.onchange=function(){cmpB=+cb.value;renderDoc()}}
+  if(editing&&puedeEditar(p,v)){
+    document.getElementById('add').onclick=function(){readForm(v);v.pasos.push(st('','','','','','','',''));renderDoc();var l=document.querySelectorAll('[data-k=d]');l[l.length-1].focus()};
+    document.querySelectorAll('[data-rm]').forEach(function(b){b.onclick=function(){readForm(v);v.pasos.splice(+b.dataset.rm,1);renderDoc();say('Paso eliminado')}});
+    document.querySelectorAll('[data-mv]').forEach(function(b){b.onclick=function(){if(b.getAttribute('aria-disabled'))return;readForm(v);var a=b.dataset.mv.split(':'),i=+a[0],j=i+ +a[1],t=v.pasos[i];v.pasos[i]=v.pasos[j];v.pasos[j]=t;renderDoc();say('Paso movido a la posición '+(j+1))}});
+    document.getElementById('save').onclick=function(){readForm(v);errs=validar(v,false);if(Object.keys(errs).length){renderDoc();say('Hay '+Object.keys(errs).length+' campos por corregir');return}editing=false;renderDoc();say('Borrador guardado')};
+    document.getElementById('cancel').onclick=function(){editing=false;errs={};renderDoc()};
+  }
+  document.querySelectorAll('[data-a]').forEach(function(b){b.onclick=function(){
+    if(b.getAttribute('aria-disabled')){document.getElementById('why').textContent=b.title;say(b.title);return}
+    var a=b.dataset.a;
+    if(a==='enviar'){errs=validar(v,true);if(Object.keys(errs).length){editing=puedeEditar(p,v);tab='doc';renderDoc();var m=errs.pasos||'Completa los campos marcados antes de enviar a revisión.';document.getElementById('why').textContent=m;say(m);return}v.est='en_revision'}
+    else if(a==='solicitar')v.est='pendiente_aprobacion';
+    else if(a==='aprobar'){v.est='aprobado';v.aprob={por:cur,en:new Date().toISOString().slice(0,10)}}
+    else if(a==='publicar'){v.est='publicado';p.vers.forEach(function(x){if(x!==v&&x.est==='publicado')x.est='reemplazada'});p.vp=v.n}
+    else if(a==='nueva'){var c=JSON.parse(JSON.stringify(v));c.n=p.vers.length+1;c.est='borrador';c.por=cur;delete c.aprob;p.vers.push(c);selVer=null;cmpA=v.n;cmpB=c.n}
+    errs={};say(p.id+': '+(a==='nueva'?'nueva versión creada':'estado '+ES[v.est]));renderAll()}});
+}
+function renderAll(){renderList();renderDoc()}
+document.getElementById('who').onchange=function(){cur=this.value;filt='todos';editing=false;errs={};selVer=null;tab='doc';if(esTec()&&!P(selId).vp)selId='PRO-001';document.body.classList.remove('reading');renderAll()};
+document.getElementById('q').oninput=function(){q=this.value;renderList()};
+renderAll();
+</script>
+</body>
+</html>
