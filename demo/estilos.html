@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAFIVER TI — Galería de estilos visuales</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--pg:#eceef2;--pgink:#1b1f2a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--pg);color:var(--pgink);padding:0 0 40px}
+.top{background:#7c2d12;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:6px 10px}
+.hd{max-width:1500px;margin:auto;padding:20px 20px 6px}.hd h1{font-size:22px}.hd p{color:#4a5264;margin-top:4px;max-width:820px}
+.filters{max-width:1500px;margin:12px auto 0;padding:0 20px;display:flex;gap:6px;flex-wrap:wrap}
+.filters button{font:inherit;font-size:12px;border:1px solid #b9bfcc;background:#fff;border-radius:99px;padding:5px 12px;min-height:34px;cursor:pointer;color:#1b1f2a}
+.filters button[aria-pressed=true]{background:#1b1f2a;color:#fff;border-color:#1b1f2a}
+.filters button:focus-visible,.pick:focus-visible{outline:3px solid #1d4ed8;outline-offset:2px}
+.gal{max-width:1500px;margin:14px auto 0;padding:0 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:18px}
+.m{display:flex;flex-direction:column;gap:8px}
+.m h2{font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tag{font-size:11px;font-weight:600;padding:2px 9px;border-radius:99px;background:#fff;border:1px solid #c5cad6;color:#2b3345}
+.why{font-size:12.5px;color:#3a4254;line-height:1.45}.why b{color:#1b1f2a}
+.pick{align-self:flex-start;font:inherit;font-size:12px;font-weight:600;border:1px solid #1b1f2a;background:#fff;border-radius:8px;padding:6px 12px;min-height:34px;cursor:pointer}
+.pick[aria-pressed=true]{background:#1b1f2a;color:#fff}
+/* ===== MOCKUP BASE (misma pantalla en todos) ===== */
+.scr{--bg:#fff;--surf:#fff;--ink:#1b1f2a;--mut:#566074;--acc:#2563eb;--onacc:#fff;--line:#dde1ea;--r:10px;--sh:none;--bd:1px solid var(--line);--okc:#0f6b3a;--okb:#e3f4ea;--wc:#8a4b00;--wb:#fff1d6;--bc:#a4161a;--bb:#fde7e7;--nc:#3b4658;--nb:#eef0f5;
+ background:var(--bg);color:var(--ink);border-radius:calc(var(--r) + 4px);padding:14px;font-family:Inter,sans-serif;font-size:13px;display:grid;gap:10px;border:var(--bd);box-shadow:var(--sh);position:relative;overflow:hidden}
+.scr .bar{display:flex;align-items:center;gap:8px}.scr .bar b{font-size:14px;flex:1}.scr .bar i{width:10px;height:10px;border-radius:50%;background:var(--acc)}
+.scr .tabs{display:flex;gap:4px;font-size:12px;color:var(--mut)}.scr .tabs span{padding:4px 9px;border-radius:calc(var(--r) - 3px)}.scr .tabs .on{background:var(--acc);color:var(--onacc);font-weight:600}
+.scr .kp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.scr .k{background:var(--surf);border:var(--bd);border-radius:var(--r);padding:9px 10px;box-shadow:var(--sh)}
+.scr .k small{color:var(--mut);font-size:11px;display:block}.scr .k strong{font-size:22px;display:block;margin-top:1px}
+.scr .tb{background:var(--surf);border:var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+.scr .r{display:grid;grid-template-columns:62px 1fr auto;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)}.scr .r:last-child{border:0}
+.scr .r span:first-child{color:var(--mut);font-size:11px;font-family:ui-monospace,monospace}
+.scr .p{font-size:11px;font-weight:600;padding:2px 9px;border-radius:99px}
+.scr .ok{background:var(--okb);color:var(--okc)}.scr .wn{background:var(--wb);color:var(--wc)}.scr .bd{background:var(--bb);color:var(--bc)}.scr .nt{background:var(--nb);color:var(--nc)}
+.scr .ac{display:flex;gap:8px}.scr .bt{font:inherit;font-size:12px;font-weight:600;border:var(--bd);background:var(--surf);color:var(--ink);border-radius:calc(var(--r) - 2px);padding:7px 12px;box-shadow:var(--sh)}
+.scr .bt.pr{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
+/* ===== ESTILOS ===== */
+.st-fluent{--bg:#f5f5f7;--acc:#0f6cbd;--r:8px;--line:#e0e0e6}
+.st-spectrum{--bg:#f8f8f8;--acc:#2c2c2c;--r:6px;--line:#d5d5d5;--sh:none}.st-spectrum .tabs .on{background:#1473e6;color:#fff}.st-spectrum .bt.pr{background:#1473e6;border-color:#1473e6}.st-spectrum .bar i{background:#1473e6}
+.st-polaris{--bg:#f1f1f1;--acc:#303030;--onacc:#fff;--r:12px;--line:#e3e3e3;--sh:0 1px 0 rgba(26,26,26,.07)}.st-polaris .k strong{font-size:20px}.st-polaris .bt.pr{border-radius:8px}
+.st-exec{--bg:#f4f6fa;--acc:#1e3a8a;--r:6px;--line:#d4dae6}.st-exec .k{border-top:3px solid #1e3a8a}.st-exec .k strong{font-size:28px;color:#1e3a8a}
+.st-bento{--bg:#f2f2f4;--surf:#fff;--acc:#1d1d1f;--r:20px;--line:transparent;--bd:0}.st-bento .kp{grid-template-columns:2fr 1fr;grid-auto-rows:auto}.st-bento .k:first-child{grid-row:span 2;display:flex;flex-direction:column;justify-content:center}.st-bento .k:first-child strong{font-size:42px}.st-bento .tb,.st-bento .k{box-shadow:0 1px 2px rgba(0,0,0,.05)}.st-bento .r{border-color:#efeff2}
+.st-glass{--bg:linear-gradient(135deg,#4f46e5,#06b6d4 60%,#a78bfa);--surf:rgba(255,255,255,.2);--ink:#fff;--mut:#eaf0ff;--acc:#fff;--onacc:#1e1b4b;--line:rgba(255,255,255,.4);--r:16px;--sh:0 8px 24px rgba(15,23,42,.18);--okb:rgba(255,255,255,.88);--wb:rgba(255,255,255,.88);--bb:rgba(255,255,255,.9);--nb:rgba(255,255,255,.85);--nc:#1e293b}
+.st-glass .k,.st-glass .tb,.st-glass .bt{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}.st-glass .tabs .on{background:rgba(255,255,255,.9);color:#1e1b4b}.st-glass .bt.pr{background:#fff;color:#1e1b4b}
+.st-soft{--bg:#eef1f8;--surf:#eef1f8;--acc:#4f5fd6;--r:16px;--line:#dfe4f1;--bd:0;--sh:6px 6px 14px #d4d9e8,-6px -6px 14px #fff}.st-soft .r{border-color:#dfe4f1}.st-soft .bt.pr{background:#4f5fd6}
+.st-dark{--bg:#05060a;--surf:#0e1118;--ink:#eef2fb;--mut:#a3aec7;--acc:#4ea1ff;--onacc:#04101f;--line:#252c3d;--r:10px;--okc:#6ee7a0;--okb:#0f2a1d;--wc:#fbbf5a;--wb:#33260a;--bc:#ff8b8b;--bb:#3a1416;--nc:#c3ccdf;--nb:#1a2030}
+.st-access{--bg:#fff;--acc:#0a3d91;--r:4px;--line:#222;--bd:2px solid #222;--ink:#000;--mut:#222;--okc:#004d1a;--wc:#5c3200;--bc:#8a0000}.st-access .scr,.st-access .k{border-width:2px}.st-access .r{border-bottom:2px solid #222}.st-access .p{border:2px solid currentColor;background:#fff}.st-access .bt{border-width:2px}
+.st-saas{--bg:#f8f8ff;--acc:#4f46e5;--r:12px;--line:#e4e4f5;--sh:0 4px 14px rgba(79,70,229,.08)}.st-saas .tabs .on{background:#eef2ff;color:#3730a3}.st-saas .bt.pr{background:linear-gradient(135deg,#4f46e5,#7c3aed);border-color:transparent}
+.st-ai{--bg:#fbfbfd;--acc:#6366f1;--r:14px;--line:#ececf4}.st-ai .bar::after{content:"✦ Asistente";font-size:11px;background:#eef2ff;color:#3730a3;border-radius:99px;padding:2px 9px;font-weight:600}.st-ai .bt.pr{background:#6366f1}
+.st-neo{--bg:#fff7d6;--surf:#fff;--acc:#ff5252;--onacc:#000;--r:6px;--line:#000;--bd:2px solid #000;--sh:4px 4px 0 #000;--ink:#000;--mut:#222;--okc:#000;--okb:#8df0b3;--wc:#000;--wb:#ffe14d;--bc:#000;--bb:#ff9a9a;--nc:#000;--nb:#cfe3ff}.st-neo .r{border-bottom:2px solid #000}.st-neo .p{border:2px solid #000}.st-neo .tabs .on{border:2px solid #000;box-shadow:2px 2px 0 #000}
+@media(max-width:520px){.gal{grid-template-columns:1fr}.hd h1{font-size:19px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="top">GALERÍA — Misma pantalla (Procesos y procedimientos) con datos inventados. Solo vista previa de estilos; no es la app.</div>
+<div class="hd"><h1>12 estilos visuales del skill, aplicados a CAFIVER TI</h1>
+<p>Cada tarjeta muestra lo mismo: pestañas, 3 indicadores, 3 procesos con su estado y los botones. Compara cómo cambian el color, las formas, las sombras y la densidad. Pulsa <b>"Me gusta este"</b> en los que te interesen y abajo se arma tu lista.</p></div>
+<div class="filters" id="f" role="group" aria-label="Filtrar por tipo de sensación">
+ <button aria-pressed="true" data-f="all">Todos</button><button aria-pressed="false" data-f="sobrio">Sobrios / formales</button><button aria-pressed="false" data-f="moderno">Modernos</button><button aria-pressed="false" data-f="oscuro">Oscuros</button><button aria-pressed="false" data-f="atrevido">Atrevidos</button>
+</div>
+<div class="gal" id="gal"></div>
+<div class="hd" style="margin-top:20px"><h2 style="font-size:16px">Tu selección</h2><p id="sel">Aún no eliges ninguno.</p></div>
+<script>
+var S=[
+ ['fluent','Fluent 2','sobrio','Calmado, esquinas suaves, azul Microsoft.','Se siente como Microsoft 365. Familiar para el personal de oficina y muy legible. Es la base del demo 3.'],
+ ['spectrum','Adobe Spectrum','sobrio','Documental, neutro, casi sin sombras.','Pensado para documentos y flujos de revisión. Muy limpio y sobrio; ideal para procedimientos.'],
+ ['polaris','Shopify Polaris','sobrio','Panel de administración con tarjetas y botón oscuro.','Tablas y estados claros. Buen candidato para tickets, cambios y contratos.'],
+ ['exec','Executive Dashboard','sobrio','Azul marino, cifras grandes, línea superior en cada indicador.','Pensado para el Director: la cifra manda. Menos adorno, más lectura rápida.'],
+ ['bento','Bento Box Grid','moderno','Tarjetas modulares de tamaños distintos, muy redondeadas.','Un indicador principal grande y los demás alrededor. Visual y moderno; funciona bien en Inicio.'],
+ ['soft','Soft UI Evolution','moderno','Relieve suave en pasteles, sin bordes duros.','Más amable y moderno. Cuidado: la sombra suave puede bajar el contraste de los bordes.'],
+ ['saas','Enterprise SaaS','moderno','Índigo y violeta con degradado en el botón principal.','Estilo de plataforma B2B actual. También funciona bien en celular.'],
+ ['ai','AI-Native UI','moderno','Neutro con un solo acento púrpura y marca de asistente.','Preparado para el asistente de IA de la Fase 10. Limpio y con un único color de énfasis.'],
+ ['glass','Glassmorphism','moderno','Cristal translúcido sobre un fondo de color.','Muy vistoso, pero el texto sobre fondo variable es más difícil de leer. No lo usaría para tablas largas.'],
+ ['dark','Dark Mode (OLED)','oscuro','Negro profundo, texto claro, acento azul.','Cómodo para turnos de noche o un monitor de pared en el área de TI. Ahorra energía en pantallas OLED.'],
+ ['access','Accessible & Ethical','sobrio','Alto contraste, bordes gruesos, estados con texto y contorno.','Máxima claridad para cualquier pantalla o vista cansada. Menos "bonito", más seguro de leer.'],
+ ['neo','Neubrutalism','atrevido','Colores planos, bordes negros gruesos, sombra dura.','Muy llamativo y juvenil. Lo incluyo para que veas el extremo; no lo recomiendo para un sistema empresarial.']
+];
+var g=document.getElementById('gal'),sel={};
+g.innerHTML=S.map(function(s){return '<article class="m" data-c="'+s[2]+'"><h2>'+s[1]+' <span class="tag">'+({sobrio:'Sobrio',moderno:'Moderno',oscuro:'Oscuro',atrevido:'Atrevido'})[s[2]]+'</span></h2>'+
+ '<div class="scr st-'+s[0]+'" role="img" aria-label="Vista previa de la pantalla de Procesos en estilo '+s[1]+'">'+
+ '<div class="bar"><i></i><b>Procesos y procedimientos</b><span style="font-size:11px;color:var(--mut)">Persona A</span></div>'+
+ '<div class="tabs"><span class="on">Lista</span><span>Indicadores</span><span>Auditoría</span></div>'+
+ '<div class="kp"><div class="k"><small>Publicados</small><strong>5</strong></div><div class="k"><small>Pendientes de aprobación</small><strong>2</strong></div><div class="k"><small>Revisión vencida</small><strong>1</strong></div></div>'+
+ '<div class="tb"><div class="r"><span>PRO-001</span><b style="font-weight:600">Gestión de incidentes</b><span class="p ok">Publicado</span></div><div class="r"><span>PRO-002</span><b style="font-weight:600">Gestión de cambios</b><span class="p wn">Pendiente de aprobación</span></div><div class="r"><span>PRO-005</span><b style="font-weight:600">Altas y bajas de personal</b><span class="p bd">Revisión vencida</span></div></div>'+
+ '<div class="ac"><span class="bt pr">Nuevo proceso</span><span class="bt">Exportar</span></div></div>'+
+ '<p class="why"><b>'+s[3]+'</b> '+s[4]+'</p><button class="pick" data-k="'+s[0]+'" data-n="'+s[1]+'" aria-pressed="false">Me gusta este</button></article>'}).join('');
+document.querySelectorAll('.pick').forEach(function(b){b.onclick=function(){var on=b.getAttribute('aria-pressed')==='true';b.setAttribute('aria-pressed',!on);b.textContent=on?'Me gusta este':'✓ Elegido';if(on)delete sel[b.dataset.k];else sel[b.dataset.k]=b.dataset.n;var l=Object.keys(sel).map(function(k){return sel[k]});document.getElementById('sel').textContent=l.length?l.join(' · ')+'  —  dime estos nombres y armo el demo con ellos.':'Aún no eliges ninguno.'}});
+document.querySelectorAll('#f button').forEach(function(b){b.onclick=function(){document.querySelectorAll('#f button').forEach(function(x){x.setAttribute('aria-pressed',x===b)});document.querySelectorAll('.m').forEach(function(m){m.style.display=(b.dataset.f==='all'||m.dataset.c===b.dataset.f)?'':'none'})}});
+</script>
+</body>
+</html>
