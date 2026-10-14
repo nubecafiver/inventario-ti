@@ -246,7 +246,16 @@ async function abrir(browser, errores, semilla) {
   equipo(12, { estado: '', responsable: '   ', fecha: iso(2) });            // sin estado, sin responsable, vigente
   const D = await abrir(browser, errores, semilla), pd = D.page;
   const val = async (t) => (await pd.locator('.ti-kpi:has(.ti-kl:text-is("' + t + '")) .ti-kv').first().textContent()).trim();
+  const lecEq = () => pd.evaluate(() => window.__MOCK.lecturas['equipos'] || 0);
   await D.login(ADMIN); await pd.waitForSelector('.ti-kpi', { timeout: 5000 }); await D.espera(300);
+  ok('T14 costo: al abrir Inicio NO se lee el inventario (0 lecturas de equipos)', (await lecEq()) === 0, await lecEq());
+  ok('T14 sin resumen guardado: mensaje claro y botón para calcularlo', (await pd.locator('#view-ti-inicio').textContent()).includes('Todavía no se ha calculado') && (await pd.locator('#inv-act').count()) === 1);
+  await D.visible('#inv-act'); await pd.click('#inv-act'); await pd.waitForSelector('#ti-conf-ok');
+  ok('T14 pide confirmación explicando el costo (una lectura por equipo)', (await pd.locator('.ti-ov').textContent()).includes('una lectura por equipo'));
+  await pd.click('#ti-conf-no'); await D.espera(150);
+  ok('T14 cancelar la confirmación no lee nada', (await lecEq()) === 0);
+  await pd.click('#inv-act'); await pd.click('#ti-conf-ok'); await pd.waitForSelector('.ti-kpi:has-text("Equipos registrados")', { timeout: 5000 }); await D.espera(300);
+  ok('T14 al confirmar se leen los 12 equipos una sola vez', (await lecEq()) === 12, await lecEq());
   await D.shot('9-dashboard-admin');
   const v = { reg: await val('Equipos registrados'), act: await val('Equipos activos'), resp: await val('Con responsable'), bueno: await val('En buen estado'), venc: await val('Vida útil vencida (≥ 4 años)'), prox: await val('Vida útil próxima (3–4 años)'), sinf: await val('Sin fecha de compra') };
   ok('T14 inventario: 12 registrados, 9 activos (3 bajas)', v.reg === '12' && v.act === '9', v);
@@ -254,27 +263,25 @@ async function abrir(browser, errores, semilla) {
   ok('T14 inventario: vida útil 2 vencidas, 2 próximas y 2 sin fecha', v.venc === '2' && v.prox === '2' && v.sinf === '2', v);
   ok('T14 inventario: muestra de cuántos sin responsable y estado físico', (await pd.locator('.ti-kpi:has-text("Con responsable")').textContent()).includes('3 sin responsable') && (await pd.locator('.ti-kpi:has-text("En buen estado")').textContent()).includes('Regular 2 · Malo 1 · Sin estado 1'));
   ok('T14 garantías y reparaciones aparecen como "No disponible" con explicación', (await pd.locator('.ti-nd').count()) === 2 && (await pd.locator('.ti-nd:has-text("Garantías") .ti-kd').textContent()).includes('texto libre') && (await pd.locator('.ti-nd:has-text("reparación") .ti-kd').textContent()).includes('terminadas'));
+  const guardado = await pd.evaluate(() => window.__MOCK.store['ti_resumenes/inventario']);
+  ok('T14 el resumen quedó guardado con quién, cuándo y cuántos equipos', guardado && guardado.calculadoPor === ADMIN && guardado.equiposLeidos === 12 && guardado.datos.total === 12 && guardado.calculadoMs > 0, guardado && Object.keys(guardado));
+  ok('T14 muestra la antigüedad y quién calculó el resumen', (await pd.locator('#inv-edad').textContent()).includes('hace menos de 1 minuto') && (await pd.locator('#inv-edad').textContent()).includes('12 equipos leídos'));
+  ok('T14 la actualización quedó en la auditoría', await pd.evaluate(() => Object.keys(window.__MOCK.store).some((k) => k.startsWith('ti_auditoria/') && window.__MOCK.store[k].accion === 'actualizar_resumen_inventario')));
   const proc7 = { reg: await val('Procesos registrados'), doc: await val('Documentados'), pen: await val('Pendientes de aprobación'), ven: await val('Revisión vencida'), prox: await val('Revisión en 30 días'), pub: await val('Publicados vigentes'), rev: await val('En revisión'), sin: await val('Dependen de una persona') };
   ok('T14 procesos: 7 registrados y 29% documentados (2 de 7)', proc7.reg === '7' && proc7.doc === '29%', proc7);
   ok('T14 procesos: 1 pendiente, 1 vencida, 1 próxima, 3 publicados, 1 en revisión y 5 dependen de una persona', proc7.pen === '1' && proc7.ven === '1' && proc7.prox === '1' && proc7.pub === '3' && proc7.rev === '1' && proc7.sin === '5', proc7);
   const atn = await pd.locator('.ti-atn-b').allTextContents();
   ok('T14 requiere atención (Administrador+Director): PRO-002 pendiente y PRO-001 vencida', atn.length === 2 && atn.some((t) => t.includes('PRO-002') && t.includes('Espera tu decisión')) && atn.some((t) => t.includes('PRO-001') && t.includes('Revisión vencida')), atn);
   ok('T14 los semáforos siempre llevan texto (no solo color)', (await pd.evaluate(() => [...document.querySelectorAll('.ti-sem')].every((e) => e.textContent.trim().length > 2))));
-  const lec1 = await pd.evaluate(() => window.__MOCK.lecturas['equipos']);
-  ok('T14 costo: una sola lectura del inventario (12 documentos) al abrir Inicio', lec1 === 12, lec1);
-  ok('T14 muestra la antigüedad de los datos', (await pd.locator('#inv-edad').textContent()).includes('Datos de hace') && (await pd.locator('#inv-edad').textContent()).includes('12 equipos'));
   await D.ir('ti-procesos'); await D.ir('ti-inicio'); await D.espera(250);
-  ok('T14 caché: volver a Inicio no vuelve a leer el inventario', (await pd.evaluate(() => window.__MOCK.lecturas['equipos'])) === 12);
-  await pd.click('#inv-act'); await D.espera(300);
-  ok('T14 "Actualizar" vuelve a leer (24 lecturas acumuladas)', (await pd.evaluate(() => window.__MOCK.lecturas['equipos'])) === 24);
-  await pd.evaluate(() => { const r = Date.now; Date.now = () => r() + 11 * 60 * 1000; }); await D.ir('ti-procesos'); await D.ir('ti-inicio'); await D.espera(300);
-  ok('T14 caché: pasados 10 minutos se vuelve a leer solo (36 lecturas)', (await pd.evaluate(() => window.__MOCK.lecturas['equipos'])) === 36, await pd.evaluate(() => window.__MOCK.lecturas['equipos']));
-  // error de permisos del inventario no rompe lo demás
+  ok('T14 costo: volver a Inicio no lee el inventario ni otra vez el resumen visible', (await lecEq()) === 12);
+  await pd.evaluate(() => { const r = Date.now; Date.now = () => r() + 45 * 86400000; }); await D.ir('ti-procesos'); await D.ir('ti-inicio'); await D.espera(250);
+  ok('T14 un resumen de más de 30 días avisa que puede estar desactualizado, sin leer nada solo', (await pd.locator('#inv-edad').textContent()).includes('Puede estar desactualizado') && (await lecEq()) === 12);
   await pd.evaluate(() => { window.__MOCK.failRead = (p) => (p === 'equipos' ? Object.assign(new Error('x'), { code: 'permission-denied' }) : null); });
-  await pd.click('#inv-act'); await D.espera(300);
-  ok('T14 error de permisos en el inventario: mensaje claro y los indicadores de procesos siguen', (await pd.locator('#view-ti-inicio').textContent()).includes('sin permiso') && (await val('Procesos registrados')) === '7');
-  await pd.evaluate(() => { window.__MOCK.failRead = null; }); await pd.click('#inv-act'); await D.espera(300);
-  ok('T14 se recupera al volver el permiso', (await val('Equipos registrados')) === '12');
+  await pd.click('#inv-act'); await pd.click('#ti-conf-ok'); await D.espera(300);
+  ok('T14 error de permisos al leer el inventario: mensaje claro y los indicadores de procesos siguen', (await pd.locator('#view-ti-inicio').textContent()).includes('sin permiso') && (await val('Procesos registrados')) === '7');
+  await pd.evaluate(() => { window.__MOCK.failRead = null; }); await pd.click('#inv-act'); await pd.click('#ti-conf-ok'); await D.espera(400);
+  ok('T14 se recupera y vuelve a calcular (24 lecturas acumuladas, solo a pedido)', (await lecEq()) === 24 && (await val('Equipos registrados')) === '12', await lecEq());
   // navegación desde las tarjetas
   await pd.click('.ti-kpi[data-nav=revisionVencida]'); await D.espera(250);
   ok('T14 clic en "Revisión vencida" abre Procesos filtrado con exactamente ese registro', (await pd.locator('.ti-kpi.on[data-kpi=revisionVencida]').count()) === 1 && (await D.filas()) === 1 && (await pd.locator('.ti-row').textContent()).includes('PRO-001'));
@@ -289,12 +296,13 @@ async function abrir(browser, errores, semilla) {
   await D.logout();
   // Director: ve inventario y atención; Responsable: solo lo suyo y sin inventario; Técnico y solicitante: solo accesos
   await D.login(DIR); await D.espera(300);
+  ok('T14 Director: ve el resumen guardado del inventario SIN leer los equipos (lecturas de equipos no aumentan)', (await pd.locator('#s-inv').count()) === 1 && (await val('Equipos registrados')) === '12' && (await lecEq()) === 24, await lecEq());
   ok('T14 Director: ve inventario y 2 elementos de atención (PRO-002 y PRO-001)', (await pd.locator('#s-inv').count()) === 1 && (await pd.locator('.ti-atn-b').count()) === 2, (await pd.locator('#view-ti-inicio').textContent()).slice(0, 300));
-  const lecAntes = await pd.evaluate(() => window.__MOCK.lecturas['equipos']);
+  const lecAntes = await lecEq();
   await D.logout(); await D.login(RESP); await D.espera(300);
   const atnR = await pd.locator('.ti-atn-b').allTextContents();
   ok('T14 Responsable: no ve el inventario y su atención son sus 3 procesos (PRO-001 vencida, PRO-003 borrador, PRO-004 en revisión)', (await pd.locator('#s-inv').count()) === 0 && atnR.length === 3 && atnR.some((t) => t.includes('PRO-003') && t.includes('Borrador')) && atnR.some((t) => t.includes('PRO-004')) && atnR.some((t) => t.includes('PRO-001')) && !atnR.some((t) => t.includes('PRO-006')), (await pd.locator('#view-ti-inicio').textContent()).slice(0, 300));
-  ok('T14 Responsable: no se lee el inventario (ninguna lectura extra)', (await pd.evaluate(() => window.__MOCK.lecturas['equipos'])) === lecAntes, { lecAntes });
+  ok('T14 Responsable: no se lee el inventario (ninguna lectura extra)', (await lecEq()) === lecAntes, { lecAntes });
   await D.logout(); await D.login(TEC); await D.espera(300);
   ok('T14 Técnico: sin indicadores ni atención ni inventario; solo accesos', (await pd.locator('#s-inv').count()) === 0 && (await pd.locator('.ti-kpis').count()) === 0 && (await pd.locator('.ti-atn-b').count()) === 0 && (await pd.locator('#s-acc').count()) === 1, (await pd.locator('#view-ti-inicio').textContent()).slice(0, 300));
   await D.logout(); await D.login(SOL); await D.espera(300);
@@ -306,7 +314,7 @@ async function abrir(browser, errores, semilla) {
   const E = await abrir(browser, errores, semilla2), pe = E.page;
   await E.login(ADMIN); await E.espera(400);
   const txt = await pe.locator('#view-ti-inicio').textContent();
-  ok('T15 sin procesos ni equipos: mensajes de estado vacío comprensibles y sin cifras inventadas', txt.includes('Aún no hay procesos registrados') && txt.includes('Aún no hay equipos registrados') && txt.includes('Nada pendiente') && (await pe.locator('.ti-kpi').count()) === 0, txt.slice(0, 200));
+  ok('T15 sin procesos ni equipos: mensajes de estado vacío comprensibles y sin cifras inventadas', txt.includes('Aún no hay procesos registrados') && txt.includes('Todavía no se ha calculado el resumen del inventario') && txt.includes('Nada pendiente') && (await pe.locator('.ti-kpi').count()) === 0, txt.slice(0, 200));
   ok('T15 el aviso dice que no hay metas ni tendencias', txt.includes('no existe un histórico'));
   await pe.close();
 

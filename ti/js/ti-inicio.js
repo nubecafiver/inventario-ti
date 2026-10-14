@@ -1,11 +1,12 @@
 /* CAFIVER TI — Inicio: dashboard con datos reales.
    Procesos: de la misma suscripción que el módulo de Procesos (no duplica lecturas).
-   Inventario: SOLO LECTURA de `equipos` (una lectura puntual con caché de 10 minutos). No modifica el inventario. */
+   Inventario: SOLO LECTURA de `equipos`, y solo cuando alguien pulsa "Actualizar desde el inventario": el resultado se guarda
+   como un resumen (ti_resumenes/inventario) que el resto de las visitas lee con UNA sola lectura. No modifica el inventario. */
 (function () {
   'use strict';
   var TI = window.TI, L = TI.L, esc = TI.esc;
-  var TTL_MS = 10 * 60 * 1000;
-  var INV = { datos: null, ts: 0, cargando: false, error: '', equipos: 0 };
+  var DIAS_DESACTUALIZADO = 30;
+  var INV = { resumen: null, leido: false, cargando: false, actualizando: false, error: '' };
   var el = null;
 
   TI.registrarVista('ti-inicio', {
@@ -15,23 +16,36 @@
       if (TI.user && L.tiene(TI.user, 'procesos.ver_publicados') || TI.user && L.tiene(TI.user, 'procesos.ver')) {
         if (TI.datosProcesos) { TI.datosProcesos.asegurar(); TI.datosProcesos.alCambiar(repintarSiVisible); }
       }
-      if (TI.user && L.tiene(TI.user, 'inventario.resumen')) leerInventario(false);
+      if (TI.user && L.tiene(TI.user, 'inventario.resumen')) leerResumen();
       pintar();
     },
-    destruir: function () { INV = { datos: null, ts: 0, cargando: false, error: '', equipos: 0 }; el = null; }
+    destruir: function () { INV = { resumen: null, leido: false, cargando: false, actualizando: false, error: '' }; el = null; }
   });
   function repintarSiVisible() { if (el && !el.classList.contains('hidden')) pintar(); }
 
-  /* ===== Inventario: lectura puntual con caché ===== */
-  function leerInventario(forzar) {
-    var vigente = INV.datos && (Date.now() - INV.ts) < TTL_MS;
-    if (INV.cargando || (vigente && !forzar)) return;
+  /* ===== Inventario: resumen guardado (1 lectura por sesión) y actualización manual ===== */
+  function leerResumen() {
+    if (INV.leido || INV.cargando) return;
     INV.cargando = true; INV.error = '';
-    db.collection('equipos').get().then(function (snap) {
-      var lista = snap.docs.map(function (d) { return d.data(); });
-      INV.datos = L.indicadoresInventario(lista, L.hoyISO()); INV.ts = Date.now(); INV.equipos = lista.length;
-    }).catch(function (e) { INV.error = e.code === 'permission-denied' ? 'permiso' : (e.message || 'error'); })
+    db.collection('ti_resumenes').doc('inventario').get().then(function (d) { INV.resumen = d.exists ? d.data() : null; INV.leido = true; })
+      .catch(function (e) { INV.error = e.code === 'permission-denied' ? 'permiso' : (e.message || 'error'); })
       .then(function () { INV.cargando = false; repintarSiVisible(); });
+  }
+  /* Lee TODOS los equipos (una lectura por equipo) y guarda el resumen. Solo se hace cuando una persona lo pide. */
+  function actualizarDesdeInventario() {
+    if (INV.actualizando) return;
+    TI.confirmar('Actualizar el resumen del inventario', 'Se leerán todos los equipos del inventario una sola vez (una lectura por equipo) y se guardará un resumen. Hazlo cuando haya cambios importantes (altas, bajas, asignaciones); no hace falta a diario.', 'Actualizar ahora', function () {
+      INV.actualizando = true; INV.error = ''; repintarSiVisible();
+      db.collection('equipos').get().then(function (snap) {
+        var lista = snap.docs.map(function (d) { return d.data(); }), datos = L.indicadoresInventario(lista, L.hoyISO());
+        var batch = db.batch(), ref = db.collection('ti_resumenes').doc('inventario');
+        var doc = { calculadoEn: TI.serverTs(), calculadoMs: Date.now(), calculadoPor: TI.user.email, equiposLeidos: lista.length, datos: datos };
+        batch.set(ref, doc);
+        TI.auditar(batch, { accion: 'actualizar_resumen_inventario', tipo: 'resumen', id: 'inventario', detalle: lista.length + ' equipos leídos' });
+        return batch.commit().then(function () { INV.resumen = doc; INV.leido = true; TI.msg('Resumen actualizado (' + lista.length + ' equipos leídos)'); });
+      }).catch(function (e) { INV.error = e.code === 'permission-denied' ? 'permiso' : (e.message || 'error'); })
+        .then(function () { INV.actualizando = false; repintarSiVisible(); });
+    });
   }
 
   /* ===== Piezas ===== */
@@ -105,15 +119,23 @@
     return h + '</section>';
   }
 
+  function edadResumen() {
+    var r = INV.resumen; if (!r || !r.calculadoMs) return '';
+    var min = Math.max(0, Math.round((Date.now() - r.calculadoMs) / 60000)), dias = Math.floor(min / 1440);
+    var cuando = min < 1 ? 'hace menos de 1 minuto' : min < 60 ? 'hace ' + min + ' min' : min < 1440 ? 'hace ' + Math.floor(min / 60) + ' h' : 'hace ' + dias + (dias === 1 ? ' día' : ' días');
+    return 'Resumen calculado ' + cuando + ' (' + new Date(r.calculadoMs).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) + ') por ' + TI.nombreDe(r.calculadoPor) + ' · ' + r.equiposLeidos + ' equipos leídos';
+  }
   function seccionInventario() {
-    var h = '<section class="ti-seccion" aria-labelledby="s-inv"><div class="ti-seccion-h"><h2 class="ti-h2" id="s-inv">Inventario de equipos</h2><span class="ti-mut" id="inv-edad"></span>' +
-      '<button class="btn btn-sm" id="inv-act"' + (INV.cargando ? ' disabled' : '') + '>' + (INV.cargando ? 'Actualizando…' : 'Actualizar') + '</button>' +
+    var h = '<section class="ti-seccion" aria-labelledby="s-inv"><div class="ti-seccion-h"><h2 class="ti-h2" id="s-inv">Inventario de equipos</h2>' +
+      '<button class="btn btn-sm" id="inv-act"' + (INV.actualizando ? ' disabled' : '') + ' title="Lee todos los equipos una vez y guarda el resumen">' + (INV.actualizando ? 'Actualizando…' : 'Actualizar desde el inventario') + '</button>' +
       '<a class="btn btn-sm" href="../index.html" target="_blank" rel="noopener">Abrir inventario <i class="ti ti-external-link" aria-hidden="true"></i></a></div>';
-    if (INV.error === 'permiso') return h + '<div class="ti-note err">No se pudo leer el inventario: sin permiso. Los indicadores de procesos no se ven afectados.</div></section>';
-    if (INV.error) return h + '<div class="ti-note err">No se pudo leer el inventario: ' + esc(INV.error) + '. Los indicadores de procesos no se ven afectados.</div></section>';
-    if (!INV.datos) return h + '<div class="ti-card"><div class="ti-empty" role="status">Leyendo el inventario…</div></div></section>';
-    var d = INV.datos;
-    if (!d.total) return h + '<div class="ti-card"><div class="ti-empty">Aún no hay equipos registrados en el inventario.</div></div></section>';
+    if (INV.error === 'permiso') return h + '<div class="ti-note err">No se pudo leer o guardar el resumen del inventario: sin permiso. Los indicadores de procesos no se ven afectados.</div></section>';
+    if (INV.error) return h + '<div class="ti-note err">No se pudo completar la operación con el inventario: ' + esc(INV.error) + '. Los indicadores de procesos no se ven afectados.</div></section>';
+    if (!INV.leido) return h + '<div class="ti-card"><div class="ti-empty" role="status">Cargando el resumen…</div></div></section>';
+    if (!INV.resumen) return h + '<div class="ti-card"><div class="ti-empty">Todavía no se ha calculado el resumen del inventario. Pulsa "Actualizar desde el inventario": leerá todos los equipos una vez y guardará el resumen.</div></div></section>';
+    var d = INV.resumen.datos, dias = (Date.now() - INV.resumen.calculadoMs) / 86400000;
+    h += '<div class="ti-kd" id="inv-edad" style="margin:-4px 0 10px">' + esc(edadResumen()) + (dias > DIAS_DESACTUALIZADO ? ' · <b>Puede estar desactualizado</b>' : '') + '</div>';
+    if (!d.total) return h + '<div class="ti-card"><div class="ti-empty">El inventario no tenía equipos registrados cuando se calculó el resumen.</div></div></section>';
     var min = d.muestraMinima, sinMuestra = d.activos < min;
     h += '<div class="ti-kpis">' +
       tarjeta({ titulo: 'Equipos registrados', valor: d.total, sub: d.dadosDeBaja + ' dados de baja' }) +
@@ -141,8 +163,6 @@
     el.querySelectorAll('[data-nav]').forEach(function (b) { b.onclick = function () { TI.ir('ti-procesos', { kpi: b.dataset.nav }); }; });
     el.querySelectorAll('[data-abrir]').forEach(function (b) { b.onclick = function () { TI.ir('ti-procesos', { abrir: b.dataset.abrir }); }; });
     el.querySelectorAll('[data-ir]').forEach(function (b) { b.onclick = function () { TI.ir(b.dataset.ir); }; });
-    var act = el.querySelector('#inv-act'); if (act) act.onclick = function () { leerInventario(true); repintarSiVisible(); };
-    var edad = el.querySelector('#inv-edad');
-    if (edad) edad.textContent = INV.datos ? 'Datos de hace ' + (Math.max(0, Math.round((Date.now() - INV.ts) / 60000)) === 0 ? 'menos de 1 minuto' : Math.round((Date.now() - INV.ts) / 60000) + ' min') + ' · ' + INV.equipos + ' equipos leídos' : '';
+    var act = el.querySelector('#inv-act'); if (act) act.onclick = actualizarDesdeInventario;
   }
 })();

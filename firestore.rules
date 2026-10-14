@@ -44,6 +44,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    /* ---------- Resumen del inventario (calculado a mano por Director o Administrador) ---------- */
+    match /ti_resumenes/{id} {
+      allow read: if esAdmin() || esDirector();
+      allow create, update: if (esAdmin() || esDirector()) && id == 'inventario' && request.resource.data.calculadoPor == correo()
+                            && request.resource.data.keys().hasOnly(['calculadoEn', 'calculadoMs', 'calculadoPor', 'equiposLeidos', 'datos'])
+                            && request.resource.data.calculadoEn == request.time;
+      allow delete: if false;
+    }
+
     /* ---------- Auditoría: solo se crea; nadie edita ni borra ---------- */
     match /ti_auditoria/{id} {
       allow read: if esAdmin() || esDirector();

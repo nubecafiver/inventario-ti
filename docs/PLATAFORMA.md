@@ -39,6 +39,7 @@ Dirección en GitHub Pages (una vez publicada la rama): `…/inventario-ti/ti/`.
 | `ti_procesos/{id}/historial/*` | `fecha, usuario, accion, version, detalle, motivo` | Solo creación. |
 | `ti_auditoria/*` | `fecha, usuario, accion, tipoRegistro, registroId, resultado, detalle, motivo` | Solo creación; nadie edita ni borra. |
 | `ti_config/contadores` | `procesos` (último folio) | Se incrementa en transacción. |
+| `ti_resumenes/inventario` | `calculadoEn, calculadoMs, calculadoPor, equiposLeidos, datos{…}` | Resumen del inventario, calculado a mano; lo lee el dashboard. |
 
 **Sincronización de campos copiados.** `estado`, `versionPublicada`, `proximaRevision` y `documentado` de la cabecera se escriben en la **misma transacción** que el cambio de la versión. Las reglas exigen que `estado` de la cabecera sea igual al de la versión de trabajo y que `versionPublicada` apunte a una versión publicada, para que no se pueda "publicar" tocando solo la cabecera. `documentado` lo calcula el cliente al publicar (las reglas no pueden verificarlo; ver limitaciones).
 
@@ -125,7 +126,11 @@ Los porcentajes solo se muestran con **≥ 5 equipos activos**; con menos, "n de
 - **Equipos en reparación:** el inventario registra reparaciones terminadas (con su resultado), no un estado "en reparación" vigente.
 - *Necesidades documentadas (no implementadas; modificarían el inventario y requieren tu decisión):* un campo de fecha de vencimiento de garantía y un estado "en reparación".
 
-**Costo de Firestore:** los procesos llegan por una sola suscripción compartida (solo cambios). El inventario se lee con **una lectura puntual por carga de Inicio**, con **caché de 10 minutos** y botón "Actualizar" ("Datos de hace X min"): una lectura por equipo y por carga (por ejemplo, 500 equipos = 500 lecturas). Un error de permisos en el inventario no afecta lo demás.
+**Costo de Firestore (decisión de la Dirección: no leer el inventario a diario).** Los procesos llegan por una sola suscripción compartida (solo cambios). **El inventario no se lee al abrir Inicio**: se lee una vez y el resultado se guarda como un resumen (`ti_resumenes/inventario`); cada visita posterior lee solo ese documento. Solo el Director o el Administrador pueden pulsar "Actualizar desde el inventario" (pide confirmación): ese botón lee todos los equipos una vez (una lectura por equipo; 500 equipos = 500 lecturas) y reemplaza el resumen. Se hace cuando haya cambios importantes. Pasados 30 días sin actualizar, el dashboard avisa "puede estar desactualizado" pero **nunca lee por su cuenta**.
+
+*Por qué no "solo la diferencia":* el inventario no guarda fecha de modificación en cada equipo y no se va a modificar, así que Firestore no puede indicar qué cambió desde la última vez. Si algún día se agrega ese campo al inventario, la actualización podría leer solo lo modificado.
+
+Un error de permisos en el inventario no afecta lo demás.
 
 **Pendiente:** metas y tendencias. No existe un histórico de los indicadores; requeriría guardar un resumen mensual (decisión tuya).
 
@@ -144,7 +149,7 @@ Variables de entorno y secretos: **ninguno**. La configuración pública de Fire
 | Prueba | Resultado |
 |---|---|
 | `node --test tests/logica.test.js` — lógica pura | **30 de 30 correctas.** Permisos, flujo, segregación, versionado, indicadores de procesos y de inventario (casos de borde), fechas. |
-| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **89 de 89 correctas.** Que `index.html` no cambió, dashboard de Inicio (cifras exactas con datos sembrados, caché y costo de lecturas, permisos por rol, estados vacíos, errores), arranque, equipo inicial, estructura del menú, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
+| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **95 de 95 correctas.** Que `index.html` no cambió, dashboard de Inicio (cifras exactas con datos sembrados, caché y costo de lecturas, permisos por rol, estados vacíos, errores), arranque, equipo inicial, estructura del menú, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
 | `tests/reglas.test.js` — reglas con el emulador | **NO ejecutadas.** El entorno de desarrollo bloqueaba `registry.npmjs.org`, `gstatic.com` y `storage.googleapis.com`. Están escritas y listas para ejecutar donde haya internet. |
 
 La simulación **no aplica reglas de seguridad**, así que las pruebas de integración no demuestran que las reglas funcionen. Tampoco se probó contra el Firebase real.
@@ -163,6 +168,7 @@ La simulación **no aplica reglas de seguridad**, así que las pruebas de integr
 
 ## Seguimiento de cambios
 - 2026-10-14 — Fase 1 y primera versión de las Fases 2 y 3: `firestore.rules`, `tests/`, `docs/` y los módulos (primero con tres cambios en `index.html`; ver la corrección de rumbo siguiente).
+- 2026-10-14 — Costo del inventario: el dashboard ya no lee los equipos al abrir; usa un resumen guardado que se actualiza solo a pedido.
 - 2026-10-14 — Fase 4: dashboard de Inicio (atención por rol, procesos, inventario en solo lectura). Se corrige que un nuevo inicio de sesión conservaba la pantalla del usuario anterior.
 - 2026-10-14 — **Corrección de rumbo:** la plataforma pasa a ser una app independiente en `ti/`; `index.html` (inventario) se restauró idéntico a la rama principal y ya no se modifica. El inventario es un módulo que se abre desde la plataforma.
 - 2026-10-14 — Equipo inicial: ramaya Administrador + Director; vlopez, aosorio, soportetecnico y dgomez Responsables de proceso; botón "Asignar roles iniciales al equipo".
