@@ -32,7 +32,7 @@
     if (INV.leido || INV.cargando) return;
     INV.cargando = true; INV.error = '';
     db.collection('ti_resumenes').doc('inventario').get().then(function (d) { INV.resumen = d.exists ? d.data() : null; INV.leido = true; })
-      .catch(function (e) { INV.error = e.code === 'permission-denied' ? 'permiso' : (e.message || 'error'); })
+      .catch(function (e) { INV.error = e.code === 'permission-denied' ? 'permiso' : (TI.errTxt(e) || 'error'); })
       .then(function () { INV.cargando = false; repintarSiVisible(); });
   }
   /* Lee TODOS los equipos (una lectura por equipo) y guarda el resumen. Solo se hace cuando una persona lo pide. */
@@ -47,7 +47,7 @@
         batch.set(ref, doc);
         TI.auditar(batch, { accion: 'actualizar_resumen_inventario', tipo: 'resumen', id: 'inventario', detalle: lista.length + ' equipos leídos' });
         return batch.commit().then(function () { INV.resumen = doc; INV.leido = true; TI.msg('Resumen actualizado (' + lista.length + ' equipos leídos)'); });
-      }).catch(function (e) { INV.error = e.code === 'permission-denied' ? 'permiso' : (e.message || 'error'); })
+      }).catch(function (e) { INV.error = e.code === 'permission-denied' ? 'permiso' : (TI.errTxt(e) || 'error'); })
         .then(function () { INV.actualizando = false; repintarSiVisible(); });
     });
   }

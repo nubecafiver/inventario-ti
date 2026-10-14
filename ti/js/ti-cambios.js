@@ -24,7 +24,7 @@
   function suscribir() {
     if (S.cargado) return; S.cargado = true;
     function ante(k) { return function (snap) { S[k] = aMapa(snap); S.error = ''; recomponer(); pintar(); if (S.detalle && S.detalle.modal && document.body.contains(S.detalle.modal.el)) pintarDetalle(S.detalle); avisar(); }; }
-    function falla(err) { S.error = err.code === 'permission-denied' ? 'permiso' : err.message; pintar(); avisar(); }
+    function falla(err) { S.error = err.code === 'permission-denied' ? 'permiso' : TI.errTxt(err); pintar(); avisar(); }
     var col = db.collection('ti_cambios');
     if (TI.puede('cambios.ver_todos')) {
       TI.unsubs.push(col.where('estado', 'in', L.CAMBIO_ABIERTOS).onSnapshot(ante('abiertos'), falla));
@@ -127,7 +127,7 @@
       if (x.ticketId && !/^TCK-\d{4,}$/.test(x.ticketId)) err.ticketId = 'Usa un folio como TCK-0001.';
       if (Object.keys(err).length) { marcar(err); TI.msg('Hay ' + Object.keys(err).length + ' campo(s) por corregir.'); return; }
       var btn = m.q('#c-save'); btn.disabled = true; btn.textContent = 'Guardando…';
-      (nuevo ? crear(x) : guardar(c, x)).then(function (id) { m.cerrar(); TI.msg('Borrador guardado'); abrirDetalle(id); }).catch(function (e) { btn.disabled = false; btn.textContent = 'Guardar borrador'; TI.msg('No se pudo guardar: ' + e.message); });
+      (nuevo ? crear(x) : guardar(c, x)).then(function (id) { m.cerrar(); TI.msg('Borrador guardado'); abrirDetalle(id); }).catch(function (e) { btn.disabled = false; btn.textContent = 'Guardar borrador'; TI.msg('No se pudo guardar: ' + TI.errTxt(e)); });
     };
   }
   var CAMPOS = ['titulo', 'tipo', 'descripcion', 'justificacion', 'sistema', 'activoIds', 'impacto', 'probabilidad', 'riesgo', 'inicioMs', 'finMs', 'responsableImpl', 'planImplementacion', 'planPruebas', 'planReversa', 'ticketId', 'evidencias'];
@@ -160,7 +160,7 @@
     refC(id).get().then(function (s) {
       if (!s.exists) { D.modal.cerrar(); TI.msg('El cambio no existe o no tienes acceso.'); return; }
       var x = s.data(); x.id = id; if (!porId(id) && L.puedeVerCambio(TI.user, x)) { S.propios[id] = x; recomponer(); } pintarDetalle(D);
-    }).catch(function (e) { D.modal.cerrar(); TI.msg('No se pudo abrir el cambio: ' + e.message); });
+    }).catch(function (e) { D.modal.cerrar(); TI.msg('No se pudo abrir el cambio: ' + TI.errTxt(e)); });
   }
   function bloque(t) { return t && String(t).trim() ? esc(t) : '<span class="ti-mut">Sin registrar</span>'; }
   function pintarDetalle(D) {
@@ -197,7 +197,7 @@
     var ed = m.q('#cm-edit'); if (ed) ed.onclick = function () { m.cerrar(); abrirEditor(c); };
   }
   function cargarHistorial(D) {
-    refC(D.id).collection('historial').orderBy('fecha', 'desc').limit(60).get().then(function (s) { D.historial = s.docs.map(function (d) { return d.data(); }); pintarDetalle(D); }).catch(function (e) { D.historial = []; TI.msg('No se pudo leer el historial: ' + e.message); pintarDetalle(D); });
+    refC(D.id).collection('historial').orderBy('fecha', 'desc').limit(60).get().then(function (s) { D.historial = s.docs.map(function (d) { return d.data(); }); pintarDetalle(D); }).catch(function (e) { D.historial = []; TI.msg('No se pudo leer el historial: ' + TI.errTxt(e)); pintarDetalle(D); });
   }
 
   /* ===== Acciones (transacción: cambio + historial + auditoría) ===== */
@@ -238,7 +238,7 @@
       refC(c0.id).get().then(function (s) { if (s.exists) { var x = s.data(); x.id = c0.id; [S.abiertos, S.recientes, S.propios].forEach(function (o) { if (o[c0.id]) o[c0.id] = x; }); if (!porId(c0.id)) S.propios[c0.id] = x; recomponer(); } D.historial = null; pintarDetalle(D); pintar(); });
     }).catch(function (e) {
       if (e.detalle) { TI.msg('El cambio está incompleto: completa los campos marcados.'); D.modal.cerrar(); abrirEditor(c0, true); return; }
-      TI.msg('No se pudo completar: ' + e.message);
+      TI.msg('No se pudo completar: ' + TI.errTxt(e));
     });
   }
 })();

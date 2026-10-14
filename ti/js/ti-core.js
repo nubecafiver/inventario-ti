@@ -41,6 +41,21 @@
     if (window.USER_DIR && USER_DIR[email]) return USER_DIR[email].name;
     return email;
   };
+  // Mensaje de error comprensible para la persona usuaria (los de Firebase vienen en inglés y con códigos técnicos).
+  TI.errTxt = function (e) {
+    var c = (e && e.code) || '', m = (e && e.message) || String(e || '');
+    var t = {
+      'permission-denied': 'No tienes permiso para esta acción (o las reglas de seguridad aún no se publican).',
+      'unavailable': 'Sin conexión con el servidor. Revisa tu internet y vuelve a intentar.',
+      'deadline-exceeded': 'El servidor tardó demasiado en responder. Vuelve a intentar.',
+      'resource-exhausted': 'Se alcanzó el límite de uso de Firebase. Avisa a la Gerencia de TI.',
+      'unauthenticated': 'Tu sesión expiró. Cierra sesión y vuelve a entrar.',
+      'aborted': 'Otra persona modificó el registro al mismo tiempo. Vuelve a intentar.',
+      'failed-precondition': 'Falta un índice o la operación no es válida en este momento.',
+      'not-found': 'El registro ya no existe.'
+    };
+    return t[String(c).replace('firestore/', '')] || m;
+  };
   TI.msg = function (m) {
     var t = document.getElementById('ti-toast');
     if (!t) { t = document.createElement('div'); t.id = 'ti-toast'; t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite'); document.body.appendChild(t); }

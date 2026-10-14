@@ -89,7 +89,7 @@
       TI.auditar(batch, { accion: 'cambio_roles', tipo: 'usuario', id: mail, detalle: antes + ' → ' + roles.join(', ') + (activo ? '' : ' (inactivo)') });
       var btn = m.q('#u-ok'); btn.disabled = true;
       batch.commit().then(function () { m.cerrar(); TI.msg('Roles guardados'); return TI.cargarUsuariosCache(); }).then(function () { if (mail === TI.user.email) return TI.init(); }).then(pintar)
-        .catch(function (e) { btn.disabled = false; TI.msg('No se pudo guardar: ' + e.message); });
+        .catch(function (e) { btn.disabled = false; TI.msg('No se pudo guardar: ' + TI.errTxt(e)); });
     };
   }
   function faltanEquipo() { var c = TI.usuariosCache || {}; return TI.EQUIPO_INICIAL.filter(function (x) { return !c[x.email]; }); }
@@ -102,7 +102,7 @@
         batch.set(db.collection('usuarios_ti').doc(x.email), { email: x.email, nombre: nombre, roles: x.roles, activo: true, creadoPor: TI.user.email, creadoEn: ts, actualizadoPor: TI.user.email, actualizadoEn: ts });
         TI.auditar(batch, { accion: 'cambio_roles', tipo: 'usuario', id: x.email, detalle: 'sin registro → ' + x.roles.join(', ') + ' (equipo inicial)' });
       });
-      batch.commit().then(function () { TI.msg('Roles asignados a ' + falta.length + ' personas'); return TI.cargarUsuariosCache(); }).then(pintar).catch(function (e) { TI.msg('No se pudo asignar: ' + e.message); });
+      batch.commit().then(function () { TI.msg('Roles asignados a ' + falta.length + ' personas'); return TI.cargarUsuariosCache(); }).then(pintar).catch(function (e) { TI.msg('No se pudo asignar: ' + TI.errTxt(e)); });
     });
   }
   function inicializar() {
@@ -110,14 +110,14 @@
     batch.set(ref, { email: email, nombre: (window.curUser && curUser.name) || email, roles: TI.ARRANQUE_ROLES.slice(), activo: true, creadoPor: email, creadoEn: ts, actualizadoPor: email, actualizadoEn: ts });
     TI.auditar(batch, { accion: 'arranque_plataforma', tipo: 'usuario', id: email, detalle: 'Registro inicial: Gerente de TI' });
     batch.commit().then(function () { TI.msg('Listo: ya eres Gerente de TI'); return TI.init(); }).then(function () { TI.ir('ti-admin'); })
-      .catch(function (e) { TI.msg('No se pudo crear el registro: ' + e.message + '. Si las reglas de Firestore aún no incluyen usuarios_ti, publícalas primero (ver docs/PLATAFORMA.md).'); });
+      .catch(function (e) { TI.msg('No se pudo crear el registro: ' + TI.errTxt(e) + '. Si las reglas de Firestore aún no incluyen usuarios_ti, publícalas primero (ver docs/PLATAFORMA.md).'); });
   }
 
   /* ----- Auditoría ----- */
   function cargarAuditoria() {
     A.cargandoAudit = true;
     db.collection('ti_auditoria').orderBy('fecha', 'desc').limit(100).get().then(function (s) { A.audit = s.docs.map(function (d) { return d.data(); }); A.cargandoAudit = false; pintar(); })
-      .catch(function (e) { A.audit = []; A.cargandoAudit = false; TI.msg('No se pudo leer la auditoría: ' + e.message); pintar(); });
+      .catch(function (e) { A.audit = []; A.cargandoAudit = false; TI.msg('No se pudo leer la auditoría: ' + TI.errTxt(e)); pintar(); });
   }
   function vistaAuditoria() {
     var q = A.filtro.trim().toLowerCase();

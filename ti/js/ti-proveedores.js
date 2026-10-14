@@ -26,7 +26,7 @@
     if (S.cargado) return; S.cargado = true;
     db.collection('ti_config').doc('proveedores').get().then(function (d) { S.config = d.exists ? d.data() : null; pintar(); avisar(); }).catch(function () {});
     function ante(k) { return function (snap) { S[k] = aMapa(snap); S.error = ''; pintar(); if (S.detalle && S.detalle.modal && document.body.contains(S.detalle.modal.el)) pintarContrato(S.detalle); avisar(); }; }
-    function falla(err) { S.error = err.code === 'permission-denied' ? 'permiso' : err.message; pintar(); avisar(); }
+    function falla(err) { S.error = err.code === 'permission-denied' ? 'permiso' : TI.errTxt(err); pintar(); avisar(); }
     var cc = db.collection('ti_contratos'), pp = db.collection('ti_proveedores');
     if (TI.puede('contratos.ver_todos')) TI.unsubs.push(cc.where('estado', 'in', L.CONTRATO_ACTIVOS).onSnapshot(ante('contratos'), falla));
     else { TI.unsubs.push(cc.where('creadoPor', '==', TI.user.email).onSnapshot(ante('contratos'), falla)); TI.unsubs.push(cc.where('responsable', '==', TI.user.email).onSnapshot(ante('contratos2'), falla)); }
@@ -152,7 +152,7 @@
       var x = leer(), err = L.validarContrato(x, false);
       if (Object.keys(err).length) { marcar(err); TI.msg('Hay ' + Object.keys(err).length + ' campo(s) por corregir.'); return; }
       var btn = m.q('#k-save'); btn.disabled = true; btn.textContent = 'Guardando…';
-      (nuevo ? crearContrato(x) : guardarContrato(c, x)).then(function (id) { m.cerrar(); TI.msg('Borrador guardado'); abrirContrato(id); }).catch(function (e) { btn.disabled = false; btn.textContent = 'Guardar borrador'; TI.msg('No se pudo guardar: ' + e.message); });
+      (nuevo ? crearContrato(x) : guardarContrato(c, x)).then(function (id) { m.cerrar(); TI.msg('Borrador guardado'); abrirContrato(id); }).catch(function (e) { btn.disabled = false; btn.textContent = 'Guardar borrador'; TI.msg('No se pudo guardar: ' + TI.errTxt(e)); });
     };
   }
   var CAMPOS_C = ['titulo', 'tipo', 'proveedorId', 'responsable', 'objeto', 'inicio', 'fin', 'renovacion', 'monto', 'moneda', 'periodicidad', 'avisoDias', 'activoIds', 'documentos', 'renovacionDe'];
@@ -188,7 +188,7 @@
     refC(id).get().then(function (s) {
       if (!s.exists) { D.modal.cerrar(); TI.msg('El contrato no existe o no tienes acceso.'); return; }
       var x = s.data(); x.id = id; if (!contratoPorId(id) && L.puedeVerContrato(TI.user, x)) { S.contratos2[id] = x; } pintarContrato(D);
-    }).catch(function (e) { D.modal.cerrar(); TI.msg('No se pudo abrir el contrato: ' + e.message); });
+    }).catch(function (e) { D.modal.cerrar(); TI.msg('No se pudo abrir el contrato: ' + TI.errTxt(e)); });
   }
   function pintarContrato(D) {
     var m = D.modal; if (!m || !document.body.contains(m.el)) return; var c = contratoPorId(D.id); if (!c) return; var u = TI.user, h = '';
@@ -247,7 +247,7 @@
       refC(c0.id).get().then(function (s) { if (s.exists) { var x = s.data(); x.id = c0.id; ['contratos', 'contratos2'].forEach(function (k) { if (S[k][c0.id]) S[k][c0.id] = x; }); if (!contratoPorId(c0.id)) S.contratos2[c0.id] = x; } D.historial = null; pintarContrato(D); pintar(); });
     }).catch(function (e) {
       if (e.detalle) { TI.msg('El contrato está incompleto: completa los campos marcados.'); D.modal.cerrar(); editorContrato(c0, true); return; }
-      TI.msg('No se pudo completar: ' + e.message);
+      TI.msg('No se pudo completar: ' + TI.errTxt(e));
     });
   }
 
@@ -278,7 +278,7 @@
       var err = L.validarProveedor(x); m.qa('[data-e]').forEach(function (e) { e.textContent = err[e.dataset.e] || ''; });
       if (Object.keys(err).length) { TI.msg('Hay ' + Object.keys(err).length + ' campo(s) por corregir.'); return; }
       var btn = m.q('#v-ok'); btn.disabled = true;
-      (nuevo ? crearProveedor(x) : guardarProveedor(p, x)).then(function (id) { m.cerrar(); TI.msg('Proveedor guardado'); S.tab = 'proveedores'; pintar(); }).catch(function (e) { btn.disabled = false; TI.msg('No se pudo guardar: ' + e.message); });
+      (nuevo ? crearProveedor(x) : guardarProveedor(p, x)).then(function (id) { m.cerrar(); TI.msg('Proveedor guardado'); S.tab = 'proveedores'; pintar(); }).catch(function (e) { btn.disabled = false; TI.msg('No se pudo guardar: ' + TI.errTxt(e)); });
     };
   }
   function crearProveedor(x) {
@@ -308,8 +308,8 @@
         var v = parseInt(el.querySelector('#pv-aviso').value, 10); if (!(v >= 1 && v <= 720)) { el.querySelector('#pv-aviso-e').textContent = 'Escribe un número de días entre 1 y 720.'; return; }
         var b = db.batch(), ts = TI.serverTs(), datos = { avisoVencimientoDias: v, actualizadoPor: TI.user.email, actualizadoEn: ts };
         b.set(db.collection('ti_config').doc('proveedores'), datos); TI.auditar(b, { accion: 'configurar_proveedores', tipo: 'config', id: 'proveedores', detalle: 'Aviso de vencimiento: ' + v + ' días' });
-        b.commit().then(function () { S.config = datos; TI.msg('Configuración guardada'); avisar(); }).catch(function (e) { TI.msg('No se pudo guardar: ' + e.message); });
+        b.commit().then(function () { S.config = datos; TI.msg('Configuración guardada'); avisar(); }).catch(function (e) { TI.msg('No se pudo guardar: ' + TI.errTxt(e)); });
       };
-    }).catch(function (e) { el.innerHTML = '<div class="ti-note err">No se pudo leer la configuración: ' + esc(e.message) + '</div>'; });
+    }).catch(function (e) { el.innerHTML = '<div class="ti-note err">No se pudo leer la configuración: ' + esc(TI.errTxt(e)) + '</div>'; });
   };
 })();
