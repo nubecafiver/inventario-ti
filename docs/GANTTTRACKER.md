@@ -1,6 +1,6 @@
 # GanttTracker (Proyectos) — revisión y decisión de integración
 
-Repositorio revisado (solo lectura): `nubecafiver/-gantttracker`, publicado en `https://nubecafiver.github.io/gantttracker/`.
+Repositorio revisado (solo lectura): `nubecafiver/-gantttracker`, publicado en `https://nubecafiver.github.io/-gantttracker/`.
 
 ## Qué es
 - App de un solo archivo (`index.html`, ~170 KB) con Firebase Auth + Firestore (SDK compat 9.23). Vistas: Gantt, Proyectos, Diario, Historial.

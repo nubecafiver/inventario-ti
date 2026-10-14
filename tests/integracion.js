@@ -211,7 +211,7 @@ async function abrir(browser, errores, semilla) {
   await C.ir('ti-inicio'); await C.shot('7-inicio');
   ok('T13 Inicio muestra las tarjetas de los 8 módulos disponibles', (await p3.locator('.ti-mod').count()) === 8);
   ok('T13 Inicio no muestra módulos que no existen (contratos, respaldos) como tarjetas', (await p3.locator('.ti-mod h2').allTextContents()).filter((t) => /inteligencia|\bsap\b/i.test(t)).length === 0);
-  ok('T13 Proyectos es un enlace a GanttTracker en otra pestaña (sin tocar su código)', (await p3.getAttribute('#tnav-ti-proy', 'href')) === 'https://nubecafiver.github.io/gantttracker/' && (await p3.getAttribute('#tnav-ti-proy', 'target')) === '_blank' && (await p3.getAttribute('#tnav-ti-proy', 'rel')).includes('noopener'));
+  ok('T13 Proyectos es un enlace a GanttTracker en otra pestaña (sin tocar su código)', (await p3.getAttribute('#tnav-ti-proy', 'href')) === 'https://nubecafiver.github.io/-gantttracker/' && (await p3.getAttribute('#tnav-ti-proy', 'target')) === '_blank' && (await p3.getAttribute('#tnav-ti-proy', 'rel')).includes('noopener'));
   await C.ir('ti-procesos'); await C.shot('8-menu-procesos');
   await p3.setViewportSize({ width: 420, height: 800 });
   await p3.waitForTimeout(450);
