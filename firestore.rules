@@ -1,0 +1,132 @@
+rules_version = '2';
+
+// CAFIVER TI — Reglas de seguridad de Cloud Firestore (PROPUESTA, no desplegada).
+//
+// ANTES DE PUBLICAR:
+//  1. Compara con las reglas actuales en la consola de Firebase (Firestore > Reglas). No se conocen; no están en el repositorio.
+//  2. El bloque "INVENTARIO (transitorio)" replica el comportamiento de la app actual (cualquier usuario autenticado
+//     lee y escribe). Se endurecerá en una etapa posterior, con autorización, para no romper el inventario.
+//  3. Publica primero en un proyecto de pruebas o con el emulador (ver docs/PLATAFORMA.md).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ---------- Funciones auxiliares ---------- */
+    function firmado() { return request.auth != null && request.auth.token.email != null; }
+    function correo() { return request.auth.token.email.lower(); }
+    function rutaUsuario() { return /databases/$(database)/documents/usuarios_ti/$(correo()); }
+    function hayRegistro() { return firmado() && exists(rutaUsuario()); }
+    function activo() { return hayRegistro() && get(rutaUsuario()).data.activo == true; }
+    function tieneRol(r) { return activo() && (r in get(rutaUsuario()).data.roles); }
+    function esAdmin() { return tieneRol('administrador'); }
+    function esDirector() { return tieneRol('director'); }
+    function esResp() { return tieneRol('resp_proceso'); }
+    function esTecnico() { return tieneRol('tecnico'); }
+    // Administradores que pueden crear su propio registro la primera vez. Deben coincidir con TI.BOOTSTRAP_ADMINS en js/ti-core.js.
+    function esArranque() { return firmado() && correo() in ['ramaya@cafiver.com.mx']; }
+    function rolesValidos(l) { return l is list && l.size() <= 5 && l.hasOnly(['director', 'administrador', 'resp_proceso', 'tecnico', 'solicitante']); }
+
+    /* ---------- Usuarios y roles ---------- */
+    match /usuarios_ti/{id} {
+      // Cada quien puede leer su propio registro (para conocer su rol); los usuarios activos leen el directorio.
+      allow read: if firmado() && (id == correo() || activo());
+      allow create: if firmado() && request.resource.data.email == id && rolesValidos(request.resource.data.roles)
+                    && request.resource.data.activo is bool
+                    && (esAdmin() || (esArranque() && id == correo() && request.resource.data.roles == ['administrador'] && request.resource.data.activo == true));
+      allow update: if esAdmin() && request.resource.data.email == id && rolesValidos(request.resource.data.roles) && request.resource.data.activo is bool;
+      allow delete: if false;
+    }
+
+    /* ---------- Configuración (folios) ---------- */
+    match /ti_config/{doc} {
+      allow read: if activo();
+      allow create: if doc == 'contadores' && (esAdmin() || esResp()) && request.resource.data.keys().hasOnly(['procesos']) && request.resource.data.procesos is int && request.resource.data.procesos >= 1;
+      allow update: if doc == 'contadores' && (esAdmin() || esResp()) && request.resource.data.keys().hasOnly(['procesos']) && request.resource.data.procesos > resource.data.procesos;
+      allow delete: if false;
+    }
+
+    /* ---------- Auditoría: solo se crea; nadie edita ni borra ---------- */
+    match /ti_auditoria/{id} {
+      allow read: if esAdmin() || esDirector();
+      allow create: if activo() && request.resource.data.usuario == correo()
+                    && request.resource.data.keys().hasOnly(['fecha', 'usuario', 'accion', 'tipoRegistro', 'registroId', 'resultado', 'detalle', 'motivo'])
+                    && request.resource.data.fecha == request.time;
+      allow update, delete: if false;
+    }
+
+    /* ---------- Procesos y procedimientos ---------- */
+    function esPropietario(p) { return p.responsable == correo() || p.creadoPor == correo() || correo() in p.participantes; }
+    function editorDe(p) { return esAdmin() || (esResp() && esPropietario(p)); }
+    function rutaProceso(id) { return /databases/$(database)/documents/ti_procesos/$(id); }
+    function publicado(p) { return p.versionPublicada is int && p.versionPublicada > 0; }
+    function puedeLeerProceso(p) { return esAdmin() || esDirector() || esResp() || (esTecnico() && publicado(p)); }
+
+    match /ti_procesos/{id} {
+      allow read: if puedeLeerProceso(resource.data);
+      // Crear: el estado de la cabecera debe coincidir con el de la versión 1, creada en el mismo lote.
+      allow create: if (esAdmin() || esResp()) && request.resource.data.creadoPor == correo()
+                    && request.resource.data.estado == 'borrador' && request.resource.data.versionTrabajo == 1 && request.resource.data.versionPublicada == null
+                    && request.resource.data.nombre is string && request.resource.data.nombre.size() > 0 && request.resource.data.nombre.size() <= 200
+                    && request.resource.data.responsable is string && request.resource.data.participantes is list
+                    && getAfter(/databases/$(database)/documents/ti_procesos/$(id)/versiones/1).data.estado == 'borrador';
+      // Actualizar: quien edita, o Director/Administrador para las transiciones. En todos los casos el estado de la cabecera
+      // debe ser exactamente el de la versión de trabajo, y la versión vigente debe estar publicada (así no se puede
+      // "publicar" tocando solo la cabecera).
+      allow update: if (editorDe(resource.data) || esDirector() || esAdmin())
+                    && request.resource.data.codigo == resource.data.codigo && request.resource.data.creadoPor == resource.data.creadoPor
+                    && request.resource.data.nombre is string && request.resource.data.nombre.size() > 0 && request.resource.data.nombre.size() <= 200
+                    && getAfter(/databases/$(database)/documents/ti_procesos/$(id)/versiones/$(string(request.resource.data.versionTrabajo))).data.estado == request.resource.data.estado
+                    && (request.resource.data.versionPublicada == null
+                        || getAfter(/databases/$(database)/documents/ti_procesos/$(id)/versiones/$(string(request.resource.data.versionPublicada))).data.estado in ['publicado', 'en_revision_periodica']);
+      allow delete: if false;
+
+      match /versiones/{n} {
+        function version() { return resource.data; }
+        function nueva() { return request.resource.data; }
+        function padre() { return get(rutaProceso(id)).data; }
+        function lecturaVersion() { return esAdmin() || esDirector() || esResp() || (esTecnico() && resource.data.estado in ['publicado', 'en_revision_periodica']); }
+        function editor() { return editorDe(padre()); }
+        // Al crear, la cabecera puede estar en el mismo lote (proceso nuevo): se lee su estado posterior.
+        function editorAlCrear() { return editorDe(getAfter(rutaProceso(id)).data); }
+        function revisor() { return esDirector() || esAdmin(); }
+        function inmutables() { return nueva().numero == version().numero && nueva().creadoPor == version().creadoPor; }
+        function transicion() {
+          return
+            (version().estado == 'borrador'              && nueva().estado == 'en_revision'           && editor())
+         || (version().estado == 'en_revision'           && nueva().estado in ['pendiente_aprobacion', 'borrador'] && editor())
+         || (version().estado == 'pendiente_aprobacion'  && nueva().estado == 'aprobado'              && esDirector()
+                                                           && !(correo() in version().editores) && nueva().aprobacion.por == correo())
+         || (version().estado == 'pendiente_aprobacion'  && nueva().estado == 'borrador'              && esDirector())
+         || (version().estado == 'aprobado'              && nueva().estado == 'publicado'             && revisor())
+         || (version().estado == 'publicado'             && nueva().estado == 'en_revision_periodica' && editor())
+         || (version().estado == 'en_revision_periodica' && nueva().estado == 'publicado'             && revisor())
+         || (version().estado in ['publicado', 'en_revision_periodica'] && nueva().estado == 'reemplazada' && revisor())
+         || (version().estado in ['borrador', 'aprobado', 'publicado', 'en_revision_periodica'] && nueva().estado == 'obsoleto' && revisor());
+        }
+
+        allow read: if lecturaVersion();
+        // Una versión nueva siempre nace como borrador, con quien la crea como primer editor.
+        allow create: if editorAlCrear() && nueva().estado == 'borrador' && nueva().numero == int(n)
+                      && nueva().creadoPor == correo() && nueva().editores == [correo()];
+        allow update: if inmutables() && (
+              // Editar un borrador: cambia el contenido y se agrega al editor; el estado no cambia.
+              (version().estado == 'borrador' && nueva().estado == 'borrador' && editor() && correo() in nueva().editores)
+              // Cualquier otro cambio es una transición permitida y el contenido queda intacto (versiones inmutables).
+           || (nueva().contenido == version().contenido && nueva().editores == version().editores && transicion()));
+        allow delete: if false;
+      }
+
+      match /historial/{h} {
+        allow read: if esAdmin() || esDirector() || esResp();
+        allow create: if (editorDe(getAfter(rutaProceso(id)).data) || esDirector() || esAdmin()) && request.resource.data.usuario == correo();
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- INVENTARIO (transitorio) ----------
+       Replica el comportamiento actual de la app: cualquier usuario autenticado lee y escribe.
+       Se endurecerá en una etapa posterior para no romper el inventario sin autorización. */
+    match /{col}/{doc=**} {
+      allow read, write: if firmado() && col in ['equipos', 'transferencias', 'reparaciones', 'celulares', 'licencias', 'software_equipos', 'personal', 'escaneos', 'catalogo'];
+    }
+  }
+}
