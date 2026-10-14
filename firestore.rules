@@ -17,13 +17,16 @@ service cloud.firestore {
     function hayRegistro() { return firmado() && exists(rutaUsuario()); }
     function activo() { return hayRegistro() && get(rutaUsuario()).data.activo == true; }
     function tieneRol(r) { return activo() && (r in get(rutaUsuario()).data.roles); }
-    function esAdmin() { return tieneRol('administrador'); }
-    function esDirector() { return tieneRol('director'); }
-    function esResp() { return tieneRol('resp_proceso'); }
+    // El Gerente de TI reúne los permisos del Administrador y del Director; el Consultor los del Responsable de proceso (más atender tickets asignados).
+    function esGerente() { return tieneRol('gerente'); }
+    function esAdmin() { return tieneRol('administrador') || tieneRol('gerente'); }
+    function esDirector() { return tieneRol('director') || tieneRol('gerente'); }
+    function esConsultor() { return tieneRol('consultor'); }
+    function esResp() { return tieneRol('resp_proceso') || tieneRol('consultor'); }
     function esTecnico() { return tieneRol('tecnico'); }
     // Administradores que pueden crear su propio registro la primera vez. Deben coincidir con TI.BOOTSTRAP_ADMINS en js/ti-core.js.
     function esArranque() { return firmado() && correo() in ['ramaya@cafiver.com.mx']; }
-    function rolesValidos(l) { return l is list && l.size() <= 5 && l.hasOnly(['director', 'administrador', 'resp_proceso', 'tecnico', 'solicitante']); }
+    function rolesValidos(l) { return l is list && l.size() <= 5 && l.hasOnly(['gerente', 'consultor', 'director', 'administrador', 'resp_proceso', 'tecnico', 'solicitante']); }
 
     /* ---------- Usuarios y roles ---------- */
     match /usuarios_ti/{id} {
@@ -31,7 +34,7 @@ service cloud.firestore {
       allow read: if firmado() && (id == correo() || activo());
       allow create: if firmado() && request.resource.data.email == id && rolesValidos(request.resource.data.roles)
                     && request.resource.data.activo is bool
-                    && (esAdmin() || (esArranque() && id == correo() && request.resource.data.roles == ['administrador', 'director'] && request.resource.data.activo == true));
+                    && (esAdmin() || (esArranque() && id == correo() && request.resource.data.roles == ['gerente'] && request.resource.data.activo == true));
       allow update: if esAdmin() && request.resource.data.email == id && rolesValidos(request.resource.data.roles) && request.resource.data.activo is bool;
       allow delete: if false;
     }
@@ -176,7 +179,7 @@ service cloud.firestore {
     // Quien atiende: el administrador siempre; el técnico solo si el ticket es suyo o lo toma (sin responsable); el director solo asigna y cambia prioridad.
     function atiendeTI() {
       return esAdmin()
-          || (esTecnico() && (tk().responsable == correo() || (tk().responsable == null && tkNuevo().responsable == correo() && tk().estado == 'nuevo')))
+          || ((esTecnico() || esConsultor()) && (tk().responsable == correo() || (tk().responsable == null && tkNuevo().responsable == correo() && tk().estado == 'nuevo')))
           || (esDirector() && cambia().hasOnly(['responsable', 'estado', 'impacto', 'urgencia', 'prioridad', 'actualizadoEn']) && (tkNuevo().estado == tk().estado || (tk().estado == 'nuevo' && tkNuevo().estado == 'asignado')));
     }
     function solicitanteActua() {
@@ -189,7 +192,8 @@ service cloud.firestore {
     }
 
     match /ti_tickets/{id} {
-      allow read: if equipoTI() || (activo() && soyElSolicitante());
+      // El Consultor lee los tickets que tiene asignados, los que creó y los nuevos sin responsable (para tomarlos).
+      allow read: if equipoTI() || (activo() && soyElSolicitante()) || (esConsultor() && (tk().responsable == correo() || (tk().responsable == null && tk().estado == 'nuevo')));
       allow create: if activo() && tkNuevo().solicitanteEmail == correo() && tkNuevo().estado == 'nuevo' && tkNuevo().responsable == null
                     && tkNuevo().codigo == id && tkNuevo().tipo in ['incidente', 'solicitud'] && tkNuevo().impacto in ['alto', 'medio', 'bajo'] && tkNuevo().urgencia in ['alta', 'media', 'baja']
                     && tkNuevo().prioridad in ['critica', 'alta', 'media', 'baja']
@@ -199,22 +203,22 @@ service cloud.firestore {
                     && tkNuevo().creadoMs is int && math.abs(tkNuevo().creadoMs - request.time.toMillis()) < 600000 && tkNuevo().creadoEn == request.time;
       allow update: if camposFijos() && estadoOk() && (
                     // El administrador y el equipo técnico, con las restricciones de arriba. Cancelar un ticket ajeno es solo del administrador.
-                    (equipoTI() && atiendeTI() && (tkNuevo().estado != 'cancelado' || tk().estado == tkNuevo().estado || esAdmin()))
+                    ((equipoTI() || esConsultor()) && atiendeTI() && (tkNuevo().estado != 'cancelado' || tk().estado == tkNuevo().estado || esAdmin()))
                     // Primera respuesta pública (la registra el comentario de TI).
-                 || (equipoTI() && tk().primeraRespuestaMs == null && cambia().hasOnly(['primeraRespuestaMs', 'actualizadoEn']))
+                 || ((equipoTI() || (esConsultor() && tk().responsable == correo())) && tk().primeraRespuestaMs == null && cambia().hasOnly(['primeraRespuestaMs', 'actualizadoEn']))
                  || solicitanteActua());
       allow delete: if false;
 
       match /comentarios/{c} {
         function padreT() { return get(rutaTicket(id)).data; }
-        allow read: if equipoTI() || (activo() && padreT().solicitanteEmail == correo() && resource.data.interno == false);
+        allow read: if equipoTI() || (esConsultor() && (padreT().responsable == correo() || padreT().responsable == null)) || (activo() && padreT().solicitanteEmail == correo() && resource.data.interno == false);
         allow create: if activo() && request.resource.data.autor == correo() && request.resource.data.texto is string && request.resource.data.texto.size() > 0 && request.resource.data.texto.size() <= 2000
                       && request.resource.data.interno is bool && request.resource.data.fecha == request.time
-                      && (equipoTI() || (getAfter(rutaTicket(id)).data.solicitanteEmail == correo() && request.resource.data.interno == false));
+                      && (equipoTI() || (esConsultor() && getAfter(rutaTicket(id)).data.responsable == correo()) || (getAfter(rutaTicket(id)).data.solicitanteEmail == correo() && request.resource.data.interno == false));
         allow update, delete: if false;
       }
       match /historial/{h} {
-        allow read: if equipoTI();
+        allow read: if equipoTI() || (esConsultor() && (get(rutaTicket(id)).data.responsable == correo()));
         allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
         allow update, delete: if false;
       }

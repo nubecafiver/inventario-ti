@@ -12,6 +12,8 @@
   });
 
   var DESCRIPCION = {
+    gerente: 'Ve todo: procesos, tickets, auditoría e inventario. Aprueba y publica procedimientos (no los que él mismo editó), asigna y atiende tickets, cancela tickets ajenos, configura la mesa de ayuda y administra usuarios y roles.',
+    consultor: 'Crea y edita sus procedimientos y los envía a aprobación. En la mesa de ayuda crea tickets, toma los que nadie atiende y atiende los que el Gerente le asigna. No ve el resto de tickets, ni configuración, auditoría o usuarios. No aprueba.',
     director: 'Ve todos los procesos, aprueba o rechaza procedimientos (no los que él mismo editó), consulta la auditoría. En la mesa de ayuda ve todos los tickets, asigna y cambia prioridad (no atiende).',
     administrador: 'Crea y edita cualquier proceso, publica, carga el catálogo inicial, administra usuarios y roles, consulta la auditoría. No aprueba por ser administrador. En la mesa de ayuda atiende y asigna tickets, cancela los ajenos y configura categorías, SLA y horario.',
     resp_proceso: 'Crea procesos y edita solo aquellos donde es responsable, participante o creador. Envía a revisión y a aprobación.',
@@ -24,7 +26,7 @@
     var admin = TI.puede('usuarios.admin'), audi = TI.puede('auditoria.ver'), h = '';
     h += '<div class="ti-head"><div><h1 class="ti-h1">Administración</h1><div class="ti-sub">Usuarios, roles y bitácora de auditoría de la plataforma de TI.</div></div></div>';
     if (TI.pendienteBootstrap) {
-      el.innerHTML = h + '<div class="ti-note warn"><b>Configuración inicial.</b> Aún no hay roles en la plataforma. Tu correo (<b>' + esc(TI.user.email) + '</b>) está autorizado para crear su propio registro como <b>Administrador de la plataforma y Director de TI</b>. Después podrás asignar roles a tu equipo.<div style="margin-top:10px"><button class="btn btn-blue" id="ad-boot">Crear mi registro de administrador</button></div></div>';
+      el.innerHTML = h + '<div class="ti-note warn"><b>Configuración inicial.</b> Aún no hay roles en la plataforma. Tu correo (<b>' + esc(TI.user.email) + '</b>) está autorizado para crear su propio registro como <b>Gerente de TI</b>. Después podrás asignar roles a tu equipo.<div style="margin-top:10px"><button class="btn btn-blue" id="ad-boot">Crear mi registro de administrador</button></div></div>';
       el.querySelector('#ad-boot').onclick = inicializar; return;
     }
     h += '<div class="ti-tabs" role="tablist">' + (admin ? '<button role="tab" data-t="usuarios" aria-selected="' + (A.tab === 'usuarios') + '">Usuarios y roles</button><button role="tab" data-t="roles" aria-selected="' + (A.tab === 'roles') + '">Qué puede hacer cada rol</button>' : '') + (admin && TI.puede('tickets.configurar') ? '<button role="tab" data-t="tickets" aria-selected="' + (A.tab === 'tickets') + '">Mesa de ayuda</button>' : '') + (audi ? '<button role="tab" data-t="auditoria" aria-selected="' + (A.tab === 'auditoria') + '">Auditoría</button>' : '') + '</div>';
@@ -54,7 +56,7 @@
       var d = cache[e], nombre = (d && d.nombre) || (window.USER_DIR && USER_DIR[e] && USER_DIR[e].name) || e;
       h += '<tr><td><b>' + esc(nombre) + '</b><br><span class="ti-mut">' + esc(e) + '</span></td><td>' + (d && (d.roles || []).length ? d.roles.map(function (r) { return '<span class="pill ti-e ti-e-en_revision" style="margin:0 4px 4px 0">' + esc(L.ROLES[r] || r) + '</span>'; }).join('') : '<span class="ti-mut">Sin roles asignados</span>') + '</td><td>' + (d ? (d.activo === false ? '<span class="pill ti-e ti-e-obsoleto">Inactivo</span>' : '<span class="pill ti-e ti-e-publicado">Activo</span>') : '<span class="ti-mut">Sin registro</span>') + '</td><td style="text-align:right"><button class="btn btn-sm" data-ed="' + esc(e) + '">' + (d ? 'Cambiar roles' : 'Asignar roles') + '</button></td></tr>';
     });
-    return h + '</tbody></table></div></div><div class="ti-note">Cada cambio de roles queda en la auditoría. Siempre debe quedar al menos un Administrador activo.</div>';
+    return h + '</tbody></table></div></div><div class="ti-note">Cada cambio de roles queda en la auditoría. Siempre debe quedar al menos un Gerente o Administrador activo.</div>';
   }
   function vistaRoles() {
     return '<div class="ti-card"><div class="ti-scroll"><table class="ti-table"><thead><tr><th>Rol</th><th>Alcance (procesos, mesa de ayuda y administración)</th></tr></thead><tbody>' + Object.keys(L.ROLES).map(function (r) { return '<tr><td><b>' + esc(L.ROLES[r]) + '</b></td><td>' + esc(DESCRIPCION[r]) + '</td></tr>'; }).join('') + '</tbody></table></div></div><div class="ti-note">Un usuario puede tener varios roles; sus permisos se suman. La separación de funciones se mantiene aunque una persona tenga varios roles: nadie aprueba una versión que él mismo editó.</div>';
@@ -74,8 +76,8 @@
       m.q('#u-e1').textContent = ''; m.q('#u-e2').textContent = '';
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { m.q('#u-e1').textContent = 'Escribe un correo válido.'; m.q('#u-mail').focus(); return; }
       if (activo && !roles.length) { m.q('#u-e2').textContent = 'Asigna al menos un rol o desactiva al usuario.'; return; }
-      var otros = Object.keys(cache).filter(function (k) { return k !== mail && cache[k].activo !== false && (cache[k].roles || []).indexOf('administrador') >= 0; }).length;
-      if (!(activo && roles.indexOf('administrador') >= 0) && !otros) { m.q('#u-e2').textContent = 'Debe quedar al menos un Administrador activo.'; return; }
+      var otros = Object.keys(cache).filter(function (k) { return k !== mail && cache[k].activo !== false && L.tiene({ roles: cache[k].roles }, 'usuarios.admin'); }).length;
+      if (!(activo && L.tiene({ roles: roles }, 'usuarios.admin')) && !otros) { m.q('#u-e2').textContent = 'Debe quedar al menos un Gerente o Administrador activo.'; return; }
       var antes = d ? (d.roles || []).join(', ') + (d.activo === false ? ' (inactivo)' : '') : 'sin registro';
       var batch = db.batch(), ts = TI.serverTs(), ref = db.collection('usuarios_ti').doc(mail);
       var datos = { email: mail, nombre: m.q('#u-nom').value.trim() || mail.split('@')[0], roles: roles, activo: activo, actualizadoPor: TI.user.email, actualizadoEn: ts };
@@ -89,7 +91,7 @@
   function faltanEquipo() { var c = TI.usuariosCache || {}; return TI.EQUIPO_INICIAL.filter(function (x) { return !c[x.email]; }); }
   function asignarEquipo() {
     var falta = faltanEquipo(); if (!falta.length) return;
-    TI.confirmar('Asignar roles iniciales al equipo', 'Se crearán ' + falta.length + ' registros con el rol Responsable de proceso: ' + falta.map(function (x) { return x.email; }).join(', ') + '. Podrás cambiar sus roles después. Cada correo debe tener su cuenta en Firebase Authentication para poder entrar.', 'Asignar roles', function () {
+    TI.confirmar('Asignar roles iniciales al equipo', 'Se crearán ' + falta.length + ' registros con el rol Consultor de TI: ' + falta.map(function (x) { return x.email; }).join(', ') + '. Podrás cambiar sus roles después. Cada correo debe tener su cuenta en Firebase Authentication para poder entrar.', 'Asignar roles', function () {
       var batch = db.batch(), ts = TI.serverTs();
       falta.forEach(function (x) {
         var nombre = (window.USER_DIR && USER_DIR[x.email] && USER_DIR[x.email].name) || x.email.split('@')[0];
@@ -102,8 +104,8 @@
   function inicializar() {
     var email = TI.user.email, ts = TI.serverTs(), batch = db.batch(), ref = db.collection('usuarios_ti').doc(email);
     batch.set(ref, { email: email, nombre: (window.curUser && curUser.name) || email, roles: TI.ARRANQUE_ROLES.slice(), activo: true, creadoPor: email, creadoEn: ts, actualizadoPor: email, actualizadoEn: ts });
-    TI.auditar(batch, { accion: 'arranque_plataforma', tipo: 'usuario', id: email, detalle: 'Registro inicial: Administrador y Director' });
-    batch.commit().then(function () { TI.msg('Listo: ya eres Administrador y Director'); return TI.init(); }).then(function () { TI.ir('ti-admin'); })
+    TI.auditar(batch, { accion: 'arranque_plataforma', tipo: 'usuario', id: email, detalle: 'Registro inicial: Gerente de TI' });
+    batch.commit().then(function () { TI.msg('Listo: ya eres Gerente de TI'); return TI.init(); }).then(function () { TI.ir('ti-admin'); })
       .catch(function (e) { TI.msg('No se pudo crear el registro: ' + e.message + '. Si las reglas de Firestore aún no incluyen usuarios_ti, publícalas primero (ver docs/PLATAFORMA.md).'); });
   }
 

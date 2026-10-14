@@ -64,7 +64,7 @@ async function abrir(browser, errores, semilla) {
   ok('T1 panel de configuración inicial visible', await visible('#ad-boot'));
   await page.click('#ad-boot'); await page.waitForSelector('#tnav-ti-procesos:not(.hidden)', { timeout: 4000 }).catch(() => {});
   ok('T1 tras crear su registro aparece Procesos', await visible('#tnav-ti-procesos'));
-  ok('T1 el menú dice "Inicio" y muestra el rol', (await page.locator('#tnav-ti-inicio').textContent()).includes('Inicio') && (await page.locator('#cur-rol').textContent()).includes('Administrador'));
+  ok('T1 el menú dice "Inicio" y muestra el rol', (await page.locator('#tnav-ti-inicio').textContent()).includes('Inicio') && (await page.locator('#cur-rol').textContent()).includes('Gerente de TI'));
 
   /* ---------- T1b: roles desde la interfaz ---------- */
   await ir('ti-admin'); await espera(200);
@@ -73,8 +73,8 @@ async function abrir(browser, errores, semilla) {
   await asignar(DIR, 'director'); await asignar(RESP, 'resp_proceso'); await asignar(TEC, 'tecnico'); await asignar(SOL, 'solicitante');
   const usuarios = await page.evaluate(() => Object.keys(window.__MOCK.store).filter((k) => k.startsWith('usuarios_ti/')).length);
   ok('T1b se registraron 5 usuarios con rol', usuarios === 5, usuarios);
-  await page.click('[data-ed="' + ADMIN + '"]'); await page.uncheck('.ti-ov .u-rol[value=administrador]'); await page.check('.ti-ov .u-rol[value=tecnico]'); await page.click('#u-ok'); await espera(150);
-  ok('T1b no se puede dejar sin Administrador', (await page.locator('#u-e2').textContent()).includes('al menos un Administrador'));
+  await page.click('[data-ed="' + ADMIN + '"]'); await page.uncheck('.ti-ov .u-rol[value=gerente]'); await page.check('.ti-ov .u-rol[value=tecnico]'); await page.click('#u-ok'); await espera(150);
+  ok('T1b no se puede dejar sin Gerente o Administrador', (await page.locator('#u-e2').textContent()).includes('al menos un Gerente'));
   await cerrarModal();
 
   /* ---------- T2: catálogo inicial ---------- */
@@ -185,11 +185,11 @@ async function abrir(browser, errores, semilla) {
   await B.ir('ti-admin'); await p2.waitForTimeout(300);
   const ur = () => p2.evaluate(() => { const o = {}; Object.keys(window.__MOCK.store).filter((k) => k.startsWith('usuarios_ti/')).forEach((k) => { o[k.slice(12)] = window.__MOCK.store[k].roles.join('+'); }); return o; });
   const r0 = await ur();
-  ok('T12 el arranque crea a ramaya como Administrador y Director', r0[ADMIN] === 'administrador+director', r0);
+  ok('T12 el arranque crea a ramaya como Gerente de TI', r0[ADMIN] === 'gerente', r0);
   ok('T12 aparece el botón del equipo inicial con 4 pendientes', (await p2.locator('#ad-equipo').textContent()).includes('(4)'));
   await p2.click('#ad-equipo'); await p2.click('#ti-conf-ok'); await p2.waitForTimeout(500);
   const r1 = await ur();
-  ok('T12 se crean los 4 registros como Responsable de proceso', ['vlopez', 'aosorio', 'soportetecnico', 'dgomez'].every((n) => r1[n + '@cafiver.com.mx'] === 'resp_proceso') && Object.keys(r1).length === 5, r1);
+  ok('T12 se crean los 4 registros como Consultor de TI', ['vlopez', 'aosorio', 'soportetecnico', 'dgomez'].every((n) => r1[n + '@cafiver.com.mx'] === 'consultor') && Object.keys(r1).length === 5, r1);
   ok('T12 el botón desaparece cuando ya no hay pendientes', (await p2.locator('#ad-equipo').count()) === 0);
   ok('T12 soportetec@ (Daniela) no recibe rol: es otra persona', !('soportetec@cafiver.com.mx' in r1));
   await B.logout(); await B.login('dgomez@cafiver.com.mx');
@@ -224,7 +224,7 @@ async function abrir(browser, errores, semilla) {
   const sumarDias = (n) => { const d = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate())); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
   const semilla = {};
   const usr = (e, roles) => { semilla['usuarios_ti/' + e] = { email: e, nombre: e.split('@')[0], roles, activo: true }; };
-  usr(ADMIN, ['administrador', 'director']); usr(DIR, ['director']); usr(RESP, ['resp_proceso']); usr(TEC, ['tecnico']); usr(SOL, ['solicitante']);
+  usr(ADMIN, ['gerente']); usr(DIR, ['director']); usr(RESP, ['resp_proceso']); usr(TEC, ['tecnico']); usr(SOL, ['solicitante']);
   const contenido = { objetivo: 'o', alcance: 'a', descripcion: '', entradas: [], resultadosEsperados: [], sistemas: [], riesgos: [], controles: [], evidencias: [], indicadores: [], tiempoObjetivo: '', documentosRelacionados: [], pasos: [{ descripcion: 'd', responsable: 'r' }] };
   const proc = (n, o) => { const id = 'PRO-00' + n; semilla['ti_procesos/' + id] = Object.assign({ codigo: id, nombre: 'Proceso ' + n, categoria: 'Servicio', responsable: RESP, creadoPor: RESP, participantes: [], periodoRevisionMeses: 12, estado: 'borrador', versionTrabajo: 1, versionPublicada: null, proximaRevision: null, documentado: false, esPlantilla: false }, o);
     semilla['ti_procesos/' + id + '/versiones/1'] = { numero: 1, estado: o.estado || 'borrador', contenido, editores: [RESP], creadoPor: RESP, aprobacion: null }; };
@@ -310,7 +310,7 @@ async function abrir(browser, errores, semilla) {
   await D.logout(); await pd.close();
 
   /* ---------- T15: estados vacíos ---------- */
-  const semilla2 = {}; semilla2['usuarios_ti/' + ADMIN] = { email: ADMIN, nombre: 'Admin', roles: ['administrador', 'director'], activo: true };
+  const semilla2 = {}; semilla2['usuarios_ti/' + ADMIN] = { email: ADMIN, nombre: 'Admin', roles: ['gerente'], activo: true };
   const E = await abrir(browser, errores, semilla2), pe = E.page;
   await E.login(ADMIN); await E.espera(400);
   const txt = await pe.locator('#view-ti-inicio').textContent();
@@ -321,7 +321,7 @@ async function abrir(browser, errores, semilla) {
   /* ---------- T16: Mesa de ayuda ---------- */
   const ahoraT = Date.now(), DIA = 86400000;
   const sem3 = {};
-  [[ADMIN, ['administrador', 'director']], [DIR, ['director']], [RESP, ['resp_proceso']], [TEC, ['tecnico']], [SOL, ['solicitante']]].forEach(([e, r]) => { sem3['usuarios_ti/' + e] = { email: e, nombre: e.split('@')[0], roles: r, activo: true }; });
+  [[ADMIN, ['gerente']], [DIR, ['director']], [RESP, ['resp_proceso']], [TEC, ['tecnico']], [SOL, ['solicitante']]].forEach(([e, r]) => { sem3['usuarios_ti/' + e] = { email: e, nombre: e.split('@')[0], roles: r, activo: true }; });
   sem3['equipos/EQ-001'] = { id: 'EQ-001', af: 'AF-77', tipo: 'Laptop', marca: 'Dell', modelo: 'Latitude', responsable: 'Ana', estado: 'Bueno' };
   const tkSemilla = (id, extra) => Object.assign({ codigo: id, titulo: 'Impresora sin tinta', descripcion: 'd', tipo: 'incidente', categoria: 'impresoras', impacto: 'bajo', urgencia: 'media', prioridad: 'baja', estado: 'nuevo', solicitanteEmail: RESP, responsable: null, evidencias: [], esperas: [], escaladoNivel: 0, reaperturas: 0, primeraRespuestaMs: null, resueltoMs: null, cerradoMs: null, creadoMs: ahoraT - 1000 }, extra || {});
   sem3['ti_tickets/TCK-0050'] = tkSemilla('TCK-0050');
@@ -463,6 +463,47 @@ async function abrir(browser, errores, semilla) {
   ok('T16 clic en "Críticos abiertos" lleva a Mesa de ayuda filtrada', (await pk.locator('.ti-kpi.on[data-kpi=criticos]').count()) === 1 && (await K.filas()) === 1);
   await K.logout();
   await K.page.close();
+
+  /* ---------- T17: Gerente de TI y Consultores ---------- */
+  const CONS_A = RESP, CONS_B = TEC, GER = ADMIN;
+  const sem4 = {};
+  [[GER, ['gerente']], [CONS_A, ['consultor']], [CONS_B, ['consultor']], [SOL, ['solicitante']]].forEach(([e, r]) => { sem4['usuarios_ti/' + e] = { email: e, nombre: e.split('@')[0], roles: r, activo: true }; });
+  sem4['ti_tickets/TCK-0101'] = tkSemilla('TCK-0101', { estado: 'asignado', responsable: CONS_A, solicitanteEmail: SOL });
+  sem4['ti_tickets/TCK-0102'] = tkSemilla('TCK-0102', { estado: 'asignado', responsable: CONS_B, solicitanteEmail: SOL });
+  sem4['ti_tickets/TCK-0103'] = tkSemilla('TCK-0103', { estado: 'nuevo', responsable: null, solicitanteEmail: SOL });
+  sem4['ti_tickets/TCK-0104'] = tkSemilla('TCK-0104', { estado: 'en_atencion', responsable: CONS_B, solicitanteEmail: CONS_B });
+  const G = await abrir(browser, errores, sem4), pg = G.page;
+  const habilG = async (id) => (await G.accion(id).count()) === 1 && (await G.accion(id).getAttribute('aria-disabled')) === null;
+  await G.login(CONS_A); await G.ir('ti-tickets'); await G.espera(300);
+  const codsA = await pg.locator('#view-ti-tickets .ti-row .ti-code').allTextContents();
+  ok('T17 el consultor ve sus asignados y los nuevos sin responsable, y no los de otro consultor', JSON.stringify(codsA.sort()) === JSON.stringify(['TCK-0101', 'TCK-0103']), codsA);
+  ok('T17 el consultor no ve tarjetas de gestión global', (await pg.locator('#view-ti-tickets .ti-kpi').count()) === 0);
+  ok('T17 el consultor no ve Administración ni puede abrirla', !(await G.visible('#tnav-ti-admin')) && (await G.visible('#tnav-ti-procesos')));
+  await G.ir('ti-admin'); await G.espera(150);
+  ok('T17 abrir Administración por la fuerza lo regresa a Inicio', (await pg.locator('#view-ti-admin').isVisible()) === false);
+  await G.ir('ti-tickets'); await G.espera(200);
+  await G.abrirFila('TCK-0101');
+  ok('T17 puede iniciar atención en lo asignado a él, pero no asignar ni cancelar', await habilG('iniciar_atencion') && !(await habilG('asignar')) && !(await habilG('cancelar_ti')));
+  await G.cerrarModal(); await G.abrirFila('TCK-0103');
+  ok('T17 puede tomar un ticket sin responsable', await habilG('tomar'));
+  await G.accion('tomar').click(); await G.espera(300);
+  ok('T17 al tomarlo queda asignado a él', (await pg.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0103'])).responsable === CONS_A);
+  await G.cerrarModal(); await G.espera(200);
+  ok('T17 un ticket que otro consultor ya tomó deja de aparecerle (solo los de él)', (await pg.locator('#view-ti-tickets .ti-row').count()) === 2);
+  await G.logout();
+  await G.login(GER); await G.ir('ti-tickets'); await G.espera(300);
+  ok('T17 el Gerente ve todos los tickets y las tarjetas de gestión', (await pg.locator('#view-ti-tickets .ti-row').count()) === 4 && (await pg.locator('#view-ti-tickets .ti-kpi').count()) === 5);
+  await G.abrirFila('TCK-0102');
+  ok('T17 el Gerente puede reasignar, cambiar prioridad y cancelar un ticket de un consultor', await habilG('asignar') && await habilG('cambiar_prioridad') && await habilG('cancelar_ti'));
+  await G.accion('asignar').click(); const asg = await pg.locator('#ac-responsable option').allTextContents();
+  ok('T17 se puede asignar a los consultores y al Gerente, no al solicitante', asg.some((o) => o.includes(CONS_A)) && asg.some((o) => o.includes(CONS_B)) && asg.some((o) => o.includes(GER)) && !asg.some((o) => o.includes(SOL)), asg);
+  await pg.selectOption('#ac-responsable', CONS_A); await pg.click('#ac-ok'); await G.espera(300);
+  ok('T17 el Gerente reasignó el ticket a otro consultor', (await pg.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0102'])).responsable === CONS_A);
+  await G.cerrarModal();
+  ok('T17 el Gerente ve Administración y la pestaña de Mesa de ayuda', (await G.visible('#tnav-ti-admin')));
+  await G.ir('ti-admin'); await G.espera(200);
+  ok('T17 Administración muestra los roles Gerente y Consultor', (await pg.locator('.ti-tabs [data-t=roles]').count()) === 1 && (await (async () => { await pg.click('[data-t=roles]'); return (await pg.locator('#view-ti-admin .ti-table').textContent()).includes('Consultor de TI') && (await pg.locator('#view-ti-admin .ti-table').textContent()).includes('Gerente de TI'); })()));
+  await G.logout(); await G.page.close();
 
   ok('Sin errores de JavaScript en toda la sesión', errores.length === 0, errores.slice(0, 5));
   await browser.close();

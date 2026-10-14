@@ -8,6 +8,8 @@
 
   /* ===== Roles y permisos ===== */
   var ROLES = {
+    gerente:       'Gerente de TI',
+    consultor:     'Consultor de TI',
     director:      'Director de TI',
     administrador: 'Administrador de la plataforma',
     resp_proceso:  'Responsable de proceso',
@@ -21,6 +23,10 @@
     tecnico:       ['procesos.ver_publicados', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.atender'],
     solicitante:   ['tickets.crear', 'tickets.ver_propios']
   };
+  /* Gerente de TI = todo lo del Administrador y del Director (unión calculada, no copiada). Consultor = Responsable de proceso
+     + atender tickets (solo los asignados a él o los que nadie ha tomado). Los roles anteriores se conservan. */
+  PERMISOS_POR_ROL.gerente = PERMISOS_POR_ROL.administrador.concat(PERMISOS_POR_ROL.director.filter(function (p) { return PERMISOS_POR_ROL.administrador.indexOf(p) < 0; }));
+  PERMISOS_POR_ROL.consultor = PERMISOS_POR_ROL.resp_proceso.concat(['tickets.atender']);
   function permisos(roles) {
     var set = {};
     (roles || []).forEach(function (r) { (PERMISOS_POR_ROL[r] || []).forEach(function (p) { set[p] = true; }); });
@@ -262,7 +268,12 @@
   }
   function slugCategoria(nombre) { return String(nombre || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40); }
   function nombreCategoria(cfg, id) { var c = (cfg.categorias || []).filter(function (x) { return x.id === id; })[0]; return c ? c.nombre : (id || '—'); }
-  function puedeVerTicket(user, t) { return tiene(user, 'tickets.ver_todos') || (tiene(user, 'tickets.ver_propios') && t.solicitanteEmail === user.email); }
+  function puedeVerTicket(user, t) {
+    if (tiene(user, 'tickets.ver_todos')) return true;
+    if (tiene(user, 'tickets.ver_propios') && t.solicitanteEmail === user.email) return true;
+    /* Quien atiende sin ver todo (Consultor): los que tiene asignados y los nuevos sin responsable. */
+    return tiene(user, 'tickets.atender') && (t.responsable === user.email || (!t.responsable && t.estado === 'nuevo'));
+  }
   function esTI(user) { return tiene(user, 'tickets.ver_todos') || tiene(user, 'tickets.atender') || tiene(user, 'tickets.asignar'); }
 
   /* ----- Tiempo laboral ----- */

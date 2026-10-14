@@ -37,7 +37,12 @@
     function ante(clave) { return function (snap) { S[clave] = aMapa(snap); S.error = ''; recomponer(); pintar(); if (S.detalle && S.detalle.modal && document.body.contains(S.detalle.modal.el)) pintarDetalle(S.detalle); avisar(); }; }
     function falla(err) { S.error = err.code === 'permission-denied' ? 'permiso' : err.message; pintar(); avisar(); }
     var col = db.collection('ti_tickets');
-    if (L.esTI(TI.user)) {
+    if (!TI.puede('tickets.ver_todos') && TI.puede('tickets.atender')) {
+      /* Consultor: lo asignado a él, lo que creó y lo nuevo sin responsable (para tomarlo). Tres consultas acotadas. */
+      TI.unsubs.push(col.where('responsable', '==', TI.user.email).onSnapshot(ante('abiertos'), falla));
+      TI.unsubs.push(col.where('solicitanteEmail', '==', TI.user.email).onSnapshot(ante('propios'), falla));
+      TI.unsubs.push(col.where('responsable', '==', null).where('estado', '==', 'nuevo').onSnapshot(ante('recientes'), falla));
+    } else if (L.esTI(TI.user)) {
       var desde = Date.now() - L.VENTANA_TICKETS_DIAS * 86400000;
       TI.unsubs.push(col.where('estado', 'in', L.TICKET_ABIERTOS).onSnapshot(ante('abiertos'), falla));
       TI.unsubs.push(col.where('resueltoMs', '>', desde).onSnapshot(ante('recientes'), falla));
@@ -97,11 +102,11 @@
   }
   function pintar() {
     var el = S.el; if (!el) return;
-    var ti = L.esTI(TI.user), h = '';
-    h += '<div class="ti-head"><div><h1 class="ti-h1">Mesa de ayuda</h1><div class="ti-sub">' + (ti ? 'Incidentes y solicitudes de servicio del departamento de TI.' : 'Reporta un problema o pide un servicio y da seguimiento a tus solicitudes.') + '</div></div></div>';
+    var ti = L.esTI(TI.user), todos = TI.puede('tickets.ver_todos'), h = '';
+    h += '<div class="ti-head"><div><h1 class="ti-h1">Mesa de ayuda</h1><div class="ti-sub">' + (todos ? 'Incidentes y solicitudes de servicio del departamento de TI.' : ti ? 'Tus tickets asignados, los que nadie atiende y los que tú creaste.' : 'Reporta un problema o pide un servicio y da seguimiento a tus solicitudes.') + '</div></div></div>';
     if (S.error === 'permiso') { el.innerHTML = h + '<div class="ti-note err"><b>Sin acceso a los datos.</b> Tu cuenta no tiene permiso para leer tickets. Si el problema continúa, el administrador debe publicar las reglas de seguridad actualizadas de <code>firestore.rules</code>.</div>'; return; }
     if (S.error) { el.innerHTML = h + '<div class="ti-note err">No se pudo cargar: ' + esc(S.error) + '</div>'; return; }
-    if (ti) {
+    if (todos) {
       var ind = L.indicadoresTickets(S.lista, cfg(), Date.now());
       h += '<div class="ti-kpis">' + KPIS.map(function (k) {
         var v = ind[k[0]], sub = k[2];
@@ -129,7 +134,7 @@
         '<td>' + pillPrio(t.prioridad) + '</td><td>' + pillEstado(t.estado) + '</td>' + (ti ? '<td>' + nombreResp(t) + '</td>' : '') + '<td>' + insigniaSLA(t) + '</td><td>' + TI.fechaHora(t.creadoMs) + '</td></tr>';
     });
     h += '</tbody></table></div></div>';
-    if (ti) {
+    if (todos) {
       var ind2 = L.indicadoresTickets(S.lista, cfg(), Date.now());
       h += '<div class="ti-note">Se muestran los tickets abiertos y los resueltos en los últimos ' + ind2.ventanaDias + ' días. Un ticket se vence solo si su categoría y prioridad tienen un SLA configurado por el administrador; los plazos no vienen predefinidos. Tiempo medio de resolución: ' +
         (ind2.tiempoMedioResolucionHoras === null ? '<b>muestra insuficiente</b> (se requieren ≥' + ind2.muestraMinima + ' tickets resueltos; hay ' + ind2.resueltosEnPeriodo + ')' : '<b>' + ind2.tiempoMedioResolucionHoras + ' h</b> (' + ind2.resueltosEnPeriodo + ' resueltos, sin contar las esperas)') +

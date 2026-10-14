@@ -55,15 +55,15 @@ Un usuario puede tener varios roles; los permisos se suman. Se validan en `fires
 
 | Rol | Puede |
 |---|---|
-| Director de TI | Ver todo, aprobar o rechazar (no lo que él editó), publicar, ver auditoría. |
-| Administrador | Crear y editar cualquier proceso, publicar, cargar el catálogo, administrar usuarios y roles, ver auditoría. **No aprueba** por ser administrador. |
-| Responsable de proceso | Crear procesos; editar solo los suyos (responsable, participante o creador); enviar a revisión y a aprobación. |
-| Técnico de TI | Leer procedimientos publicados vigentes. En la mesa de ayuda: ve todos los tickets, toma los que no tienen responsable y atiende los suyos. |
-| Solicitante | Sin acceso a procesos. En la mesa de ayuda: crea tickets y ve solo los suyos. |
+| **Gerente de TI** | **Ve todo** (procesos, tickets, auditoría, resumen de inventario, usuarios). Aprueba y publica procedimientos (no lo que él mismo editó), asigna y atiende tickets, cancela tickets ajenos, configura la mesa de ayuda, administra usuarios y roles. Equivale a Administrador + Director. |
+| **Consultor de TI** | Crea y edita sus procesos (responsable, participante o creador) y los envía a aprobación; **no aprueba**. En la mesa de ayuda: crea tickets, ve los suyos, **toma los nuevos sin responsable y atiende los que se le asignan**. No ve el resto de tickets, ni configuración, auditoría, usuarios o resumen de inventario. |
+| Director de TI *(rol anterior)* | Ver todo, aprobar o rechazar, publicar, ver auditoría; en tickets asigna y cambia prioridad pero no atiende. |
+| Administrador *(rol anterior)* | Crear y editar cualquier proceso, publicar, catálogo, usuarios y roles, auditoría, atender y configurar la mesa de ayuda. No aprueba. |
+| Responsable de proceso *(rol anterior)* | Como el Consultor pero sin atender tickets. |
+| Técnico de TI *(rol anterior)* | Procedimientos publicados; ve todos los tickets, toma y atiende los suyos. |
+| Solicitante | Sin acceso a procesos. Crea tickets y ve solo los suyos. |
 
-En la **mesa de ayuda**: todos los roles crean tickets y ven los propios; Administrador, Director y Técnico ven todos. El Director asigna y cambia prioridad pero no atiende; el Administrador asigna, atiende, cancela tickets ajenos y configura categorías, SLA y horario; el Técnico atiende solo los tickets que tiene asignados.
-
-> **Importante:** el equipo inicial está como *Responsable de proceso*, que **no** atiende tickets. Para que alguien pueda recibir y atender tickets hay que darle también el rol **Técnico** (Administración › Usuarios y roles).
+Los roles anteriores se conservan para casos puntuales. Para el equipo actual: **ramaya@ = Gerente de TI; vlopez@, aosorio@, soportetecnico@ y dgomez@ = Consultor de TI.** Siempre debe quedar al menos un Gerente o Administrador activo.
 
 El inventario existente **no** cambió: sigue abierto a cualquier usuario autenticado, igual que con las reglas actuales (modo transitorio).
 
@@ -109,14 +109,8 @@ CAFIVER TI es la plataforma; el **Inventario de equipos es un módulo dentro de 
 
 **Exportar.** Botón "Exportar CSV" de lo que muestra la tabla (neutraliza celdas que empiezan con `=`, `+`, `-`, `@`).
 
-## Equipo y roles iniciales (decididos por la Dirección de TI)
-| Persona | Rol inicial |
-|---|---|
-| `ramaya@cafiver.com.mx` | Administrador de la plataforma **y** Director de TI |
-| `vlopez@`, `aosorio@`, `soportetecnico@`, `dgomez@cafiver.com.mx` | Responsable de proceso |
-| `soportetec@cafiver.com.mx` (Daniela Gomez Aleluya, ya en la app) | Sin rol de plataforma por ahora (es una persona distinta de `dgomez@`) |
-
-Los responsables preparan y envían procedimientos; el Director los aprueba. Como el Director no puede aprobar lo que él mismo editó, conviene que los procedimientos los redacte el equipo. Todo se puede cambiar después en Administración. `TI.ARRANQUE_ROLES` y `TI.EQUIPO_INICIAL` (en `js/ti-core.js`) guardan estos valores; la regla de arranque en `firestore.rules` debe coincidir.
+## Equipo y roles iniciales (decididos por la Gerencia de TI)
+ramaya@cafiver.com.mx entra como **Gerente de TI** (se crea su propio registro la primera vez). El botón "Asignar roles iniciales al equipo" da el rol **Consultor de TI** a vlopez@, aosorio@, soportetecnico@ y dgomez@. soportetec@ (otra persona) no recibe rol. Los roles se pueden cambiar después en Administración.
 
 ## Flujo de estados de una versión
 Borrador → En revisión → Pendiente de aprobación → Aprobado → Publicado → En revisión periódica → Obsoleto (además "Reemplazada" para versiones que una nueva sustituye).
@@ -190,8 +184,8 @@ Variables de entorno y secretos: **ninguno**. La configuración pública de Fire
 ## Pruebas
 | Prueba | Resultado |
 |---|---|
-| `node --test tests/logica.test.js` — lógica pura | **54 de 54 correctas.** Lo anterior más la mesa de ayuda: matriz de prioridad, horario laboral (noches y fines de semana), pausas por espera, fecha objetivo, estados de SLA, permisos y flujo de acciones, ventana de reapertura, validación e indicadores con muestra mínima. |
-| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **146 de 146 correctas** (51 son de la mesa de ayuda: crear, asignar, atender, esperar, responder, resolver, confirmar y reabrir con distintos roles; visibilidad; nota interna; SLA configurado desde Administración; CSV; dashboard). Que `index.html` no cambió, dashboard de Inicio (cifras exactas con datos sembrados, caché y costo de lecturas, permisos por rol, estados vacíos, errores), arranque, equipo inicial, estructura del menú, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
+| `node --test tests/logica.test.js` — lógica pura | **59 de 59 correctas.** Lo anterior más la mesa de ayuda: matriz de prioridad, horario laboral (noches y fines de semana), pausas por espera, fecha objetivo, estados de SLA, permisos y flujo de acciones, ventana de reapertura, validación e indicadores con muestra mínima. |
+| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **160 de 160 correctas** (51 son de la mesa de ayuda: crear, asignar, atender, esperar, responder, resolver, confirmar y reabrir con distintos roles; visibilidad; nota interna; SLA configurado desde Administración; CSV; dashboard). Que `index.html` no cambió, dashboard de Inicio (cifras exactas con datos sembrados, caché y costo de lecturas, permisos por rol, estados vacíos, errores), arranque, equipo inicial, estructura del menú, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
 | `tests/reglas.test.js` — reglas con el emulador | **NO ejecutadas** (incluidas las nuevas de tickets). El entorno de desarrollo bloqueaba `registry.npmjs.org`, `gstatic.com` y `storage.googleapis.com`. Están escritas y listas para ejecutar donde haya internet. |
 
 La simulación **no aplica reglas de seguridad**, así que las pruebas de integración no demuestran que las reglas funcionen. Tampoco se probó contra el Firebase real.
@@ -209,6 +203,7 @@ La simulación **no aplica reglas de seguridad**, así que las pruebas de integr
 - Un Administrador que también sea Director no puede aprobar lo que él mismo editó.
 
 ## Seguimiento de cambios
+- 2026-10-14 — Roles: nuevo **Gerente de TI** (ve y puede todo) y **Consultor de TI** (atiende solo lo asignado o sin responsable; solo el Gerente aprueba). Reglas actualizadas (sin ejecutar).
 - 2026-10-14 — Fase 5: mesa de ayuda (tickets, prioridad, SLA configurable con horario y pausas, conversación con notas internas, indicadores con muestra mínima, configuración en Administración, sección en Inicio, reglas de Firestore propuestas y pruebas). Las reglas de tickets **no se han ejecutado**.
 - 2026-10-14 — Fase 1 y primera versión de las Fases 2 y 3: `firestore.rules`, `tests/`, `docs/` y los módulos (primero con tres cambios en `index.html`; ver la corrección de rumbo siguiente).
 - 2026-10-14 — Costo del inventario: el dashboard ya no lee los equipos al abrir; usa un resumen guardado que se actualiza solo a pedido.

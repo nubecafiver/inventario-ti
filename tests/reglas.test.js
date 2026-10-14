@@ -9,8 +9,8 @@ const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@fir
 const { serverTimestamp, doc, setDoc, updateDoc, getDoc, getDocs, collection, query, where, writeBatch, deleteDoc, runTransaction } = require('firebase/firestore');
 
 let env;
-const U = { adm: 'adm@x.mx', dir: 'dir@x.mx', resp: 'resp@x.mx', otro: 'otro@x.mx', tec: 'tec@x.mx', sol: 'sol@x.mx', nuevo: 'ramaya@cafiver.com.mx', sinrol: 'sinrol@x.mx' };
-const ROLES = { adm: ['administrador'], dir: ['director'], resp: ['resp_proceso'], otro: ['resp_proceso'], tec: ['tecnico'], sol: ['solicitante'] };
+const U = { adm: 'adm@x.mx', dir: 'dir@x.mx', resp: 'resp@x.mx', otro: 'otro@x.mx', tec: 'tec@x.mx', sol: 'sol@x.mx', nuevo: 'ramaya@cafiver.com.mx', sinrol: 'sinrol@x.mx', ger: 'ger@x.mx', cons: 'cons@x.mx', cons2: 'cons2@x.mx' };
+const ROLES = { adm: ['administrador'], dir: ['director'], resp: ['resp_proceso'], otro: ['resp_proceso'], tec: ['tecnico'], sol: ['solicitante'], ger: ['gerente'], cons: ['consultor'], cons2: ['consultor'] };
 const db = (k) => env.authenticatedContext('uid-' + k, { email: U[k] }).firestore();
 const contenido = { objetivo: 'o', alcance: 'a', pasos: [{ descripcion: 'd', responsable: 'r' }], entradas: [], resultadosEsperados: [], sistemas: [], riesgos: [], controles: [], evidencias: [], indicadores: [], documentosRelacionados: [], tiempoObjetivo: '', descripcion: '' };
 
@@ -26,9 +26,9 @@ test.before(async () => { env = await initializeTestEnvironment({ projectId: 'de
 test.after(async () => { await env.cleanup(); });
 test.beforeEach(async () => { await env.clearFirestore(); });
 
-test('usuarios_ti: el correo de arranque crea su propio registro de administrador; otros no', async () => {
-  await assertSucceeds(setDoc(doc(db('nuevo'), 'usuarios_ti', U.nuevo), { email: U.nuevo, roles: ['administrador', 'director'], activo: true }));
-  await assertFails(setDoc(doc(db('nuevo'), 'usuarios_ti', U.nuevo), { email: U.nuevo, roles: ['administrador', 'director', 'tecnico'], activo: true }));
+test('usuarios_ti: el correo de arranque crea su propio registro de Gerente; otros no', async () => {
+  await assertSucceeds(setDoc(doc(db('nuevo'), 'usuarios_ti', U.nuevo), { email: U.nuevo, roles: ['gerente'], activo: true }));
+  await assertFails(setDoc(doc(db('nuevo'), 'usuarios_ti', U.nuevo), { email: U.nuevo, roles: ['gerente', 'tecnico'], activo: true }));
   await assertFails(setDoc(doc(db('sinrol'), 'usuarios_ti', U.sinrol), { email: U.sinrol, roles: ['administrador'], activo: true }));
   await assertFails(setDoc(doc(db('nuevo'), 'usuarios_ti', U.nuevo + 'x'), { email: U.nuevo + 'x', roles: ['administrador'], activo: true }));
 });
@@ -196,4 +196,36 @@ test('ti_config: folio de tickets lo incrementa cualquier usuario activo (+1); l
   await assertFails(setDoc(cfgDoc('dir'), Object.assign({}, cfg, { actualizadoPor: U.dir })));
   await assertFails(setDoc(cfgDoc('tec'), Object.assign({}, cfg, { actualizadoPor: U.tec })));
   await assertSucceeds(getDoc(cfgDoc('sol')));
+});
+
+/* ===================== GERENTE Y CONSULTOR — preparadas, no ejecutadas ===================== */
+test('gerente: ve todo y administra; consultor no', async () => {
+  await sembrar('pendiente_aprobacion'); await sembrarTicket({ estado: 'asignado', responsable: U.cons2 });
+  await assertSucceeds(getDoc(doc(db('ger'), 'ti_procesos', 'PRO-001')));
+  await assertSucceeds(getDocs(collection(db('ger'), 'ti_auditoria')));
+  await assertSucceeds(getDoc(tref('ger')));
+  await assertSucceeds(setDoc(doc(db('ger'), 'usuarios_ti', 'nuevo@x.mx'), { email: 'nuevo@x.mx', roles: ['consultor'], activo: true }));
+  await assertFails(setDoc(doc(db('cons'), 'usuarios_ti', 'otro2@x.mx'), { email: 'otro2@x.mx', roles: ['gerente'], activo: true }));
+  await assertFails(getDocs(collection(db('cons'), 'ti_auditoria')));
+});
+test('consultor: procesos propios sí, aprobar no', async () => {
+  await sembrar('borrador', { responsable: U.cons, creadoPor: U.cons });
+  await assertSucceeds(getDoc(doc(db('cons'), 'ti_procesos', 'PRO-001')));
+  await assertFails(updateDoc(doc(db('cons'), 'ti_procesos', 'PRO-001', 'versiones', '1'), { estado: 'aprobado' }));
+});
+test('consultor: tickets — lee asignados, propios y nuevos sin responsable; no los de otro consultor; atiende solo los suyos', async () => {
+  await sembrarTicket({ estado: 'asignado', responsable: U.cons2 });
+  await assertFails(getDoc(tref('cons')));
+  await assertSucceeds(updateDoc(tref('ger'), { responsable: U.cons, actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(getDoc(tref('cons')));
+  await assertSucceeds(updateDoc(tref('cons'), { estado: 'en_atencion', primeraRespuestaMs: ahoraMs(), actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(tref('cons2'), { estado: 'resuelto', resueltoMs: ahoraMs(), actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(tref('cons'), { estado: 'cancelado', actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(tref('ger'), { estado: 'cancelado', actualizadoEn: serverTimestamp() }));
+});
+test('consultor: toma un ticket nuevo sin responsable; consulta con filtro de sin responsable', async () => {
+  await sembrarTicket({ estado: 'nuevo', responsable: null });
+  await assertSucceeds(getDocs(query(collection(db('cons'), 'ti_tickets'), where('responsable', '==', null), where('estado', '==', 'nuevo'))));
+  await assertFails(getDocs(collection(db('cons'), 'ti_tickets')));
+  await assertSucceeds(updateDoc(tref('cons'), { responsable: U.cons, estado: 'asignado', actualizadoEn: serverTimestamp() }));
 });

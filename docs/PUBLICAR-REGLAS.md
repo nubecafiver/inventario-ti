@@ -26,7 +26,7 @@ Consola de Firebase → Firestore Database → Reglas → pega el contenido de `
 
 ## Después de publicar (prueba rápida)
 1. Entra a la app de inventario con una cuenta normal y abre Inventario, Reparaciones, Celulares, Licencias, Personal y Etiquetas: deben cargar y guardar como siempre.
-2. Entra a la plataforma (`…/inventario-ti/ti/`) con `ramaya@cafiver.com.mx` → "Administración" → "Crear mi registro" (queda como **Administrador y Director de TI**). Después pulsa "Asignar roles iniciales al equipo": `vlopez@`, `aosorio@`, `soportetecnico@` y `dgomez@cafiver.com.mx` quedan como **Responsable de proceso**. Cada correo debe existir en Firebase Authentication (Authentication → Usuarios); `dgomez@` es una cuenta nueva que quizá haya que crear. `soportetec@` (Daniela Gomez Aleluya) no recibe rol de plataforma; se le puede asignar uno desde la misma pantalla.
+2. Entra a la plataforma (`…/inventario-ti/ti/`) con `ramaya@cafiver.com.mx` → "Administración" → "Crear mi registro" (queda como **Gerente de TI**). Después pulsa "Asignar roles iniciales al equipo": `vlopez@`, `aosorio@`, `soportetecnico@` y `dgomez@cafiver.com.mx` quedan como **Consultor de TI**. Cada correo debe existir en Firebase Authentication (Authentication → Usuarios); `dgomez@` es una cuenta nueva que quizá haya que crear. `soportetec@` (Daniela Gomez Aleluya) no recibe rol de plataforma; se le puede asignar uno desde la misma pantalla.
 3. Con otra cuenta sin rol, comprueba que los menús nuevos no aparecen.
 
 ## Si algo falla: revertir

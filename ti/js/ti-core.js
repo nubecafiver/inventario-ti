@@ -8,16 +8,16 @@
 
   /* Administradores que pueden crear su propio registro la primera vez (deben coincidir con firestore.rules). */
   TI.BOOTSTRAP_ADMINS = ['ramaya@cafiver.com.mx'];
-  /* Roles del primer ingreso (decisión de la Dirección de TI): quien arranca la plataforma es Administrador y Director.
+  /* Roles del primer ingreso (decisión de la Dirección de TI): quien arranca la plataforma es el Gerente de TI.
      Debe coincidir con la regla de creación de usuarios_ti en firestore.rules. */
-  TI.ARRANQUE_ROLES = ['administrador', 'director'];
-  /* Equipo inicial: cada persona entra como Responsable de proceso (crea y edita sus procedimientos; el Director aprueba).
+  TI.ARRANQUE_ROLES = ['gerente'];
+  /* Equipo inicial: cada persona entra como Consultor de TI (crea y edita sus procedimientos y atiende los tickets asignados; el Gerente aprueba).
      Los roles se pueden cambiar después en Administración. El nombre solo se rellena si la app ya lo conoce (USER_DIR). */
   TI.EQUIPO_INICIAL = [
-    { email: 'vlopez@cafiver.com.mx', roles: ['resp_proceso'] },
-    { email: 'aosorio@cafiver.com.mx', roles: ['resp_proceso'] },
-    { email: 'soportetecnico@cafiver.com.mx', roles: ['resp_proceso'] },
-    { email: 'dgomez@cafiver.com.mx', roles: ['resp_proceso'] }
+    { email: 'vlopez@cafiver.com.mx', roles: ['consultor'] },
+    { email: 'aosorio@cafiver.com.mx', roles: ['consultor'] },
+    { email: 'soportetecnico@cafiver.com.mx', roles: ['consultor'] },
+    { email: 'dgomez@cafiver.com.mx', roles: ['consultor'] }
   ];
 
   /* ===== Utilidades ===== */

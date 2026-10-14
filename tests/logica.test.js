@@ -475,3 +475,41 @@ test('indicadores de tickets: críticos, sin asignar, vencidos, por responsable 
   assert.equal(L.filtroTickets('vencidos', cfg, ahora)(l[0]), true); assert.equal(L.filtroTickets('vencidos', cfg, ahora)(l[1]), false);
   assert.equal(L.filtroTickets('nada'), null);
 });
+
+/* ===================== GERENTE Y CONSULTOR ===================== */
+const ger = { email: 'ger@x.mx', roles: ['gerente'] };
+const cons = { email: 'cons@x.mx', roles: ['consultor'] };
+const cons2 = { email: 'cons2@x.mx', roles: ['consultor'] };
+test('gerente: tiene todos los permisos del administrador y del director', () => {
+  [...L.PERMISOS_POR_ROL.administrador, ...L.PERMISOS_POR_ROL.director].forEach((p) => assert.equal(L.tiene(ger, p), true, p));
+  assert.equal(L.tiene(ger, 'usuarios.admin'), true); assert.equal(L.tiene(ger, 'procesos.aprobar'), true); assert.equal(L.tiene(ger, 'tickets.configurar'), true); assert.equal(L.tiene(ger, 'tickets.ver_todos'), true);
+});
+test('gerente: sigue sin poder aprobar lo que él mismo editó', () => {
+  const p = proc({ estado: 'pendiente_aprobacion', responsable: 'ger@x.mx', creadoPor: 'ger@x.mx' });
+  const v = ver({ estado: 'pendiente_aprobacion', editores: ['ger@x.mx'] });
+  assert.ok(!ids({ user: ger, proceso: p, version: v }).includes('aprobar'));
+  const v2 = ver({ estado: 'pendiente_aprobacion', editores: ['resp@x.mx'] });
+  assert.ok(ids({ user: ger, proceso: proc({ estado: 'pendiente_aprobacion' }), version: v2 }).includes('aprobar'));
+});
+test('consultor: crea y edita sus procesos pero no aprueba, no administra ni ve auditoría', () => {
+  assert.equal(L.tiene(cons, 'procesos.crear'), true); assert.equal(L.tiene(cons, 'procesos.editar_propios'), true);
+  ['procesos.aprobar', 'procesos.publicar', 'usuarios.admin', 'auditoria.ver', 'inventario.resumen', 'tickets.ver_todos', 'tickets.configurar', 'tickets.asignar'].forEach((p) => assert.equal(L.tiene(cons, p), false, p));
+});
+test('consultor: solo ve tickets propios, asignados a él o nuevos sin responsable', () => {
+  assert.equal(L.puedeVerTicket(cons, tk({ responsable: 'cons@x.mx', estado: 'asignado' })), true);
+  assert.equal(L.puedeVerTicket(cons, tk({ solicitanteEmail: 'cons@x.mx' })), true);
+  assert.equal(L.puedeVerTicket(cons, tk()), true, 'nuevo sin responsable: puede tomarlo');
+  assert.equal(L.puedeVerTicket(cons, tk({ responsable: 'cons2@x.mx', estado: 'asignado' })), false);
+  assert.equal(L.puedeVerTicket(cons, tk({ estado: 'en_atencion', responsable: null })), false);
+  assert.equal(L.puedeVerTicket(ger, tk({ responsable: 'cons2@x.mx', estado: 'asignado' })), true);
+});
+test('consultor: toma y atiende lo suyo; no atiende lo de otro consultor ni asigna', () => {
+  const cfg = cfgT();
+  assert.ok(ticketIds(cons, tk(), cfg).includes('tomar')); assert.ok(!ticketIds(cons, tk(), cfg).includes('asignar'));
+  const suyo = tk({ estado: 'asignado', responsable: 'cons@x.mx' });
+  assert.ok(ticketIds(cons, suyo, cfg).includes('iniciar_atencion'));
+  assert.ok(!ticketIds(cons2, suyo, cfg).includes('iniciar_atencion'));
+  assert.ok(ticketIds(ger, suyo, cfg).includes('iniciar_atencion'), 'el gerente atiende cualquiera');
+  assert.ok(ticketIds(ger, tk(), cfg).includes('asignar') && ticketIds(ger, tk(), cfg).includes('cancelar_ti'));
+  assert.ok(!ticketIds(cons, tk(), cfg).includes('cancelar_ti'));
+});
