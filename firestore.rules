@@ -31,7 +31,7 @@ service cloud.firestore {
       allow read: if firmado() && (id == correo() || activo());
       allow create: if firmado() && request.resource.data.email == id && rolesValidos(request.resource.data.roles)
                     && request.resource.data.activo is bool
-                    && (esAdmin() || (esArranque() && id == correo() && request.resource.data.roles == ['administrador'] && request.resource.data.activo == true));
+                    && (esAdmin() || (esArranque() && id == correo() && request.resource.data.roles == ['administrador', 'director'] && request.resource.data.activo == true));
       allow update: if esAdmin() && request.resource.data.email == id && rolesValidos(request.resource.data.roles) && request.resource.data.activo is bool;
       allow delete: if false;
     }

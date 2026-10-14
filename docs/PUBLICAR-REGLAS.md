@@ -26,7 +26,7 @@ Consola de Firebase → Firestore Database → Reglas → pega el contenido de `
 
 ## Después de publicar (prueba rápida)
 1. Entra a la app con una cuenta normal y abre Inventario, Reparaciones, Celulares, Licencias, Personal y Etiquetas: deben cargar y guardar como siempre.
-2. Entra con `ramaya@cafiver.com.mx` → "Usuarios, roles y auditoría" → "Crear mi registro de administrador". Asigna los roles a los demás; **asigna el rol de Director de TI** a quien corresponda (sin Director nadie puede aprobar procedimientos).
+2. Entra con `ramaya@cafiver.com.mx` → "Usuarios, roles y auditoría" → "Crear mi registro" (queda como **Administrador y Director de TI**). Después pulsa "Asignar roles iniciales al equipo": `vlopez@`, `aosorio@`, `soportetecnico@` y `dgomez@cafiver.com.mx` quedan como **Responsable de proceso**. Cada correo debe existir en Firebase Authentication (Authentication → Usuarios); `dgomez@` es una cuenta nueva que quizá haya que crear. `soportetec@` (Daniela Gomez Aleluya) no recibe rol de plataforma; se le puede asignar uno desde la misma pantalla.
 3. Con otra cuenta sin rol, comprueba que los menús nuevos no aparecen.
 
 ## Si algo falla: revertir

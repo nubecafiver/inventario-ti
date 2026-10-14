@@ -27,7 +27,8 @@ test.after(async () => { await env.cleanup(); });
 test.beforeEach(async () => { await env.clearFirestore(); });
 
 test('usuarios_ti: el correo de arranque crea su propio registro de administrador; otros no', async () => {
-  await assertSucceeds(setDoc(doc(db('nuevo'), 'usuarios_ti', U.nuevo), { email: U.nuevo, roles: ['administrador'], activo: true }));
+  await assertSucceeds(setDoc(doc(db('nuevo'), 'usuarios_ti', U.nuevo), { email: U.nuevo, roles: ['administrador', 'director'], activo: true }));
+  await assertFails(setDoc(doc(db('nuevo'), 'usuarios_ti', U.nuevo), { email: U.nuevo, roles: ['administrador', 'director', 'tecnico'], activo: true }));
   await assertFails(setDoc(doc(db('sinrol'), 'usuarios_ti', U.sinrol), { email: U.sinrol, roles: ['administrador'], activo: true }));
   await assertFails(setDoc(doc(db('nuevo'), 'usuarios_ti', U.nuevo + 'x'), { email: U.nuevo + 'x', roles: ['administrador'], activo: true }));
 });

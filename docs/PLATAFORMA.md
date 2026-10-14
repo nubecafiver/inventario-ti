@@ -52,6 +52,15 @@ Un usuario puede tener varios roles; los permisos se suman. Se validan en `fires
 
 El inventario existente **no** cambió: sigue abierto a cualquier usuario autenticado, igual que con las reglas actuales (modo transitorio).
 
+## Equipo y roles iniciales (decididos por la Dirección de TI)
+| Persona | Rol inicial |
+|---|---|
+| `ramaya@cafiver.com.mx` | Administrador de la plataforma **y** Director de TI |
+| `vlopez@`, `aosorio@`, `soportetecnico@`, `dgomez@cafiver.com.mx` | Responsable de proceso |
+| `soportetec@cafiver.com.mx` (Daniela Gomez Aleluya, ya en la app) | Sin rol de plataforma por ahora (es una persona distinta de `dgomez@`) |
+
+Los responsables preparan y envían procedimientos; el Director los aprueba. Como el Director no puede aprobar lo que él mismo editó, conviene que los procedimientos los redacte el equipo. Todo se puede cambiar después en Administración. `TI.ARRANQUE_ROLES` y `TI.EQUIPO_INICIAL` (en `js/ti-core.js`) guardan estos valores; la regla de arranque en `firestore.rules` debe coincidir.
+
 ## Flujo de estados de una versión
 Borrador → En revisión → Pendiente de aprobación → Aprobado → Publicado → En revisión periódica → Obsoleto (además "Reemplazada" para versiones que una nueva sustituye).
 
@@ -94,7 +103,7 @@ Variables de entorno y secretos: **ninguno**. La configuración pública de Fire
 | Prueba | Resultado |
 |---|---|
 | `node --test tests/logica.test.js` — lógica pura | **21 de 21 correctas.** Permisos, flujo, segregación, versionado, indicadores, fechas. |
-| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **48 de 48 correctas.** Arranque, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
+| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **54 de 54 correctas.** Arranque, equipo inicial, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
 | `tests/reglas.test.js` — reglas con el emulador | **NO ejecutadas.** El entorno de desarrollo bloqueaba `registry.npmjs.org`, `gstatic.com` y `storage.googleapis.com`. Están escritas y listas para ejecutar donde haya internet. |
 
 La simulación **no aplica reglas de seguridad**, así que las pruebas de integración no demuestran que las reglas funcionen. Tampoco se probó contra el Firebase real.
@@ -112,4 +121,5 @@ La simulación **no aplica reglas de seguridad**, así que las pruebas de integr
 
 ## Seguimiento de cambios
 - 2026-10-14 — Fase 1 y primera versión de las Fases 2 y 3: `js/`, `css/`, `firestore.rules`, `tests/`, `docs/`; tres cambios en `index.html`.
+- 2026-10-14 — Equipo inicial: ramaya Administrador + Director; vlopez, aosorio, soportetecnico y dgomez Responsables de proceso; botón "Asignar roles iniciales al equipo".
 - 2026-10-14 — Reglas: se conoce la regla vigente (`docs/reglas-anteriores.txt`); `firestore.rules` pasa a conservarla para todo lo que no sea `ti_*`/`usuarios_ti`; guía `docs/PUBLICAR-REGLAS.md`.

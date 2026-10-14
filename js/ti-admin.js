@@ -24,7 +24,7 @@
     var admin = TI.puede('usuarios.admin'), audi = TI.puede('auditoria.ver'), h = '';
     h += '<div class="ti-head"><div><h1 class="ti-h1">Administración</h1><div class="ti-sub">Usuarios, roles y bitácora de auditoría de la plataforma de TI.</div></div></div>';
     if (TI.pendienteBootstrap) {
-      el.innerHTML = h + '<div class="ti-note warn"><b>Configuración inicial.</b> Aún no hay roles en la plataforma. Tu correo (<b>' + esc(TI.user.email) + '</b>) está autorizado para crear su propio registro como <b>Administrador de la plataforma</b>. Después podrás asignar roles a los demás y, si corresponde, el de Director de TI.<div style="margin-top:10px"><button class="btn btn-blue" id="ad-boot">Crear mi registro de administrador</button></div></div>';
+      el.innerHTML = h + '<div class="ti-note warn"><b>Configuración inicial.</b> Aún no hay roles en la plataforma. Tu correo (<b>' + esc(TI.user.email) + '</b>) está autorizado para crear su propio registro como <b>Administrador de la plataforma y Director de TI</b>. Después podrás asignar roles a tu equipo.<div style="margin-top:10px"><button class="btn btn-blue" id="ad-boot">Crear mi registro de administrador</button></div></div>';
       el.querySelector('#ad-boot').onclick = inicializar; return;
     }
     h += '<div class="ti-tabs" role="tablist">' + (admin ? '<button role="tab" data-t="usuarios" aria-selected="' + (A.tab === 'usuarios') + '">Usuarios y roles</button><button role="tab" data-t="roles" aria-selected="' + (A.tab === 'roles') + '">Qué puede hacer cada rol</button>' : '') + (audi ? '<button role="tab" data-t="auditoria" aria-selected="' + (A.tab === 'auditoria') + '">Auditoría</button>' : '') + '</div>';
@@ -35,6 +35,7 @@
     el.querySelectorAll('[data-t]').forEach(function (b) { b.onclick = function () { A.tab = b.dataset.t; if (A.tab === 'auditoria' && !A.audit) cargarAuditoria(); pintar(); }; });
     el.querySelectorAll('[data-ed]').forEach(function (b) { b.onclick = function () { editarUsuario(b.dataset.ed); }; });
     var nu = el.querySelector('#ad-nuevo'); if (nu) nu.onclick = function () { editarUsuario(null); };
+    var eq = el.querySelector('#ad-equipo'); if (eq) eq.onclick = asignarEquipo;
     var rf = el.querySelector('#ad-ref'); if (rf) rf.onclick = cargarAuditoria;
     var q = el.querySelector('#ad-q'); if (q) q.oninput = function () { A.filtro = q.value; var pos = q.selectionStart; pintar(); var n = el.querySelector('#ad-q'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} };
     if (A.tab === 'auditoria' && audi && !A.audit && !A.cargandoAudit) cargarAuditoria();
@@ -45,7 +46,7 @@
     var cache = TI.usuariosCache || {}, emails = {};
     Object.keys(cache).forEach(function (e) { emails[e] = 1; });
     if (window.USER_DIR) Object.keys(USER_DIR).forEach(function (e) { emails[e] = 1; });
-    var h = '<div class="ti-tools"><span class="ti-mut">Cuentas de inicio de sesión: ' + Object.keys(emails).length + '. El acceso al inventario existente no cambia con estos roles.</span><span style="flex:1"></span><button class="btn btn-blue btn-sm" id="ad-nuevo">+ Agregar usuario</button></div>';
+    var h = '<div class="ti-tools"><span class="ti-mut">Cuentas de inicio de sesión: ' + Object.keys(emails).length + '. El acceso al inventario existente no cambia con estos roles.</span><span style="flex:1"></span>' + (faltanEquipo().length ? '<button class="btn btn-sm" id="ad-equipo" title="Asigna el rol Responsable de proceso a los correos de tu equipo que aún no tienen registro">Asignar roles iniciales al equipo (' + faltanEquipo().length + ')</button> ' : '') + '<button class="btn btn-blue btn-sm" id="ad-nuevo">+ Agregar usuario</button></div>';
     h += '<div class="ti-card"><div class="ti-scroll"><table class="ti-table"><caption class="ti-sr">Usuarios y roles</caption><thead><tr><th>Usuario</th><th>Roles</th><th>Estado</th><th></th></tr></thead><tbody>';
     Object.keys(emails).sort().forEach(function (e) {
       var d = cache[e], nombre = (d && d.nombre) || (window.USER_DIR && USER_DIR[e] && USER_DIR[e].name) || e;
@@ -83,11 +84,24 @@
         .catch(function (e) { btn.disabled = false; TI.msg('No se pudo guardar: ' + e.message); });
     };
   }
+  function faltanEquipo() { var c = TI.usuariosCache || {}; return TI.EQUIPO_INICIAL.filter(function (x) { return !c[x.email]; }); }
+  function asignarEquipo() {
+    var falta = faltanEquipo(); if (!falta.length) return;
+    TI.confirmar('Asignar roles iniciales al equipo', 'Se crearán ' + falta.length + ' registros con el rol Responsable de proceso: ' + falta.map(function (x) { return x.email; }).join(', ') + '. Podrás cambiar sus roles después. Cada correo debe tener su cuenta en Firebase Authentication para poder entrar.', 'Asignar roles', function () {
+      var batch = db.batch(), ts = TI.serverTs();
+      falta.forEach(function (x) {
+        var nombre = (window.USER_DIR && USER_DIR[x.email] && USER_DIR[x.email].name) || x.email.split('@')[0];
+        batch.set(db.collection('usuarios_ti').doc(x.email), { email: x.email, nombre: nombre, roles: x.roles, activo: true, creadoPor: TI.user.email, creadoEn: ts, actualizadoPor: TI.user.email, actualizadoEn: ts });
+        TI.auditar(batch, { accion: 'cambio_roles', tipo: 'usuario', id: x.email, detalle: 'sin registro → ' + x.roles.join(', ') + ' (equipo inicial)' });
+      });
+      batch.commit().then(function () { TI.msg('Roles asignados a ' + falta.length + ' personas'); return TI.cargarUsuariosCache(); }).then(pintar).catch(function (e) { TI.msg('No se pudo asignar: ' + e.message); });
+    });
+  }
   function inicializar() {
     var email = TI.user.email, ts = TI.serverTs(), batch = db.batch(), ref = db.collection('usuarios_ti').doc(email);
-    batch.set(ref, { email: email, nombre: (window.curUser && curUser.name) || email, roles: ['administrador'], activo: true, creadoPor: email, creadoEn: ts, actualizadoPor: email, actualizadoEn: ts });
-    TI.auditar(batch, { accion: 'arranque_plataforma', tipo: 'usuario', id: email, detalle: 'Registro inicial del administrador' });
-    batch.commit().then(function () { TI.msg('Listo: ya eres Administrador de la plataforma'); return TI.init(); }).then(function () { window.switchView('ti-admin'); })
+    batch.set(ref, { email: email, nombre: (window.curUser && curUser.name) || email, roles: TI.ARRANQUE_ROLES.slice(), activo: true, creadoPor: email, creadoEn: ts, actualizadoPor: email, actualizadoEn: ts });
+    TI.auditar(batch, { accion: 'arranque_plataforma', tipo: 'usuario', id: email, detalle: 'Registro inicial: Administrador y Director' });
+    batch.commit().then(function () { TI.msg('Listo: ya eres Administrador y Director'); return TI.init(); }).then(function () { window.switchView('ti-admin'); })
       .catch(function (e) { TI.msg('No se pudo crear el registro: ' + e.message + '. Si las reglas de Firestore aún no incluyen usuarios_ti, publícalas primero (ver docs/PLATAFORMA.md).'); });
   }
 

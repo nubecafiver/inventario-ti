@@ -6,7 +6,7 @@ const fs = require('fs'), path = require('path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const RAIZ = path.resolve(__dirname, '..');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock-firebase.js'), 'utf8');
-const USERS = { 'ramaya@cafiver.com.mx': 'pw', 'aosorio@cafiver.com.mx': 'pw', 'vlopez@cafiver.com.mx': 'pw', 'soportetec@cafiver.com.mx': 'pw', 'soportetecnico@cafiver.com.mx': 'pw' };
+const USERS = { 'ramaya@cafiver.com.mx': 'pw', 'aosorio@cafiver.com.mx': 'pw', 'vlopez@cafiver.com.mx': 'pw', 'soportetec@cafiver.com.mx': 'pw', 'soportetecnico@cafiver.com.mx': 'pw', 'dgomez@cafiver.com.mx': 'pw' };
 const ADMIN = 'ramaya@cafiver.com.mx', DIR = 'aosorio@cafiver.com.mx', RESP = 'vlopez@cafiver.com.mx', TEC = 'soportetec@cafiver.com.mx', SOL = 'soportetecnico@cafiver.com.mx';
 
 const resultados = [];
@@ -95,18 +95,11 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   await accion('solicitar_aprobacion').click(); await espera(250);
   ok('T3 pendiente de aprobación', (await page.locator('.ti-ov .modal-hd .ti-e').first().textContent()).includes('Pendiente'));
   const apr = accion('aprobar');
-  ok('T3 el administrador NO puede aprobar (solo el Director)', (await apr.getAttribute('aria-disabled')) === 'true');
-  await apr.click({ force: true }); ok('T3 explica por qué no puede aprobar', (await page.locator('#ti-st').textContent()).includes('Director'));
+  ok('T3 quien arrancó la plataforma (Admin + Director) NO aprueba lo que él mismo editó', (await apr.getAttribute('aria-disabled')) === 'true');
+  await apr.click({ force: true }); ok('T3 explica el motivo (separación de funciones)', (await page.locator('#ti-st').textContent()).includes('Segregación'));
   await cerrarModal();
 
-  /* ---------- T4: separación de funciones con una persona que es Director y editor ---------- */
-  await ir('ti-admin'); await page.click('[data-ed="' + ADMIN + '"]'); await page.check('.ti-ov .u-rol[value=director]'); await page.click('#u-ok'); await espera(300);
-  await ir('ti-procesos'); await abrirFila('PRO-022');
-  const apr2 = accion('aprobar');
-  ok('T4 quien editó la versión no puede aprobarla aunque sea Director', (await apr2.getAttribute('aria-disabled')) === 'true');
-  await apr2.click({ force: true }); ok('T4 mensaje de segregación de funciones', (await page.locator('#ti-st').textContent()).includes('Segregación'));
-  await cerrarModal();
-  await ir('ti-admin'); await page.click('[data-ed="' + ADMIN + '"]'); await page.uncheck('.ti-ov .u-rol[value=director]'); await page.click('#u-ok'); await espera(300);
+  /* T4 (administrador sin rol de Director no aprueba) está cubierto en tests/logica.test.js. */
 
   /* ---------- T5: el Director aprueba y publica ---------- */
   await logout(); await login(DIR);
@@ -176,6 +169,34 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   /* ---------- T11: limpieza al cerrar sesión ---------- */
   await logout();
   ok('T11 al cerrar sesión se oculta el menú nuevo y se cierran ventanas', (await page.locator('.ti-nav:not(.hidden)').count()) === 0 && (await page.locator('.ti-ov').count()) === 0);
+
+
+  /* ---------- T12: arranque con el equipo inicial (Director + Administrador y 4 Responsables de proceso) ---------- */
+  const p2 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  p2.on('pageerror', (e) => errores.push(e.message)); p2.on('dialog', (d) => d.dismiss());
+  await p2.addInitScript((u) => { window.__SEED_USERS = u; window.__SEED_STORE = {}; }, USERS);
+  await p2.route('**/*', (route) => { const u = route.request().url(); if (u.startsWith('file:')) return route.continue(); if (u.includes('firebase-app-compat.js')) return route.fulfill({ contentType: 'application/javascript', body: MOCK }); if (u.includes('gstatic.com/firebasejs')) return route.fulfill({ contentType: 'application/javascript', body: '' }); return route.abort(); });
+  await p2.goto('file://' + path.join(RAIZ, 'index.html'));
+  const login2 = async (email) => { await p2.fill('#login-email', email); await p2.fill('#login-pass', 'pw'); await p2.click('#login-btn'); await p2.waitForSelector('#app:not(.hidden)'); await p2.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 }); };
+  const logout2 = async () => { await p2.evaluate(() => doLogout()); await p2.waitForSelector('#login-screen:not(.hidden)'); };
+  await login2(ADMIN); await p2.evaluate(() => switchView('ti-admin')); await p2.click('#ad-boot'); await p2.waitForTimeout(400);
+  await p2.evaluate(() => switchView('ti-admin')); await p2.waitForTimeout(300);
+  const ur = () => p2.evaluate(() => { const o = {}; Object.keys(window.__MOCK.store).filter((k) => k.startsWith('usuarios_ti/')).forEach((k) => { o[k.slice(12)] = window.__MOCK.store[k].roles.join('+'); }); return o; });
+  const r0 = await ur();
+  ok('T12 el arranque crea a ramaya como Administrador y Director', r0[ADMIN] === 'administrador+director', r0);
+  ok('T12 aparece el botón del equipo inicial con 4 pendientes', (await p2.locator('#ad-equipo').textContent()).includes('(4)'));
+  await p2.click('#ad-equipo'); await p2.click('#ti-conf-ok'); await p2.waitForTimeout(500);
+  const r1 = await ur();
+  ok('T12 se crean los 4 registros como Responsable de proceso', ['vlopez', 'aosorio', 'soportetecnico', 'dgomez'].every((n) => r1[n + '@cafiver.com.mx'] === 'resp_proceso') && Object.keys(r1).length === 5, r1);
+  ok('T12 el botón desaparece cuando ya no hay pendientes', (await p2.locator('#ad-equipo').count()) === 0);
+  ok('T12 soportetec@ (Daniela) no recibe rol: es otra persona', !('soportetec@cafiver.com.mx' in r1));
+  await logout2(); await login2('dgomez@cafiver.com.mx');
+  ok('T12 dgomez (Responsable) ve Procesos y no Administración', (await p2.locator('#tnav-ti-procesos').isVisible()) && !(await p2.locator('#tnav-ti-admin').isVisible()));
+  await p2.evaluate(() => switchView('ti-procesos')); await p2.waitForTimeout(200);
+  ok('T12 dgomez puede crear procesos pero no cargar el catálogo', (await p2.locator('#ti-nuevo').isVisible()) && (await p2.locator('#ti-cat').count()) === 0);
+  await logout2(); await login2('soportetec@cafiver.com.mx');
+  ok('T12 una cuenta sin registro no ve los módulos nuevos pero conserva el inventario', !(await p2.locator('#tnav-ti-procesos').isVisible()) && (await p2.locator('#tnav-inventario').isVisible()));
+  await logout2();
 
   ok('Sin errores de JavaScript en toda la sesión', errores.length === 0, errores.slice(0, 5));
   await browser.close();
