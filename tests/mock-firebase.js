@@ -87,13 +87,14 @@
   function firestore() { return db; }
   firestore.FieldValue = { serverTimestamp: function () { return { __sv: 'ts' }; }, arrayUnion: function () { return { __sv: 'union', vals: [].slice.call(arguments) }; } };
 
-  var actual = null, auth = {
+  var actual = null, oyentes = [], auth = {
     get currentUser() { return actual; },
+    onAuthStateChanged: function (cb) { oyentes.push(cb); setTimeout(function () { cb(actual); }, 0); return function () { oyentes = oyentes.filter(function (x) { return x !== cb; }); }; },
     signInWithEmailAndPassword: function (email, pass) {
       if (USERS[email] !== pass) { var e = new Error('x'); e.code = 'auth/invalid-credential'; return Promise.reject(e); }
-      actual = { uid: 'uid-' + email, email: email }; return Promise.resolve({ user: actual });
+      actual = { uid: 'uid-' + email, email: email }; var u = actual; setTimeout(function () { oyentes.slice().forEach(function (f) { f(u); }); }, 0); return Promise.resolve({ user: actual });
     },
-    signOut: function () { actual = null; return Promise.resolve(); }
+    signOut: function () { actual = null; setTimeout(function () { oyentes.slice().forEach(function (f) { f(null); }); }, 0); return Promise.resolve(); }
   };
   window.firebase = { initializeApp: function () {}, firestore: firestore, auth: function () { return auth; } };
 })();

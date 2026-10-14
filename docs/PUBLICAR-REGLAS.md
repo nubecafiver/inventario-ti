@@ -25,15 +25,15 @@
 Consola de Firebase → Firestore Database → Reglas → pega el contenido de `firestore.rules` → **Publicar**.
 
 ## Después de publicar (prueba rápida)
-1. Entra a la app con una cuenta normal y abre Inventario, Reparaciones, Celulares, Licencias, Personal y Etiquetas: deben cargar y guardar como siempre.
-2. Entra con `ramaya@cafiver.com.mx` → "Usuarios, roles y auditoría" → "Crear mi registro" (queda como **Administrador y Director de TI**). Después pulsa "Asignar roles iniciales al equipo": `vlopez@`, `aosorio@`, `soportetecnico@` y `dgomez@cafiver.com.mx` quedan como **Responsable de proceso**. Cada correo debe existir en Firebase Authentication (Authentication → Usuarios); `dgomez@` es una cuenta nueva que quizá haya que crear. `soportetec@` (Daniela Gomez Aleluya) no recibe rol de plataforma; se le puede asignar uno desde la misma pantalla.
+1. Entra a la app de inventario con una cuenta normal y abre Inventario, Reparaciones, Celulares, Licencias, Personal y Etiquetas: deben cargar y guardar como siempre.
+2. Entra a la plataforma (`…/inventario-ti/ti/`) con `ramaya@cafiver.com.mx` → "Administración" → "Crear mi registro" (queda como **Administrador y Director de TI**). Después pulsa "Asignar roles iniciales al equipo": `vlopez@`, `aosorio@`, `soportetecnico@` y `dgomez@cafiver.com.mx` quedan como **Responsable de proceso**. Cada correo debe existir en Firebase Authentication (Authentication → Usuarios); `dgomez@` es una cuenta nueva que quizá haya que crear. `soportetec@` (Daniela Gomez Aleluya) no recibe rol de plataforma; se le puede asignar uno desde la misma pantalla.
 3. Con otra cuenta sin rol, comprueba que los menús nuevos no aparecen.
 
 ## Si algo falla: revertir
 Pega `docs/reglas-anteriores.txt` en la consola de Firebase y publica. Las colecciones nuevas se conservan (no se borran), solo vuelven a quedar abiertas.
 
 ## Orden con respecto al código
-El código de la plataforma está en la rama `claude/wonderful-newton-rr6o79` y **no está fusionado ni publicado** (probablemente GitHub Pages sirve `main`). Publicar las reglas antes o después de fusionar la rama no rompe el inventario: la app anterior no usa las colecciones nuevas. Lo seguro es: probar reglas → publicar reglas → fusionar la rama → primer ingreso del administrador.
+El código de la plataforma está en la carpeta `ti/` de la rama `claude/wonderful-newton-rr6o79` y **no está fusionado ni publicado**. La app de inventario (`index.html`) **no se modificó**: fusionar la rama solo agrega la carpeta `ti/` y archivos de documentación y pruebas. Publicar las reglas antes o después de fusionar no rompe el inventario: no usa las colecciones nuevas. Lo seguro es: probar reglas → publicar reglas → fusionar la rama → primer ingreso del administrador en `…/inventario-ti/ti/`.
 
 ## Límites que debes conocer
 - Un Administrador puede asignarse a sí mismo cualquier rol (incluido Director). La separación de funciones impide que apruebe lo que él editó, pero no impide que tenga ambos roles.

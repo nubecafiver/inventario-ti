@@ -1,5 +1,6 @@
-/* CAFIVER TI — Núcleo de la plataforma: roles, auditoría, ventanas y conexión con la app de inventario.
-   No modifica el inventario: solo agrega vistas nuevas y envuelve switchView / enterApp / doLogout. */
+/* CAFIVER TI — Núcleo de la plataforma: roles, auditoría, ventanas y avisos.
+   Es una app independiente (carpeta ti/): NO carga ni modifica la app de inventario. Depende de las variables globales
+   db (Firestore) y curUser {email, name} que define ti/index.html. */
 (function () {
   'use strict';
   var L = window.TI_LOGIC;
@@ -40,7 +41,11 @@
     if (window.USER_DIR && USER_DIR[email]) return USER_DIR[email].name;
     return email;
   };
-  TI.msg = function (m) { if (typeof window.toast === 'function') window.toast(m); else alert(m); };
+  TI.msg = function (m) {
+    var t = document.getElementById('ti-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'ti-toast'; t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite'); document.body.appendChild(t); }
+    t.textContent = m; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('on'); }, 3500);
+  };
   TI.serverTs = function () { return firebase.firestore.FieldValue.serverTimestamp(); };
 
   /* ===== Auditoría (solo creación; las reglas impiden editar o borrar) ===== */
@@ -104,82 +109,12 @@
   };
   TI.puede = function (permiso) { return L.tiene(TI.user, permiso); };
 
-  /* ===== Navegación y vistas ===== */
+  /* ===== Vistas (el router vive en ti/js/ti-shell.js) ===== */
   TI.registrarVista = function (id, def) { TI.vistas[id] = def; };
-  TI.puedeEntrar = function (id) { var v = TI.vistas[id]; return !!(v && TI.user && v.permitido(TI.user)); };
-
-  TI.montar = function () {
-    if (document.getElementById('tnav-ti-procesos')) return;
-    var area = document.querySelector('.tnav-nav-area');
-    var ref = document.getElementById('view-personal');
-    if (!area || !ref) { console.warn('TI: no se encontró la estructura de la app para montar el menú'); return; }
-    /* Estructura del menú: Inicio · Procesos y procedimientos · Inventario de equipos (grupo) · Administración.
-       El inventario es un módulo de la plataforma: sus botones y subtítulos existentes se MUEVEN dentro de un grupo,
-       sin cambiar ningún id ni onclick (switchView y todo el inventario siguen igual). Los tres subtítulos
-       (Principal, Operaciones, Control) se mueven juntos para que las reglas de "modo campo", que dependen de su
-       orden (:nth-of-type), sigan funcionando. */
-    var inicio = document.getElementById('tnav-dashboard');
-    var grupo = document.createElement('div'); grupo.className = 'ti-grupo'; grupo.id = 'ti-grupo-inv';
-    Array.prototype.slice.call(area.children).forEach(function (n) { if (n !== inicio) grupo.appendChild(n); });
-    var cabeza = document.createElement('button');
-    cabeza.className = 'tnav ti-grupo-h'; cabeza.id = 'tnav-ti-inv'; cabeza.setAttribute('aria-controls', 'ti-grupo-inv'); cabeza.setAttribute('aria-expanded', 'true');
-    cabeza.innerHTML = '<i class="ti ti-devices-pc tnav-icon" aria-hidden="true"></i><span class="tnav-txt">Inventario de equipos</span><i class="ti ti-chevron-down ti-chev" aria-hidden="true"></i>';
-    cabeza.onclick = function () { TI.plegarGrupo(!grupo.classList.contains('ti-plegado')); };
-    var procesos = document.createElement('button');
-    procesos.className = 'tnav ti-nav hidden'; procesos.id = 'tnav-ti-procesos'; procesos.setAttribute('onclick', "switchView('ti-procesos')");
-    procesos.innerHTML = '<i class="ti ti-sitemap tnav-icon" aria-hidden="true"></i><span class="tnav-txt">Procesos y procedimientos</span>';
-    var admin = document.createElement('button');
-    admin.className = 'tnav ti-nav hidden'; admin.id = 'tnav-ti-admin'; admin.setAttribute('onclick', "switchView('ti-admin')");
-    admin.innerHTML = '<i class="ti ti-shield-lock tnav-icon" aria-hidden="true"></i><span class="tnav-txt">Administración</span>';
-    if (inicio) area.appendChild(inicio);
-    area.appendChild(procesos); area.appendChild(cabeza); area.appendChild(grupo); area.appendChild(admin);
-    var guardado = null; try { guardado = localStorage.getItem('ti_grupo_inv'); } catch (e) {}
-    TI.plegarGrupo(guardado === '0', true);
-    Object.keys(TI.vistas).forEach(function (id) {
-      var d = document.createElement('div');
-      d.id = 'view-' + id; d.className = 'view-wrap ti-view hidden';
-      ref.parentNode.insertBefore(d, ref.nextSibling);
-    });
-  };
-  /* Pliega o despliega el grupo "Inventario de equipos". El estado se recuerda (si el navegador lo permite). */
-  TI.plegarGrupo = function (plegar, sinGuardar) {
-    var g = document.getElementById('ti-grupo-inv'), h = document.getElementById('tnav-ti-inv'); if (!g || !h) return;
-    g.classList.toggle('ti-plegado', !!plegar); h.setAttribute('aria-expanded', String(!plegar));
-    if (!sinGuardar) { try { localStorage.setItem('ti_grupo_inv', plegar ? '0' : '1'); } catch (e) {} }
-  };
-  /* Resalta la cabecera si una opción del grupo está activa y lo despliega para que se vea dónde estás. */
-  TI.sincronizarGrupo = function () {
-    var g = document.getElementById('ti-grupo-inv'), h = document.getElementById('tnav-ti-inv'); if (!g || !h) return;
-    var activo = !!g.querySelector('.tnav.on'); h.classList.toggle('on-hijo', activo);
-    if (activo && g.classList.contains('ti-plegado')) TI.plegarGrupo(false, true);
-  };
-  TI.actualizarMenu = function () {
-    var u = TI.user, verProc = !!(u && (L.tiene(u, 'procesos.ver') || L.tiene(u, 'procesos.ver_publicados')));
-    var verAdmin = !!(u && (L.tiene(u, 'usuarios.admin') || L.tiene(u, 'auditoria.ver') || TI.pendienteBootstrap));
-    function mostrar(id, si) { var e = document.getElementById(id); if (e) e.classList.toggle('hidden', !si); }
-    mostrar('tnav-ti-procesos', verProc); mostrar('tnav-ti-admin', verAdmin);
-  };
-
-  var switchViewOriginal = window.switchView;
-  window.switchView = function (v) {
-    var mia = TI.vistas[v];
-    Object.keys(TI.vistas).forEach(function (id) {
-      var el = document.getElementById('view-' + id), nav = document.getElementById('tnav-' + id);
-      if (el) el.classList.toggle('hidden', id !== v);
-      if (nav) nav.classList.toggle('on', id === v);
-    });
-    if (!mia) { switchViewOriginal(v); return; }
-    if (!TI.puedeEntrar(v)) { TI.msg('No tienes permiso para abrir esta sección.'); switchViewOriginal('dashboard'); return; }
-    switchViewOriginal('__ti__');                 /* oculta las vistas del inventario sin renderizar ninguna */
-    window.curView = v;
-    var el = document.getElementById('view-' + v); if (el) el.classList.remove('hidden');
-    var nav = document.getElementById('tnav-' + v); if (nav) nav.classList.add('on');
-    mia.render(document.getElementById('view-' + v));
-  };
+  TI.puedeEntrar = function (id) { var v = TI.vistas[id]; return !!(v && v.permitido(TI.user)); };
 
   /* ===== Ciclo de sesión ===== */
   TI.init = function () {
-    TI.montar();
     var email = (window.curUser && curUser.email || '').toLowerCase();
     TI.user = null; TI.ready = false; TI.estado = 'cargando'; TI.pendienteBootstrap = false;
     return db.collection('usuarios_ti').doc(email).get().then(function (d) {
@@ -192,26 +127,17 @@
         TI.pendienteBootstrap = !data && TI.BOOTSTRAP_ADMINS.indexOf(email) >= 0;
         if (TI.pendienteBootstrap) TI.user = { email: email, nombre: (window.curUser && curUser.name) || email, roles: [] };
       }
-      TI.ready = true; TI.actualizarMenu();
+      TI.ready = true; if (TI.alCambiarRol) TI.alCambiarRol();
       if (TI.user && TI.user.roles.length) return TI.cargarUsuariosCache();
     }).catch(function (e) {
-      TI.estado = 'error'; TI.errorMsg = e.message; TI.ready = true; TI.actualizarMenu();
+      TI.estado = 'error'; TI.errorMsg = e.message; TI.ready = true; if (TI.alCambiarRol) TI.alCambiarRol();
       console.warn('TI: no se pudo leer el rol del usuario:', e.message);
     });
   };
   TI.cerrarSesion = function () {
     TI.unsubs.forEach(function (f) { try { f(); } catch (e) {} }); TI.unsubs = [];
     document.querySelectorAll('.ti-ov').forEach(function (o) { o.remove(); });
-    TI.user = null; TI.ready = false; TI.usuariosCache = null;
-    Object.keys(TI.vistas).forEach(function (id) { var e = document.getElementById('view-' + id); if (e) { e.classList.add('hidden'); e.innerHTML = ''; } if (TI.vistas[id].destruir) TI.vistas[id].destruir(); });
-    document.querySelectorAll('.ti-nav').forEach(function (e) { e.classList.add('hidden'); });
+    TI.user = null; TI.ready = false; TI.usuariosCache = null; TI.estado = 'inicio'; TI.pendienteBootstrap = false;
+    Object.keys(TI.vistas).forEach(function (id) { var e = document.getElementById('view-' + id); if (e) e.innerHTML = ''; if (TI.vistas[id].destruir) TI.vistas[id].destruir(); });
   };
-
-  var switchViewConGrupo = window.switchView;
-  window.switchView = function () { var r = switchViewConGrupo.apply(this, arguments); TI.sincronizarGrupo(); return r; };
-
-  var enterAppOriginal = window.enterApp;
-  window.enterApp = function () { enterAppOriginal.apply(this, arguments); TI.init(); };
-  var doLogoutOriginal = window.doLogout;
-  window.doLogout = function () { TI.cerrarSesion(); return doLogoutOriginal.apply(this, arguments); };
 })();

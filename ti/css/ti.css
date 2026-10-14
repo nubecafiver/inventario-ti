@@ -1,5 +1,5 @@
 /* CAFIVER TI — estilos de los módulos nuevos. Estilo "Minimalism & Swiss" (demo 1); reutiliza .btn, .fi, .pill y .modal-card de la app. */
-.ti-view{background:#eef2f7}
+.ti-view{padding:1.25rem 1.75rem 2rem}
 .ti-head{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .ti-h1{font-size:19px;font-weight:700;color:#1c1e21;margin:0}.ti-sub{color:#4b5563;font-size:13px;margin-top:2px}
 .ti-mut{color:#4b5563}.ti-warn{color:#8a4b00;font-weight:600}.ti-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
@@ -57,16 +57,3 @@
 .ti-checks{display:flex;flex-wrap:wrap;gap:6px 16px}.ti-checks label{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:400;color:#1c1e21;margin:0}
 @media(max-width:800px){.ti-g2,.ti-g3{grid-template-columns:1fr}.ti-dl{grid-template-columns:1fr}.ti-kpis{grid-template-columns:1fr 1fr}.ti-ov{padding:8px}}
 @media(prefers-reduced-motion:reduce){.ti-kpi{transition:none}.ti-kpi:hover{transform:none}}
-/* Menú: Inventario de equipos como grupo dentro de la plataforma */
-.ti-grupo-h{position:relative}
-.ti-grupo-h .ti-chev{margin-left:auto;font-size:14px;color:#64748b;transition:transform .15s}
-.ti-grupo-h[aria-expanded=false] .ti-chev{transform:rotate(-90deg)}
-.ti-grupo-h.on-hijo .tnav-txt{color:#e0e7ff;font-weight:600}.ti-grupo-h.on-hijo .tnav-icon{color:#818cf8}
-.ti-grupo{margin:0 0 4px 14px;border-left:1px solid rgba(255,255,255,.1)}
-.ti-grupo.ti-plegado{display:none}
-.ti-grupo>.tnav-section:first-of-type{display:none}   /* "Principal": el nombre del grupo ya lo indica; se conserva en el DOM por el orden del modo campo */
-@media(prefers-reduced-motion:reduce){.ti-grupo-h .ti-chev{transition:none}}
-/* Modo campo: el grupo siempre visible, sin cabecera, y nada del menú nuevo */
-body.modo-campo .ti-grupo-h{display:none}
-body.modo-campo .ti-grupo,body.modo-campo .ti-grupo.ti-plegado{display:block;margin-left:0;border-left:0}
-body.modo-campo .ti-nav,body.modo-campo .ti-view{display:none!important}

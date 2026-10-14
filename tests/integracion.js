@@ -1,24 +1,23 @@
-/* Pruebas de integración en navegador (Chromium + Playwright) con Firebase simulado en memoria (tests/mock-firebase.js).
-   Verifican interfaz, flujos y compatibilidad con el inventario. NO prueban las reglas de seguridad (ver reglas.test.js).
+/* Pruebas de integración en navegador (Chromium + Playwright) de la app independiente ti/index.html, con Firebase simulado
+   en memoria (tests/mock-firebase.js). Verifican interfaz y flujos, y que la app de inventario (index.html) NO se modificó.
+   NO prueban las reglas de seguridad (ver reglas.test.js).
    Uso: node tests/integracion.js   (requiere playwright; variable PLAYWRIGHT_MODULE para indicar su ruta) */
 'use strict';
 const fs = require('fs'), path = require('path'), { execSync } = require('child_process');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const RAIZ = path.resolve(__dirname, '..');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock-firebase.js'), 'utf8');
+const SHOTS = process.env.SHOTS;
 const USERS = { 'ramaya@cafiver.com.mx': 'pw', 'aosorio@cafiver.com.mx': 'pw', 'vlopez@cafiver.com.mx': 'pw', 'soportetec@cafiver.com.mx': 'pw', 'soportetecnico@cafiver.com.mx': 'pw', 'dgomez@cafiver.com.mx': 'pw' };
 const ADMIN = 'ramaya@cafiver.com.mx', DIR = 'aosorio@cafiver.com.mx', RESP = 'vlopez@cafiver.com.mx', TEC = 'soportetec@cafiver.com.mx', SOL = 'soportetecnico@cafiver.com.mx';
+const URL_APP = 'file://' + path.join(RAIZ, 'ti', 'index.html');
 
 const resultados = [];
-const SHOTS = process.env.SHOTS;
-function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }); console.log((cond ? 'OK   ' : 'FALLA') + ' ' + nombre + (cond ? '' : '  → ' + JSON.stringify(extra))); }
+function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond }); console.log((cond ? 'OK   ' : 'FALLA') + ' ' + nombre + (cond ? '' : '  → ' + JSON.stringify(extra))); }
 
-(async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
+async function abrir(browser, errores) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-  const errores = [];
-  page.on('pageerror', (e) => errores.push(e.message));
-  page.on('dialog', (d) => d.dismiss());
+  page.on('pageerror', (e) => errores.push(e.message)); page.on('dialog', (d) => d.dismiss());
   await page.addInitScript((u) => { window.__SEED_USERS = u; window.__SEED_STORE = {}; window.__xss = undefined; }, USERS);
   await page.route('**/*', (route) => {
     const u = route.request().url();
@@ -27,21 +26,36 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
     if (u.includes('gstatic.com/firebasejs')) return route.fulfill({ contentType: 'application/javascript', body: '' });
     return route.abort();
   });
-  await page.goto('file://' + path.join(RAIZ, 'index.html'));
+  await page.goto(URL_APP);
+  return {
+    page,
+    login: async (email) => { await page.fill('#login-email', email); await page.fill('#login-pass', 'pw'); await page.click('#login-btn'); await page.waitForSelector('#app:not(.hidden)'); await page.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 }); await page.waitForFunction(() => document.querySelector('.ti-view:not(.hidden)'), null, { timeout: 5000 }); },
+    logout: async () => { await page.click('#salir'); await page.waitForSelector('#login-screen:not(.hidden)'); },
+    ir: async (v) => { await page.evaluate((x) => TI.ir(x), v); await page.waitForTimeout(150); },
+    visible: (sel) => page.locator(sel).isVisible().catch(() => false),
+    filas: () => page.locator('.ti-row').count(),
+    espera: (ms) => page.waitForTimeout(ms || 150),
+    toast: async () => (await page.locator('#ti-toast').textContent()) || '',
+    abrirFila: async (cod) => { await page.click('.ti-row:has-text("' + cod + '")'); await page.waitForSelector('.ti-ov .modal-footer'); await page.waitForTimeout(120); },
+    cerrarModal: async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(100); },
+    accion: (id) => page.locator('.ti-ov [data-a=' + id + ']'),
+    shot: async (n) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: path.join(SHOTS, n + '.png') }); } }
+  };
+}
 
-  const login = async (email) => { await page.fill('#login-email', email); await page.fill('#login-pass', 'pw'); await page.click('#login-btn'); await page.waitForSelector('#app:not(.hidden)'); await page.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 });
-    /* La app original abre el inicio al llegar la primera lectura de equipos; se espera para no competir con ella. */
-    await page.waitForFunction(() => getComputedStyle(document.getElementById('view-dashboard')).display !== 'none', null, { timeout: 10000 }); };
-  const logout = async () => { await page.evaluate(() => doLogout()); await page.waitForSelector('#login-screen:not(.hidden)'); };
-  const visible = (sel) => page.locator(sel).isVisible().catch(() => false);
-  const ir = async (v) => { await page.evaluate((x) => switchView(x), v); await page.waitForTimeout(120); };
-  const filas = () => page.locator('.ti-row').count();
-  const espera = (ms) => page.waitForTimeout(ms || 150);
-  const toast = async () => (await page.locator('#toast').textContent()) || '';
-  const abrirFila = async (cod) => { await page.click('.ti-row:has-text("' + cod + '")'); await page.waitForSelector('.ti-ov .modal-footer'); await espera(120); };
-  const cerrarModal = async () => { await page.keyboard.press('Escape'); await espera(100); };
-  const shot = async (n) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: path.join(SHOTS, n + '.png') }); } };
-  const accion = (id) => page.locator('.ti-ov [data-a=' + id + ']');
+(async () => {
+  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
+  const errores = [];
+  const A = await abrir(browser, errores), page = A.page;
+  const { login, logout, ir, visible, filas, espera, toast, abrirFila, cerrarModal, accion, shot } = A;
+
+  /* ---------- T0: la app de inventario NO se modificó ---------- */
+  let hashActual = '', hashMain = '';
+  try { hashActual = execSync('git hash-object index.html', { cwd: RAIZ }).toString().trim(); hashMain = execSync('git rev-parse origin/main:index.html', { cwd: RAIZ }).toString().trim(); } catch (e) { hashMain = 'no disponible'; }
+  ok('T0 index.html (app de inventario) es idéntico al de la rama principal', hashActual && hashActual === hashMain, { hashActual, hashMain });
+  const inv = await page.evaluate(() => ({ funcs: typeof window.loadAppData, equipos: typeof window.equipos, tnav: document.querySelectorAll('.tnav-nav-area').length }));
+  ok('T0 la app nueva no carga código del inventario', inv.funcs === 'undefined' && inv.equipos === 'undefined' && inv.tnav === 0, inv);
+  ok('T0 sin sesión se muestra solo el inicio de sesión', (await visible('#login-screen')) && !(await visible('#app')));
 
   /* ---------- T1: arranque (bootstrap) ---------- */
   await login(ADMIN);
@@ -50,12 +64,12 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   ok('T1 panel de configuración inicial visible', await visible('#ad-boot'));
   await page.click('#ad-boot'); await page.waitForSelector('#tnav-ti-procesos:not(.hidden)', { timeout: 4000 }).catch(() => {});
   ok('T1 tras crear su registro aparece Procesos', await visible('#tnav-ti-procesos'));
-  ok('T1 etiqueta "Inicio" en lugar de "Dashboard"', (await page.locator('#tnav-dashboard').textContent()).includes('Inicio'));
+  ok('T1 el menú dice "Inicio" y muestra el rol', (await page.locator('#tnav-ti-inicio').textContent()).includes('Inicio') && (await page.locator('#cur-rol').textContent()).includes('Administrador'));
 
-  /* ---------- T1b: asignar roles desde la interfaz ---------- */
+  /* ---------- T1b: roles desde la interfaz ---------- */
   await ir('ti-admin'); await espera(200);
-  const asignar = async (email, rol) => { await page.click('[data-ed="' + email + '"]'); await page.check('.ti-ov .u-rol[value=' + rol + ']'); await page.click('#u-ok'); await espera(250); };
   await shot('0-admin-usuarios');
+  const asignar = async (email, rol) => { await page.click('[data-ed="' + email + '"]'); await page.check('.ti-ov .u-rol[value=' + rol + ']'); await page.click('#u-ok'); await espera(250); };
   await asignar(DIR, 'director'); await asignar(RESP, 'resp_proceso'); await asignar(TEC, 'tecnico'); await asignar(SOL, 'solicitante');
   const usuarios = await page.evaluate(() => Object.keys(window.__MOCK.store).filter((k) => k.startsWith('usuarios_ti/')).length);
   ok('T1b se registraron 5 usuarios con rol', usuarios === 5, usuarios);
@@ -73,7 +87,7 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   await page.click('#ti-cat'); await page.click('#ti-conf-ok').catch(() => {}); await espera(200);
   ok('T2 cargar de nuevo no duplica', (await filas()) === 21 && (await toast()).includes('ya está cargado'), await toast());
   await shot('1-lista-catalogo');
-  ok('T2 KPI: 21 registrados y % oculto no aplica (0 documentados)', (await page.locator('[data-kpi=registrados] .ti-kv').textContent()) === '21');
+  ok('T2 KPI: 21 registrados', (await page.locator('[data-kpi=registrados] .ti-kv').textContent()) === '21');
 
   /* ---------- T3: crear proceso, validar y enviar a revisión ---------- */
   await page.click('#ti-nuevo'); await page.fill('#e-nombre', '<img src=x onerror="window.__xss=1"> Proceso de prueba');
@@ -101,8 +115,6 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   await apr.click({ force: true }); ok('T3 explica el motivo (separación de funciones)', (await page.locator('#ti-st').textContent()).includes('Segregación'));
   await cerrarModal();
 
-  /* T4 (administrador sin rol de Director no aprueba) está cubierto en tests/logica.test.js. */
-
   /* ---------- T5: el Director aprueba y publica ---------- */
   await logout(); await login(DIR);
   ok('T5 director ve Procesos y Administración (auditoría)', (await visible('#tnav-ti-procesos')) && (await visible('#tnav-ti-admin')));
@@ -115,10 +127,9 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   ok('T5 se registró la aprobación, la vigencia, la próxima revisión y el indicador "documentado"', pub.v.aprobacion && pub.v.aprobacion.por === DIR && pub.p.versionPublicada === 1 && /^\d{4}-\d{2}-\d{2}$/.test(pub.p.proximaRevision) && pub.p.documentado === true, pub);
   await shot('4-detalle-publicado');
   await page.click('.ti-ov .ti-tabs [data-t=historial]'); await espera(250);
-  await shot('5-historial');
   ok('T5 historial con eventos de quién hizo cada acción', (await page.locator('.ti-ov .ti-tl > div').count()) >= 4);
   await cerrarModal();
-  ok('T5 KPI publicados = 1 y documentados = 5% (1 de 22; hay ≥5 procesos, por eso sí hay porcentaje)', (await page.locator('[data-kpi=publicados] .ti-kv').textContent()) === '1' && (await page.locator('[data-kpi=documentados] .ti-kv').textContent()) === '5%', await page.locator('[data-kpi=documentados] .ti-kv').textContent());
+  ok('T5 KPI publicados = 1 y documentados = 5% (1 de 22; hay ≥5 procesos)', (await page.locator('[data-kpi=publicados] .ti-kv').textContent()) === '1' && (await page.locator('[data-kpi=documentados] .ti-kv').textContent()) === '5%', await page.locator('[data-kpi=documentados] .ti-kv').textContent());
   await page.click('[data-kpi=publicados]'); ok('T5 clic en tarjeta filtra los registros que la componen', (await filas()) === 1);
   await page.click('#ti-lim');
 
@@ -148,43 +159,30 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   await logout(); await login(SOL);
   ok('T8 solicitante: no ve módulos nuevos', !(await visible('#tnav-ti-procesos')) && !(await visible('#tnav-ti-admin')));
   await ir('ti-procesos');
-  ok('T8 solicitante: acceso directo bloqueado y vuelve al inicio', (await toast()).includes('No tienes permiso') && (await visible('#view-dashboard')));
+  ok('T8 solicitante: acceso directo bloqueado y vuelve al inicio', (await toast()).includes('No tienes permiso') && (await visible('#view-ti-inicio')));
 
-  /* ---------- T9: el inventario sigue funcionando ---------- */
-  const vistas = ['inventario', 'qr', 'reparaciones', 'celulares', 'licencias', 'personal', 'obsoletos', 'etiquetas', 'simulador'];
-  const falloVistas = [];
-  for (const v of vistas) { await ir(v); const vis = await visible('#view-' + v); if (!vis) falloVistas.push(v); }
-  ok('T9 las 9 vistas del inventario se abren', !falloVistas.length, falloVistas);
-  await ir('dashboard'); ok('T9 Inicio (dashboard original) se abre', await visible('#view-dashboard'));
-  await logout(); await login(DIR); await ir('ti-procesos'); await ir('inventario');
-  ok('T9 alternar entre módulos nuevos e inventario oculta correctamente cada vista', (await visible('#view-inventario')) && !(await visible('#view-ti-procesos')));
-  await ir('ti-admin'); ok('T9 y de vuelta a administración', (await visible('#view-ti-admin')) && !(await visible('#view-inventario')));
+  /* ---------- T9: el inventario es un acceso aparte (no se carga dentro de la app nueva) ---------- */
+  const enlace = await page.evaluate(() => { const a = document.getElementById('tnav-ti-inv'); return { href: a.getAttribute('href'), target: a.target, rel: a.rel, tag: a.tagName }; });
+  ok('T9 "Inventario de equipos" abre la app existente en otra pestaña, sin cargarla aquí', enlace.href === '../index.html' && enlace.target === '_blank' && /noopener/.test(enlace.rel) && enlace.tag === 'A', enlace);
+  ok('T9 la pantalla de inicio también ofrece el acceso al inventario', (await page.locator('.ti-mod:has-text("Inventario de equipos") a[href="../index.html"]').count()) === 1);
 
   /* ---------- T10: auditoría ---------- */
-  await page.click('[data-t=auditoria]'); await espera(300);
+  await logout(); await login(DIR); await ir('ti-admin'); await page.click('[data-t=auditoria]'); await espera(300);
   await shot('6-auditoria');
   const aud = await page.evaluate(() => { const a = Object.keys(window.__MOCK.store).filter((k) => k.startsWith('ti_auditoria/')).map((k) => window.__MOCK.store[k]); return { n: a.length, acciones: [...new Set(a.map((x) => x.accion))], sinSecretos: a.every((x) => !/pass|token|secret|clave/i.test(JSON.stringify(x))), conUsuario: a.every((x) => x.usuario && x.fecha) }; });
   ok('T10 auditoría registra arranque, roles, catálogo, creación, edición, aprobación y publicación', ['arranque_plataforma', 'cambio_roles', 'cargar_catalogo', 'crear_proceso', 'editar_procedimiento', 'aprobar', 'publicar', 'nueva_version'].every((x) => aud.acciones.includes(x)), aud.acciones);
   ok('T10 cada evento tiene usuario y fecha, y no contiene secretos', aud.conUsuario && aud.sinSecretos);
   ok('T10 la tabla de auditoría muestra eventos', (await page.locator('.ti-table tbody tr').count()) >= 10);
 
-  /* ---------- T11: limpieza al cerrar sesión ---------- */
+  /* ---------- T11: cierre de sesión ---------- */
   await logout();
-  ok('T11 al cerrar sesión se oculta el menú nuevo y se cierran ventanas', (await page.locator('.ti-nav:not(.hidden)').count()) === 0 && (await page.locator('.ti-ov').count()) === 0);
+  ok('T11 al cerrar sesión no queda contenido de la sesión anterior ni ventanas abiertas', (await page.locator('.ti-ov').count()) === 0 && (await page.locator('#view-ti-procesos').innerHTML()) === '' && (await visible('#login-screen')));
+  await page.close();
 
-
-  /* ---------- T12: arranque con el equipo inicial (Director + Administrador y 4 Responsables de proceso) ---------- */
-  const p2 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-  p2.on('pageerror', (e) => errores.push(e.message)); p2.on('dialog', (d) => d.dismiss());
-  await p2.addInitScript((u) => { window.__SEED_USERS = u; window.__SEED_STORE = {}; }, USERS);
-  await p2.route('**/*', (route) => { const u = route.request().url(); if (u.startsWith('file:')) return route.continue(); if (u.includes('firebase-app-compat.js')) return route.fulfill({ contentType: 'application/javascript', body: MOCK }); if (u.includes('gstatic.com/firebasejs')) return route.fulfill({ contentType: 'application/javascript', body: '' }); return route.abort(); });
-  await p2.goto('file://' + path.join(RAIZ, 'index.html'));
-  const login2 = async (email) => { await p2.fill('#login-email', email); await p2.fill('#login-pass', 'pw'); await p2.click('#login-btn'); await p2.waitForSelector('#app:not(.hidden)'); await p2.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 });
-    /* La app original abre el inicio al llegar la primera lectura de equipos; se espera para no competir con ella. */
-    await p2.waitForFunction(() => getComputedStyle(document.getElementById('view-dashboard')).display !== 'none', null, { timeout: 10000 }); };
-  const logout2 = async () => { await p2.evaluate(() => doLogout()); await p2.waitForSelector('#login-screen:not(.hidden)'); };
-  await login2(ADMIN); await p2.evaluate(() => switchView('ti-admin')); await p2.waitForSelector('#ad-boot', { timeout: 10000 }); await p2.click('#ad-boot'); await p2.waitForTimeout(400);
-  await p2.evaluate(() => switchView('ti-admin')); await p2.waitForTimeout(300);
+  /* ---------- T12: arranque con el equipo inicial en una base limpia ---------- */
+  const B = await abrir(browser, errores), p2 = B.page;
+  await B.login(ADMIN); await B.ir('ti-admin'); await p2.click('#ad-boot'); await p2.waitForTimeout(400);
+  await B.ir('ti-admin'); await p2.waitForTimeout(300);
   const ur = () => p2.evaluate(() => { const o = {}; Object.keys(window.__MOCK.store).filter((k) => k.startsWith('usuarios_ti/')).forEach((k) => { o[k.slice(12)] = window.__MOCK.store[k].roles.join('+'); }); return o; });
   const r0 = await ur();
   ok('T12 el arranque crea a ramaya como Administrador y Director', r0[ADMIN] === 'administrador+director', r0);
@@ -194,82 +192,32 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   ok('T12 se crean los 4 registros como Responsable de proceso', ['vlopez', 'aosorio', 'soportetecnico', 'dgomez'].every((n) => r1[n + '@cafiver.com.mx'] === 'resp_proceso') && Object.keys(r1).length === 5, r1);
   ok('T12 el botón desaparece cuando ya no hay pendientes', (await p2.locator('#ad-equipo').count()) === 0);
   ok('T12 soportetec@ (Daniela) no recibe rol: es otra persona', !('soportetec@cafiver.com.mx' in r1));
-  await logout2(); await login2('dgomez@cafiver.com.mx');
-  ok('T12 dgomez (Responsable) ve Procesos y no Administración', (await p2.locator('#tnav-ti-procesos').isVisible()) && !(await p2.locator('#tnav-ti-admin').isVisible()));
-  await p2.evaluate(() => switchView('ti-procesos')); await p2.waitForTimeout(200);
-  ok('T12 dgomez puede crear procesos pero no cargar el catálogo', (await p2.locator('#ti-nuevo').isVisible()) && (await p2.locator('#ti-cat').count()) === 0);
-  await logout2(); await login2('soportetec@cafiver.com.mx');
-  ok('T12 una cuenta sin registro no ve los módulos nuevos pero conserva el inventario', !(await p2.locator('#tnav-ti-procesos').isVisible()) && (await p2.locator('#tnav-inventario').isVisible()));
-  await logout2();
+  await B.logout(); await B.login('dgomez@cafiver.com.mx');
+  ok('T12 dgomez (Responsable) ve Procesos y no Administración', (await B.visible('#tnav-ti-procesos')) && !(await B.visible('#tnav-ti-admin')));
+  await B.ir('ti-procesos');
+  ok('T12 dgomez puede crear procesos pero no cargar el catálogo', (await B.visible('#ti-nuevo')) && (await p2.locator('#ti-cat').count()) === 0);
+  await B.logout(); await B.login(TEC);
+  ok('T12 una cuenta sin registro en la plataforma no ve módulos nuevos pero sí el acceso al inventario', !(await B.visible('#tnav-ti-procesos')) && !(await B.visible('#tnav-ti-admin')) && (await B.visible('#tnav-ti-inv')));
+  ok('T12 la cuenta sin registro ve un aviso claro en Inicio', (await p2.locator('#view-ti-inicio').textContent()).includes('aún no tiene un rol'));
+  await B.logout(); await p2.close();
 
-  /* ---------- T13: estructura del menú (Inventario de equipos es un módulo de la plataforma) ---------- */
-  const ORIG = ['inventario', 'qr', 'reparaciones', 'celulares', 'simulador', 'licencias', 'personal', 'obsoletos', 'etiquetas'];
-  const p3 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-  p3.on('pageerror', (e) => errores.push(e.message)); p3.on('dialog', (d) => d.dismiss());
-  await p3.addInitScript((u) => { window.__SEED_USERS = u; window.__SEED_STORE = {}; }, USERS);
-  await p3.route('**/*', (route) => { const u = route.request().url(); if (u.startsWith('file:')) return route.continue(); if (u.includes('firebase-app-compat.js')) return route.fulfill({ contentType: 'application/javascript', body: MOCK }); if (u.includes('gstatic.com/firebasejs')) return route.fulfill({ contentType: 'application/javascript', body: '' }); return route.abort(); });
-  await p3.goto('file://' + path.join(RAIZ, 'index.html'));
-  const login3 = async (email) => { await p3.fill('#login-email', email); await p3.fill('#login-pass', 'pw'); await p3.click('#login-btn'); await p3.waitForSelector('#app:not(.hidden)'); await p3.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 });
-    /* La app original abre el inicio al llegar la primera lectura de equipos; se espera para no competir con ella. */
-    await p3.waitForFunction(() => getComputedStyle(document.getElementById('view-dashboard')).display !== 'none', null, { timeout: 10000 }); };
-  await login3(ADMIN); await p3.evaluate(() => switchView('ti-admin')); await p3.waitForSelector('#ad-boot', { timeout: 10000 }); await p3.click('#ad-boot'); await p3.waitForTimeout(400);
-  const orden = await p3.evaluate(() => [...document.querySelector('.tnav-nav-area').children].filter((e) => !e.classList.contains('hidden')).map((e) => e.id || e.className));
-  ok('T13 orden del menú: Inicio, Procesos, Inventario de equipos (grupo), Administración', JSON.stringify(orden) === JSON.stringify(['tnav-dashboard', 'tnav-ti-procesos', 'tnav-ti-inv', 'ti-grupo-inv', 'tnav-ti-admin']), orden);
-  const hijos = await p3.evaluate(() => [...document.querySelectorAll('#ti-grupo-inv .tnav')].map((e) => e.id.replace('tnav-', '')));
-  ok('T13 el grupo contiene exactamente las 9 opciones originales del inventario, con sus id', JSON.stringify(hijos) === JSON.stringify(ORIG), hijos);
-  const subt = await p3.evaluate(() => [...document.querySelectorAll('#ti-grupo-inv .tnav-section')].map((e) => e.textContent.trim()));
-  ok('T13 se conservan los subtítulos Principal, Operaciones y Control', JSON.stringify(subt) === JSON.stringify(['Principal', 'Operaciones', 'Control']), subt);
-  ok('T13 el menú nuevo ya no se llama "Gestión de TI" ni queda separado del inventario', (await p3.locator('#ti-sec-gestion').count()) === 0);
-  const marca = await p3.evaluate(() => ({ t: document.title, sub: document.querySelector('.proj-sub').textContent }));
-  ok('T13 marca: CAFIVER TI en la pestaña y en el menú (ya no "InventarioTech" ni "Asset Manager")', marca.t.includes('CAFIVER TI') && !/Asset/.test(marca.sub), marca);
-  // todas las vistas del inventario abren desde el grupo y resaltan la cabecera
-  const fallos = [];
-  for (const v of ORIG) { await p3.click('#tnav-' + v); await p3.waitForTimeout(80); if (!(await p3.locator('#view-' + v).isVisible())) fallos.push(v); }
-  ok('T13 las 9 vistas del inventario abren haciendo clic dentro del grupo', !fallos.length, fallos);
-  ok('T13 la cabecera del grupo se resalta cuando hay una opción activa', await p3.locator('#tnav-ti-inv.on-hijo').count() === 1);
-  await p3.click('#tnav-ti-procesos'); await p3.waitForTimeout(100);
-  ok('T13 al abrir Procesos la cabecera del inventario deja de estar resaltada', await p3.locator('#tnav-ti-inv.on-hijo').count() === 0);
-  // plegar con teclado y recordar
-  await p3.focus('#tnav-ti-inv'); await p3.keyboard.press('Enter');
-  ok('T13 plegar con teclado: aria-expanded=false y el grupo se oculta', (await p3.getAttribute('#tnav-ti-inv', 'aria-expanded')) === 'false' && !(await p3.locator('#ti-grupo-inv').isVisible()));
-  ok('T13 el estado plegado se recuerda', (await p3.evaluate(() => localStorage.getItem('ti_grupo_inv'))) === '0');
-  await p3.evaluate(() => switchView('reparaciones'));
-  ok('T13 al ir a una opción del inventario el grupo se despliega solo', await p3.locator('#ti-grupo-inv').isVisible());
-  await p3.focus('#tnav-ti-inv'); await p3.keyboard.press('Space');
-  ok('T13 la barra espaciadora también pliega', (await p3.getAttribute('#tnav-ti-inv', 'aria-expanded')) === 'false');
-  await p3.keyboard.press('Space');
-  // MODO CAMPO: comparación con la app ORIGINAL (antes de cualquier cambio de la plataforma)
-  const estadoCampo = async (pg) => pg.evaluate(() => {
-    document.body.classList.add('modo-campo');
-    const vis = (e) => { const r = e.getBoundingClientRect(), c = getComputedStyle(e); return c.display !== 'none' && c.visibility !== 'hidden' && (r.width > 0 || r.height > 0); };
-    const botones = [...document.querySelectorAll('.tnav[id^="tnav-"]')].filter((e) => !['tnav-ti-procesos', 'tnav-ti-admin', 'tnav-ti-inv'].includes(e.id) && vis(e)).map((e) => e.id).sort();
-    const etiquetas = [...document.querySelectorAll('.tnav-section')].filter(vis).map((e) => e.textContent.trim()).sort();
-    const nuevos = [...document.querySelectorAll('#tnav-ti-procesos,#tnav-ti-admin,#tnav-ti-inv')].filter(vis).map((e) => e.id);
-    document.body.classList.remove('modo-campo');
-    return { botones, etiquetas, nuevos };
-  });
-  const nuevoCampo = await estadoCampo(p3);
-  let base = null, baseCampo = null;
-  try {
-    const primero = execSync('git log --diff-filter=A --format=%H -- js/ti-core.js', { cwd: RAIZ }).toString().trim().split('\n').pop();
-    fs.writeFileSync(path.join(RAIZ, '.baseline-original.html'), execSync('git show ' + primero + '^:index.html', { cwd: RAIZ, maxBuffer: 1 << 28 }));
-    const p4 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-    p4.on('dialog', (d) => d.dismiss());
-    await p4.addInitScript((u) => { window.__SEED_USERS = u; window.__SEED_STORE = {}; }, USERS);
-    await p4.route('**/*', (route) => { const u = route.request().url(); if (u.startsWith('file:')) return route.continue(); if (u.includes('firebase-app-compat.js')) return route.fulfill({ contentType: 'application/javascript', body: MOCK }); if (u.includes('gstatic.com/firebasejs')) return route.fulfill({ contentType: 'application/javascript', body: '' }); return route.abort(); });
-    await p4.goto('file://' + path.join(RAIZ, '.baseline-original.html'));
-    await p4.fill('#login-email', ADMIN); await p4.fill('#login-pass', 'pw'); await p4.click('#login-btn'); await p4.waitForSelector('#app:not(.hidden)'); await p4.waitForTimeout(300);
-    baseCampo = await estadoCampo(p4); await p4.close();
-  } catch (e) { base = 'no disponible: ' + e.message; } finally { try { fs.unlinkSync(path.join(RAIZ, '.baseline-original.html')); } catch (e) {} }
-  ok('T13 MODO CAMPO: se ve exactamente lo mismo que en la app original (botones y subtítulos)', baseCampo && JSON.stringify(baseCampo.botones) === JSON.stringify(nuevoCampo.botones) && JSON.stringify(baseCampo.etiquetas.filter((x) => x !== 'Principal')) === JSON.stringify(nuevoCampo.etiquetas.filter((x) => x !== 'Principal')), { base: baseCampo || base, nuevo: nuevoCampo });
-  ok('T13 MODO CAMPO: no aparece nada del menú nuevo (Procesos, Administración, cabecera del grupo)', nuevoCampo.nuevos.length === 0, nuevoCampo.nuevos);
-  // usuario sin rol: ve Inicio e Inventario de equipos como siempre
-  await p3.evaluate(() => doLogout()); await p3.waitForSelector('#login-screen:not(.hidden)'); await login3(SOL);
-  ok('T13 usuario sin rol: ve Inicio e Inventario de equipos, y nada de Procesos ni Administración', (await p3.locator('#tnav-dashboard').isVisible()) && (await p3.locator('#tnav-ti-inv').isVisible()) && (await p3.locator('#tnav-qr').isVisible()) && !(await p3.locator('#tnav-ti-procesos').isVisible()) && !(await p3.locator('#tnav-ti-admin').isVisible()));
-  await p3.screenshot({ path: SHOTS ? path.join(SHOTS, '7-menu-sin-rol.png') : '/dev/null' }).catch(() => {});
-  await p3.evaluate(() => doLogout()); await p3.waitForSelector('#login-screen:not(.hidden)'); await login3(ADMIN);
-  await p3.evaluate(() => switchView('ti-procesos')); await p3.waitForTimeout(250); if (SHOTS) await p3.screenshot({ path: path.join(SHOTS, '8-menu-procesos.png') });
-  await p3.evaluate(() => doLogout());
+  /* ---------- T13: menú y marca ---------- */
+  const C = await abrir(browser, errores), p3 = C.page;
+  await C.login(ADMIN);
+  ok('T13 la pestaña y el menú dicen CAFIVER TI (no "InventarioTech")', (await p3.title()).includes('CAFIVER TI') && (await p3.locator('.marca b').textContent()) === 'CAFIVER TI');
+  await p3.evaluate(() => TI.ir('ti-admin')); await p3.click('#ad-boot'); await p3.waitForTimeout(400);
+  const orden = await p3.evaluate(() => [...document.querySelectorAll('#side nav > *')].filter((e) => !e.classList.contains('hidden')).map((e) => e.id));
+  ok('T13 orden del menú: Inicio, Procesos, Inventario de equipos, Administración', JSON.stringify(orden) === JSON.stringify(['tnav-ti-inicio', 'tnav-ti-procesos', 'tnav-ti-inv', 'tnav-ti-admin']), orden);
+  await C.ir('ti-inicio'); await C.shot('7-inicio');
+  ok('T13 Inicio muestra las tarjetas de los 3 módulos disponibles', (await p3.locator('.ti-mod').count()) === 3);
+  ok('T13 Inicio no muestra módulos que no existen (mesa de ayuda, cambios, proyectos…) como tarjetas', (await p3.locator('.ti-mod:has-text("Mesa de ayuda")').count()) === 0);
+  await C.ir('ti-procesos'); await C.shot('8-menu-procesos');
+  await p3.setViewportSize({ width: 420, height: 800 });
+  await p3.waitForTimeout(450);
+  ok('T13 en pantalla angosta el menú lateral queda fuera de la vista', await p3.evaluate(() => document.getElementById('side').getBoundingClientRect().right <= 0));
+  await p3.click('#burger');
+  ok('T13 el botón de menú lo abre (aria-expanded)', (await p3.getAttribute('#burger', 'aria-expanded')) === 'true' && await p3.evaluate(() => document.body.classList.contains('menu-abierto')));
+  await p3.close();
 
   ok('Sin errores de JavaScript en toda la sesión', errores.length === 0, errores.slice(0, 5));
   await browser.close();

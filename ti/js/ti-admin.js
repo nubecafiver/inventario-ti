@@ -101,7 +101,7 @@
     var email = TI.user.email, ts = TI.serverTs(), batch = db.batch(), ref = db.collection('usuarios_ti').doc(email);
     batch.set(ref, { email: email, nombre: (window.curUser && curUser.name) || email, roles: TI.ARRANQUE_ROLES.slice(), activo: true, creadoPor: email, creadoEn: ts, actualizadoPor: email, actualizadoEn: ts });
     TI.auditar(batch, { accion: 'arranque_plataforma', tipo: 'usuario', id: email, detalle: 'Registro inicial: Administrador y Director' });
-    batch.commit().then(function () { TI.msg('Listo: ya eres Administrador y Director'); return TI.init(); }).then(function () { window.switchView('ti-admin'); })
+    batch.commit().then(function () { TI.msg('Listo: ya eres Administrador y Director'); return TI.init(); }).then(function () { TI.ir('ti-admin'); })
       .catch(function (e) { TI.msg('No se pudo crear el registro: ' + e.message + '. Si las reglas de Firestore aún no incluyen usuarios_ti, publícalas primero (ver docs/PLATAFORMA.md).'); });
   }
 

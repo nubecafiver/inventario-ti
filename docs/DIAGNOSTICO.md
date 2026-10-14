@@ -39,4 +39,4 @@ Fecha: 2026-10-14. Solo lectura: no se modificó nada para obtener estos datos.
 Inicio de sesión, estilos (`.btn`, `.fi`, `.pill`, `.modal-card`), `toast`, `switchView`, `enterApp`, `doLogout`, iconos Tabler y todo el inventario.
 
 ## Cómo se incorporan los módulos nuevos
-Archivos nuevos (`css/ti.css`, `js/ti-*.js`) y **tres cambios en `index.html`**: enlace a la hoja de estilos, cuatro `<script>` al final y renombrar "Dashboard" a "Inicio". Los módulos envuelven `switchView`, `enterApp` y `doLogout` sin modificar su código. Detalle en `docs/PLATAFORMA.md`.
+**La app de inventario no se modifica.** Los módulos nuevos viven en una app independiente (`ti/`) que usa el mismo proyecto de Firebase y las mismas cuentas, y enlaza al inventario. (Una primera versión modificaba `index.html` para agregar el menú; se descartó porque el inventario está en uso. Detalle en `docs/PLATAFORMA.md`.)

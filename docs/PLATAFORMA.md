@@ -4,7 +4,7 @@
 | Fase | Estado |
 |---|---|
 | 1 Diagnóstico | Hecha (`docs/DIAGNOSTICO.md`). |
-| 2 Estructura general | Hecha en lo necesario para procesos: menú, roles, auditoría, ventanas, reglas (propuesta). |
+| 2 Estructura general | Hecha en lo necesario para procesos: app `ti/`, menú, roles, auditoría, ventanas, reglas (propuesta). |
 | 3 Procesos y procedimientos | Implementada y probada con Firebase simulado. **Reglas sin probar con el emulador.** |
 | 4 Dashboard ejecutivo | **Pendiente.** Hoy el módulo de procesos tiene sus propios indicadores; el "Inicio" original no cambió. |
 | 5–10 Mesa de ayuda, cambios, proyectos, contratos, respaldos, IA y SAP | **No iniciadas.** No aparecen en el menú. |
@@ -12,18 +12,22 @@
 ## Arquitectura
 Firebase puro: Authentication + Cloud Firestore, alojado donde ya estaba (GitHub Pages). Sin servidor propio, sin Cloud Functions, sin Storage.
 
+**La plataforma es una app independiente en la carpeta `ti/`. La app de inventario (`index.html`) no se modifica ni se carga dentro de ella.** Comparten el mismo proyecto de Firebase y las mismas cuentas de inicio de sesión, y la plataforma enlaza al inventario (se abre en otra pestaña). Una prueba automática verifica que `index.html` sea idéntico al de la rama principal.
+
 | Archivo | Qué hace |
 |---|---|
-| `js/ti-logic.js` | Lógica pura sin Firebase ni DOM: roles, permisos, máquina de estados, validaciones, indicadores, catálogo. Se prueba en Node. |
-| `js/ti-core.js` | Roles del usuario, auditoría, ventanas, menú; envuelve `switchView`, `enterApp`, `doLogout`. |
-| `js/ti-procesos.js` | Módulo "Procesos y procedimientos". |
-| `js/ti-admin.js` | Usuarios y roles; auditoría. |
-| `css/ti.css` | Estilos (estilo Minimalism & Swiss, igual que la app actual). |
+| `ti/index.html` | Página de la plataforma: inicio de sesión, menú, configuración pública de Firebase. |
+| `ti/js/ti-shell.js` | Inicio de sesión (se restaura al recargar), enrutador, menú por rol y pantalla de Inicio. |
+| `ti/js/ti-logic.js` | Lógica pura sin Firebase ni DOM: roles, permisos, máquina de estados, validaciones, indicadores, catálogo. Se prueba en Node. |
+| `ti/js/ti-core.js` | Roles del usuario, auditoría, ventanas y avisos. |
+| `ti/js/ti-procesos.js` | Módulo "Procesos y procedimientos". |
+| `ti/js/ti-admin.js` | Usuarios y roles; auditoría. |
+| `ti/css/base.css`, `ti/css/ti.css` | Estilos (Minimalism & Swiss). La plataforma no depende de los estilos del inventario. |
 | `firestore.rules` | Reglas de seguridad **propuestas, no desplegadas**. |
 | `tests/` | Pruebas (ver abajo). |
 | `demo/` | Maquetas con datos inventados usadas para elegir el estilo visual. No forman parte de la app. |
 
-Cambios en `index.html` (los únicos): `<link>` a `css/ti.css`; cuatro `<script src>` antes de `</body>`; el texto "Dashboard" ahora dice "Inicio"; y tres textos de marca (título de la pestaña, inicio de sesión y subtítulo del menú). El menú y las vistas nuevas se montan por JavaScript tras iniciar sesión (ver "Estructura del menú").
+Dirección en GitHub Pages (una vez publicada la rama): `…/inventario-ti/ti/`. El inventario sigue en `…/inventario-ti/`.
 
 ## Modelo de datos (colecciones nuevas; el inventario no se duplica ni se modifica)
 | Ruta | Contenido | Notas |
@@ -53,15 +57,13 @@ Un usuario puede tener varios roles; los permisos se suman. Se validan en `fires
 El inventario existente **no** cambió: sigue abierto a cualquier usuario autenticado, igual que con las reglas actuales (modo transitorio).
 
 ## Estructura del menú
-CAFIVER TI es la plataforma; el **Inventario de equipos es un módulo dentro de ella**. El menú queda así (solo aparece lo que existe y lo que el rol permite):
+CAFIVER TI es la plataforma; el **Inventario de equipos es un módulo dentro de ella**, y se abre como la app que ya existe. Solo aparece lo que existe y lo que el rol permite:
 
-1. **Inicio** (hoy sigue siendo el dashboard del inventario; en la Fase 4 pasa a ser el resumen ejecutivo).
+1. **Inicio** (accesos a los módulos disponibles; el resumen ejecutivo con indicadores es la Fase 4).
 2. **Procesos y procedimientos** (según rol).
-3. **Inventario de equipos** (grupo plegable, abierto por defecto, con memoria): Inventario, QR, Reparaciones, Celulares, Simulador, Licencias, Personal, Obsoletos y Etiquetas, con sus subtítulos "Operaciones" y "Control". Sus botones conservan los mismos `id` y `onclick` de siempre.
+3. **Inventario de equipos** (enlace a la app de inventario existente, en otra pestaña; visible para todos los que inician sesión, igual que hoy).
 4. *(Mesa de ayuda, Gestión de cambios, Proyectos, Proveedores y Respaldos aparecerán cuando existan.)*
 5. **Administración** (usuarios, roles y auditoría; según rol).
-
-Se reorganiza moviendo los botones existentes en el DOM (`TI.montar` en `js/ti-core.js`); no se reescribió el inventario. El **modo campo** (móvil) depende del orden de los subtítulos del menú: por eso se movieron los tres juntos, y una prueba compara contra la app original que en modo campo se ve exactamente lo mismo. La marca cambió de "InventarioTech / Asset Manager" a "CAFIVER TI" en la pestaña, el inicio de sesión y el menú (3 textos en `index.html`).
 
 ## Equipo y roles iniciales (decididos por la Dirección de TI)
 | Persona | Rol inicial |
@@ -103,18 +105,18 @@ Cada tarjeta filtra la tabla con exactamente los registros que la componen. "Acc
 El botón "Cargar catálogo inicial" crea los 21 nombres solicitados como **borradores vacíos**, marcados "plantilla", sin responsable y sin pasos. No se inventa ningún procedimiento. Se carga en tandas de 8 porque las reglas permiten 20 consultas de documentos por lote y cada proceso usa 2.
 
 ## Instalación y primer arranque
-1. **No requiere compilar.** Los archivos se publican junto con `index.html` donde ya está alojada la app. Nada se desplegó.
+1. **No requiere compilar.** La carpeta `ti/` se publica junto al resto del repositorio donde ya está alojada la app de inventario. Nada se desplegó. Publicar la carpeta `ti/` **no cambia** la app de inventario.
 2. **Reglas (acción de la persona administradora):** sigue `docs/PUBLICAR-REGLAS.md`. Las reglas actuales (cualquier usuario autenticado lee y escribe todo) están guardadas en `docs/reglas-anteriores.txt` para revertir. La propuesta las conserva para el inventario y protege solo `ti_*` y `usuarios_ti`. Cambia el correo de arranque si corresponde (en `firestore.rules` y en `TI.BOOTSTRAP_ADMINS` de `js/ti-core.js`).
 3. **Primer ingreso:** el correo de arranque entra, abre "Usuarios, roles y auditoría" y pulsa "Crear mi registro de administrador". Después asigna roles a los demás (y el de Director de TI a quien corresponda: sin Director nadie puede aprobar).
 4. Los usuarios deben existir en Firebase Authentication; la plataforma solo asigna roles.
 
-Variables de entorno y secretos: **ninguno**. La configuración pública de Firebase ya está en `index.html`.
+Variables de entorno y secretos: **ninguno**. La configuración pública de Firebase (la misma de la app de inventario) está en `ti/index.html`.
 
 ## Pruebas
 | Prueba | Resultado |
 |---|---|
 | `node --test tests/logica.test.js` — lógica pura | **21 de 21 correctas.** Permisos, flujo, segregación, versionado, indicadores, fechas. |
-| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **69 de 69 correctas.** Arranque, equipo inicial, estructura del menú (incluido modo campo comparado con la app original), roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
+| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **62 de 62 correctas.** Que `index.html` no cambió, arranque, equipo inicial, estructura del menú, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
 | `tests/reglas.test.js` — reglas con el emulador | **NO ejecutadas.** El entorno de desarrollo bloqueaba `registry.npmjs.org`, `gstatic.com` y `storage.googleapis.com`. Están escritas y listas para ejecutar donde haya internet. |
 
 La simulación **no aplica reglas de seguridad**, así que las pruebas de integración no demuestran que las reglas funcionen. Tampoco se probó contra el Firebase real.
@@ -124,14 +126,14 @@ La simulación **no aplica reglas de seguridad**, así que las pruebas de integr
 - **Auditoría escrita por el navegador:** las reglas impiden editarla o borrarla, pero un cliente modificado podría omitir crear un evento. La versión a prueba de omisiones requiere Cloud Functions (plan Blaze, facturable; no autorizado).
 - **`documentado` y el contenido de los campos** no se pueden verificar a fondo en las reglas.
 - **Documentos como enlaces** (https). Subir archivos requiere Firebase Storage (plan Blaze).
-- **Inventario sin endurecer:** sigue abierto a cualquier usuario autenticado (regla actual conservada). Hasta publicar `firestore.rules`, las colecciones nuevas tampoco están protegidas: los roles son solo de pantalla.
+- **Inventario sin cambios y sin endurecer:** `index.html` no se tocó y sigue abierto a cualquier usuario autenticado (regla actual conservada). Hasta publicar `firestore.rules`, las colecciones nuevas tampoco están protegidas: los roles son solo de pantalla.
 - **Sin histórico de indicadores:** no hay tendencias hasta guardar un resumen mensual (decisión pendiente).
 - **Error existente `confirmAction`** (ver diagnóstico).
 - Si el Director de TI aún no existe, el administrador debe asignarse también ese rol o designar a alguien; la separación de funciones se mantiene.
 - Un Administrador que también sea Director no puede aprobar lo que él mismo editó.
 
 ## Seguimiento de cambios
-- 2026-10-14 — Fase 1 y primera versión de las Fases 2 y 3: `js/`, `css/`, `firestore.rules`, `tests/`, `docs/`; tres cambios en `index.html`.
-- 2026-10-14 — Menú: el Inventario de equipos pasa a ser un módulo (grupo) dentro de CAFIVER TI; marca actualizada.
+- 2026-10-14 — Fase 1 y primera versión de las Fases 2 y 3: `firestore.rules`, `tests/`, `docs/` y los módulos (primero con tres cambios en `index.html`; ver la corrección de rumbo siguiente).
+- 2026-10-14 — **Corrección de rumbo:** la plataforma pasa a ser una app independiente en `ti/`; `index.html` (inventario) se restauró idéntico a la rama principal y ya no se modifica. El inventario es un módulo que se abre desde la plataforma.
 - 2026-10-14 — Equipo inicial: ramaya Administrador + Director; vlopez, aosorio, soportetecnico y dgomez Responsables de proceso; botón "Asignar roles iniciales al equipo".
 - 2026-10-14 — Reglas: se conoce la regla vigente (`docs/reglas-anteriores.txt`); `firestore.rules` pasa a conservarla para todo lo que no sea `ti_*`/`usuarios_ti`; guía `docs/PUBLICAR-REGLAS.md`.

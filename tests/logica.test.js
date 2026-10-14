@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const L = require('../js/ti-logic.js');
+const L = require('../ti/js/ti-logic.js');
 
 const dir = { email: 'dir@x.mx', roles: ['director'] };
 const adm = { email: 'adm@x.mx', roles: ['administrador'] };
