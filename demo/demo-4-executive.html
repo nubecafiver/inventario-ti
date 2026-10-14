@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAFIVER TI — Executive Dashboard (DEMO 4)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+/* Estilo: Executive Dashboard (ui-ux-pro-max). KPIs grandes (6), tendencia, semáforo con texto+icono, una página imprimible. */
+:root{--bg:#f4f6fa;--surf:#fff;--ink:#0f1b33;--ink2:#34405a;--mut:#53607a;--line:#d4dae6;--navy:#1e3a8a;--navy2:#172a63;--blue:#1d4ed8;
+--green:#0f6b3a;--greenb:#e3f4ea;--amber:#8a4b00;--amberb:#fff1d6;--red:#a4161a;--redb:#fde7e7;--grey:#3b4658;--greyb:#eef0f5;--sh:0 1px 3px rgba(15,27,51,.08),0 8px 24px rgba(15,27,51,.05);--kpi:44px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+.demo{background:#7c2d12;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:6px 10px}
+header{background:var(--navy);color:#fff;display:flex;align-items:center;gap:14px;padding:0 24px;min-height:60px;flex-wrap:wrap}
+header .brand{display:flex;gap:10px;align-items:center;font-weight:700;font-size:16px}header .brand small{display:block;font-weight:400;font-size:11px;color:#c7d2f5}
+header nav{display:flex;gap:2px;margin-left:18px}
+header nav button{all:unset;box-sizing:border-box;color:#dbe4ff;padding:19px 14px;cursor:pointer;font-weight:500;border-bottom:3px solid transparent}
+header nav button:hover{color:#fff}header nav button[aria-current=page]{color:#fff;border-color:#fff;font-weight:600}
+header nav button:focus-visible{outline:3px solid #fff;outline-offset:-3px}
+.sp{flex:1}
+.who{display:flex;gap:8px;align-items:center;font-size:12px;color:#dbe4ff}.who select{font:inherit;font-size:12px;min-height:34px;border-radius:6px;border:1px solid #6b82c9;background:var(--navy2);color:#fff;padding:4px 8px}
+main{max-width:1280px;margin:auto;padding:22px 24px 44px}
+.pghd{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}.pghd h1{font-size:22px}.pghd p{color:var(--mut);font-size:13px}
+.btn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:8px 14px;min-height:38px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;transition:background-color .15s,border-color .15s}
+.btn:hover{border-color:var(--navy);background:#f4f7ff}.btn.pri{background:var(--navy);color:#fff;border-color:var(--navy)}.btn.pri:hover{background:var(--navy2)}
+.btn[aria-disabled=true]{background:var(--greyb);color:var(--grey);border-style:dashed;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.kpi{all:unset;box-sizing:border-box;display:block;background:var(--surf);border-radius:10px;border-top:4px solid var(--navy);box-shadow:var(--sh);padding:16px 18px 14px;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 2px 6px rgba(15,27,51,.1),0 14px 30px rgba(15,27,51,.09)}
+.kpi:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.kpi.g{border-top-color:var(--green)}.kpi.a{border-top-color:#d97706}.kpi.r{border-top-color:var(--red)}.kpi.n{border-top-color:#8793ab;cursor:default}.kpi.n:hover{transform:none;box-shadow:var(--sh)}
+.kl{font-size:13px;font-weight:600;color:var(--ink2);display:flex;justify-content:space-between;gap:8px}
+.kv{font-size:var(--kpi);font-weight:700;letter-spacing:-.02em;line-height:1.1;margin:6px 0 2px;color:var(--navy)}.kpi.r .kv{color:var(--red)}.kpi.n .kv{font-size:20px;color:var(--mut);font-weight:600;line-height:1.5;margin:14px 0 8px}
+.ks{font-size:12px;color:var(--mut)}
+.st{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px}
+.st.g{background:var(--greenb);color:var(--green)}.st.a{background:var(--amberb);color:var(--amber)}.st.r{background:var(--redb);color:var(--red)}.st.n{background:var(--greyb);color:var(--grey)}
+.spark{display:flex;align-items:center;gap:10px;margin-top:10px}.spark svg{width:110px;height:32px;flex:none}.spark span{font-size:11px;color:var(--mut)}
+.trend{font-weight:700}.trend.up-good,.trend.down-good{color:var(--green)}.trend.up-bad,.trend.down-bad{color:var(--red)}.trend.flat{color:var(--grey)}
+/* paneles */
+.two{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin-top:14px}
+.card{background:var(--surf);border-radius:10px;box-shadow:var(--sh);padding:16px 18px}
+.card h2{font-size:15px;margin-bottom:2px}.card .sub{font-size:12px;color:var(--mut);margin-bottom:12px}
+.dec{display:grid;gap:10px}.dec .it{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border-left:4px solid #d97706;background:#fffaf0;border-radius:6px;padding:10px 12px}
+.dec .it.r{border-color:var(--red);background:#fff6f6}.dec .it b{display:block}.dec .it small{color:var(--mut)}
+.empty{color:var(--mut);padding:18px 0;text-align:center}
+.bullet{margin:14px 0 4px}.bullet .trk{position:relative;height:22px;border-radius:4px;overflow:hidden;display:flex;background:#eee}
+.bullet .z{height:100%}.bullet .z1{background:#ffcdd2}.bullet .z2{background:#fff3b0}.bullet .z3{background:#c8e6c9}
+.bullet .val{position:absolute;left:0;top:7px;height:8px;background:var(--navy);border-radius:0 4px 4px 0}
+.bullet .tgt{position:absolute;top:0;width:3px;height:100%;background:#000}
+.bullet .lb{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:13px}th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);text-align:left;padding:8px 10px;border-bottom:2px solid var(--line)}
+td{padding:10px;border-bottom:1px solid #e9edf4}tr.row{cursor:pointer}tr.row:hover td{background:#f4f7ff}.scroll{overflow-x:auto}
+.note{background:#eef3ff;border:1px solid #c9d6fb;color:#1e2f63;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:14px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;display:none;z-index:20}
+.modal{position:fixed;inset:0;background:rgba(15,27,51,.5);display:none;align-items:flex-start;justify-content:center;padding:70px 16px;overflow:auto;z-index:30}.modal.on{display:flex}
+.mc{background:#fff;border-radius:12px;width:100%;max-width:720px;box-shadow:0 20px 50px rgba(0,0,0,.3)}.mh{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.mh h3{font-size:16px}
+.mb{padding:16px 20px}.mf{padding:12px 20px;border-top:1px solid var(--line);background:#f8f9fc;display:flex;gap:8px;flex-wrap:wrap;border-radius:0 0 12px 12px}
+dl{display:grid;grid-template-columns:130px 1fr;gap:6px 14px}dt{font-size:12px;font-weight:600;color:var(--mut)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(max-width:1000px){.kpis{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}}
+@media(max-width:620px){main{padding:16px 14px}header nav{margin-left:0;width:100%}header nav button{padding:12px 12px}.kpis{grid-template-columns:1fr}.kv{--kpi:38px}.btn,select{min-height:44px}dl{grid-template-columns:1fr}.who{width:100%}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{.demo,header nav,.who,.btn,.noprint,.toast{display:none!important}body{background:#fff}header{background:#fff;color:#000;border-bottom:2px solid #000}header .brand small{color:#333}.kpi,.card{box-shadow:none;border:1px solid #999;break-inside:avoid}.kpi{transform:none}main{padding:8px}}
+</style>
+</head>
+<body>
+<div class="demo">DEMO 4 — Datos de ejemplo inventados. Sin conexión a Firebase ni a datos reales de CAFIVER.</div>
+<header>
+  <div class="brand"><i class="ti ti-shield-check" aria-hidden="true" style="font-size:26px"></i><div>CAFIVER TI<small>Centro de Gestión y Control de Tecnología</small></div></div>
+  <nav aria-label="Principal">
+    <button data-v="inicio" aria-current="page">Inicio</button>
+    <button data-v="procesos">Procesos y procedimientos</button>
+  </nav>
+  <span class="sp"></span>
+  <label class="who">Sesión como
+    <select id="who" aria-label="Simular sesión"><option value="A">Persona A — Director de TI</option><option value="C">Persona C — Responsable de proceso</option><option value="D">Persona D — Técnico de TI</option></select></label>
+</header>
+<main id="main"></main>
+<div class="modal" id="modal"><div class="mc" id="mc" role="dialog" aria-modal="true" aria-label="Detalle"></div></div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+/* ===== DATOS INVENTADOS ===== */
+function addD(d){var x=new Date();x.setDate(x.getDate()+d);return x.toISOString().slice(0,10)}
+var TODAY=addD(0),NM={A:'Persona A',B:'Persona B',C:'Persona C',D:'Persona D'};
+var ES={borrador:'Borrador',en_revision:'En revisión',pendiente_aprobacion:'Pendiente de aprobación',aprobado:'Aprobado',publicado:'Publicado',en_revision_periodica:'En revisión periódica',obsoleto:'Obsoleto'};
+function P(id,n,resp,part,est,rev,doc,esp,por){return{id:id,n:n,resp:resp,part:part,est:est,rev:rev,doc:doc,esp:esp||0,por:por||resp}}
+var PROC=[
+ P('PRO-001','Gestión de incidentes','C',['B'],'publicado',addD(18),true),
+ P('PRO-002','Gestión de cambios','C',[],'pendiente_aprobacion',null,false,6),
+ P('PRO-003','Administración de licencias','C',['B'],'en_revision',null,false),
+ P('PRO-004','Gestión de respaldos','D',[],'borrador',null,false),
+ P('PRO-005','Altas y bajas de personal de TI','C',[],'publicado',addD(-12),true),
+ P('PRO-006','Seguridad informática','C',['D'],'borrador',null,false),
+ P('PRO-007','Gestión de solicitudes','C',['B','D'],'publicado',addD(75),true),
+ P('PRO-008','Administración de usuarios y accesos','C',[],'en_revision_periodica',addD(-40),true),
+ P('PRO-009','Gestión de proveedores','B',['A'],'aprobado',null,false),
+ P('PRO-010','Documentación técnica','D',['C'],'publicado',addD(140),false),
+ P('PRO-011','Gestión de proyectos','C',[],'pendiente_aprobacion',null,false,2,'A'),
+ P('PRO-012','Gestión de problemas recurrentes','B',['A'],'obsoleto',null,false)
+];
+var HIST={doc:[18,18,27,27,27,36],pen:[0,1,1,3,1,2],venc:[0,0,1,1,1,2],pub:[2,3,3,4,4,5],solo:[7,6,6,6,6,5]}; /* 6 meses, ejemplo */
+var MIN=5,META=60,cur='A',view='inicio',ret=null;
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function vig(p){return p.est==='publicado'||p.est==='en_revision_periodica'}
+function venc(p){return vig(p)&&p.rev&&p.rev<TODAY}
+function solo(p){return p.est!=='obsoleto'&&!p.part.length}
+function act(){return PROC.filter(function(p){return p.est!=='obsoleto'})}
+/* ===== INDICADORES (máx. 6) ===== */
+function calc(){
+  var A=act(),n=A.length,docN=A.filter(function(p){return p.doc&&vig(p)}).length,pctDoc=n>=MIN?Math.round(docN/n*100):null;
+  var pen=PROC.filter(function(p){return p.est==='pendiente_aprobacion'}).length,ven=PROC.filter(venc).length,pub=PROC.filter(vig).length,so=PROC.filter(solo).length;
+  return {n:n,docN:docN,pctDoc:pctDoc,pen:pen,ven:ven,pub:pub,so:so}
+}
+function spark(arr,goodUp){
+  var W=110,H=32,mx=Math.max.apply(null,arr),mn=Math.min.apply(null,arr),rg=(mx-mn)||1;
+  var pts=arr.map(function(v,i){return [Math.round(i/(arr.length-1)*(W-6))+3,Math.round(H-4-((v-mn)/rg)*(H-8))]});
+  var d=pts.map(function(p,i){return (i?'L':'M')+p[0]+','+p[1]}).join(' '),l=pts[pts.length-1];
+  var a=arr[arr.length-1],b=arr[arr.length-2],dir=a>b?'up':a<b?'down':'flat',good=dir==='flat'?'':((dir==='up')===goodUp?'good':'bad');
+  var ic=dir==='up'?'ti-arrow-up-right':dir==='down'?'ti-arrow-down-right':'ti-minus',tx=dir==='up'?'sube':dir==='down'?'baja':'sin cambio';
+  return '<div class="spark"><svg viewBox="0 0 '+W+' '+H+'" aria-hidden="true"><path d="'+d+'" fill="none" stroke="var(--navy)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="'+l[0]+'" cy="'+l[1]+'" r="3.5" fill="var(--navy)"/></svg>'+
+   '<span><i class="ti '+ic+' trend '+(dir==='flat'?'flat':dir+'-'+good)+'" aria-hidden="true"></i> '+tx+' vs. mes anterior<br>(tendencia de ejemplo)</span></div>'
+}
+function kpiHtml(){
+  var c=calc(),h='';
+  var docState=c.pctDoc===null?['n','Muestra insuficiente','ti-info-circle']:c.pctDoc>=META?['g','Cumple la meta','ti-circle-check']:c.pctDoc>=META*0.6?['a','Bajo la meta','ti-alert-triangle']:['r','Muy bajo la meta','ti-alert-octagon'];
+  h+='<button class="kpi '+docState[0]+'" data-go="doc"><div class="kl">Procesos documentados<span class="st '+docState[0]+'"><i class="ti '+docState[2]+'" aria-hidden="true"></i>'+docState[1]+'</span></div><div class="kv">'+(c.pctDoc===null?c.docN+' de '+c.n:c.pctDoc+'%')+'</div><div class="ks">'+c.docN+' de '+c.n+' procesos · meta '+META+'%</div>'+spark(HIST.doc,true)+'</button>';
+  h+='<button class="kpi '+(c.pen?'a':'g')+'" data-go="pen"><div class="kl">Esperan tu aprobación<span class="st '+(c.pen?'a':'g')+'"><i class="ti '+(c.pen?'ti-hourglass':'ti-circle-check')+'" aria-hidden="true"></i>'+(c.pen?'Requiere decisión':'Al día')+'</span></div><div class="kv">'+c.pen+'</div><div class="ks">Procedimientos pendientes de aprobación</div>'+spark(HIST.pen,false)+'</button>';
+  h+='<button class="kpi '+(c.ven?'r':'g')+'" data-go="venc"><div class="kl">Revisión vencida<span class="st '+(c.ven?'r':'g')+'"><i class="ti '+(c.ven?'ti-alert-octagon':'ti-circle-check')+'" aria-hidden="true"></i>'+(c.ven?'Atención':'Al día')+'</span></div><div class="kv">'+c.ven+'</div><div class="ks">Procedimientos publicados con revisión atrasada</div>'+spark(HIST.venc,false)+'</button>';
+  h+='<button class="kpi" data-go="pub"><div class="kl">Publicados vigentes<span class="st n"><i class="ti ti-file-check" aria-hidden="true"></i>Informativo</span></div><div class="kv">'+c.pub+'</div><div class="ks">Con versión publicada en uso</div>'+spark(HIST.pub,true)+'</button>';
+  h+='<button class="kpi '+(c.so?'a':'g')+'" data-go="solo"><div class="kl">Dependen de una persona<span class="st '+(c.so?'a':'g')+'"><i class="ti '+(c.so?'ti-user-exclamation':'ti-circle-check')+'" aria-hidden="true"></i>'+(c.so?'Riesgo':'Cubierto')+'</span></div><div class="kv">'+c.so+'</div><div class="ks">Procesos sin participantes registrados</div>'+spark(HIST.solo,false)+'</button>';
+  h+='<div class="kpi n" aria-label="Tickets abiertos: no disponible"><div class="kl">Tickets abiertos<span class="st n"><i class="ti ti-clock" aria-hidden="true"></i>Próxima fase</span></div><div class="kv">No disponible</div><div class="ks">Se mostrará cuando exista la mesa de ayuda. No se inventan cifras.</div></div>';
+  return h
+}
+/* ===== VISTAS ===== */
+function vInicio(){
+  var c=calc(),pend=PROC.filter(function(p){return p.est==='pendiente_aprobacion'}),ven=PROC.filter(venc);
+  var h='<div class="pghd"><div><h1>Resumen ejecutivo de TI</h1><p>Procesos y procedimientos · actualizado '+new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})+'</p></div><span class="sp"></span><button class="btn noprint" id="print"><i class="ti ti-printer" aria-hidden="true"></i>Imprimir reporte</button></div>';
+  if(cur==='D')return h+'<div class="card"><h2>Vista de Técnico de TI</h2><p class="sub">El resumen ejecutivo es solo para Dirección y administración. Como técnico, consulta los procedimientos publicados en "Procesos y procedimientos".</p></div>';
+  h+='<div class="kpis">'+kpiHtml()+'</div><div class="two">';
+  h+='<section class="card" aria-labelledby="dt"><h2 id="dt">'+(cur==='A'?'Requiere tu decisión':'Pendientes de seguimiento')+'</h2><p class="sub">'+(cur==='A'?'Lo más urgente primero. Cada elemento se atiende aquí mismo.':'Solo el Director de TI aprueba. Aquí puedes dar seguimiento.')+'</p><div class="dec">';
+  ven.forEach(function(p){h+='<div class="it r"><div><b>'+esc(p.n)+'</b><small>'+p.id+' · responsable '+NM[p.resp]+' · <span class="st r"><i class="ti ti-clock-exclamation" aria-hidden="true"></i>Revisión vencida hace '+Math.round((new Date(TODAY)-new Date(p.rev))/864e5)+' d</span></small></div><button class="btn" data-open="'+p.id+'">Ver</button></div>'});
+  pend.forEach(function(p){var seg=p.por===cur,can=cur==='A';h+='<div class="it"><div><b>'+esc(p.n)+'</b><small>'+p.id+' · espera '+p.esp+' d · enviado por '+NM[p.por]+'</small></div><button class="btn'+(cur==='A'?' pri':'')+'" data-open="'+p.id+'">'+(cur==='A'?'Revisar y decidir':'Ver')+'</button></div>'});
+  if(!ven.length&&!pend.length)h+='<p class="empty">No hay decisiones pendientes.</p>';
+  h+='</div></section>';
+  h+='<section class="card" aria-labelledby="bt"><h2 id="bt">Documentación frente a la meta</h2><p class="sub">Meta definida por la Dirección ('+META+'%, configurable).</p>';
+  if(c.pctDoc===null)h+='<p class="empty">Se necesitan al menos '+MIN+' procesos registrados para calcular el porcentaje.</p>';
+  else h+='<div class="bullet"><div class="trk" role="img" aria-label="Documentados '+c.pctDoc+'% con meta de '+META+'%"><div class="z z1" style="width:'+META*0.6+'%"></div><div class="z z2" style="width:'+META*0.4+'%"></div><div class="z z3" style="width:'+(100-META)+'%"></div><div class="val" style="width:'+c.pctDoc+'%"></div><div class="tgt" style="left:'+META+'%"></div></div><div class="lb"><span>0%</span><span>Rojo: muy bajo · Amarillo: bajo la meta · Verde: cumple</span><span>100%</span></div></div><p style="margin-top:10px"><b style="font-size:24px">'+c.pctDoc+'%</b> <span class="ks">actual · marca negra = meta '+META+'%</span></p>';
+  h+='<p class="note" style="margin-top:12px"><b>Cómo se calcula.</b> Documentado = versión publicada con objetivo, alcance, responsable y al menos una actividad. El porcentaje solo aparece con ≥'+MIN+' procesos registrados.</p></section></div>';
+  h+='<p class="note noprint"><b>Sobre las tendencias.</b> Las flechas y minigráficas usan datos de ejemplo. En la app real solo se mostrarán cuando existan registros mensuales guardados; mientras tanto aparecerá "sin histórico".</p>';
+  return h
+}
+var fkey='',ftitle='';
+function vProcesos(){
+  var L=PROC.filter(function(p){return cur==='D'?vig(p):true});
+  var F={doc:function(p){return p.doc&&vig(p)},pen:function(p){return p.est==='pendiente_aprobacion'},venc:venc,pub:vig,solo:solo};
+  if(fkey&&F[fkey])L=L.filter(F[fkey]);
+  var h='<div class="pghd"><div><h1>Procesos y procedimientos</h1><p>'+(cur==='D'?'Solo ves procedimientos publicados vigentes.':'Lista completa.')+(fkey?' · Filtro activo: <b>'+ftitle+'</b>':'')+'</p></div><span class="sp"></span>'+(fkey?'<button class="btn" id="clr">Quitar filtro</button>':'')+'</div>';
+  h+='<div class="card scroll"><table><caption class="sr">Procesos</caption><tr><th>Código</th><th>Proceso</th><th>Responsable</th><th>Estado</th><th>Próx. revisión</th></tr>';
+  if(!L.length)h+='<tr><td colspan="5" class="empty">No hay procesos con este filtro.</td></tr>';
+  L.forEach(function(p){var cls=p.est==='publicado'?'g':p.est==='pendiente_aprobacion'||p.est==='en_revision'?'a':p.est==='obsoleto'?'n':'n';
+    h+='<tr class="row" tabindex="0" role="button" data-open="'+p.id+'"><td>'+p.id+'</td><td><b>'+esc(p.n)+'</b></td><td>'+NM[p.resp]+'</td><td><span class="st '+cls+'">'+ES[p.est]+'</span></td><td>'+(p.rev?(venc(p)?'<span class="st r"><i class="ti ti-clock-exclamation" aria-hidden="true"></i>'+p.rev+' · vencida</span>':p.rev):'—')+'</td></tr>'});
+  return h+'</table></div>'
+}
+/* ===== DETALLE + APROBACIÓN ===== */
+function openP(id){
+  var p=PROC.filter(function(x){return x.id===id})[0],seg=p.por===cur,dir=cur==='A',acts='';
+  if(p.est==='pendiente_aprobacion'){
+    acts='<button class="btn pri" data-do="aprobar" '+(dir&&!seg?'':'aria-disabled="true"')+'>Aprobar</button><button class="btn" data-do="rechazar" '+(dir?'':'aria-disabled="true"')+'>Rechazar con motivo</button>'+(!dir?'<span class="ks">Solo el Director de TI decide.</span>':seg?'<span class="ks">Segregación de funciones: no puedes aprobar lo que tú enviaste.</span>':'');
+  }else if(p.est==='aprobado'){acts='<button class="btn pri" data-do="publicar" '+(dir?'':'aria-disabled="true"')+'>Publicar</button>'}
+  ret=document.activeElement;
+  document.getElementById('mc').setAttribute('aria-label',p.id+' '+p.n);
+  document.getElementById('mc').innerHTML='<div class="mh"><h3>'+p.id+' · '+esc(p.n)+'</h3><button class="btn" id="cl" aria-label="Cerrar"><i class="ti ti-x" aria-hidden="true"></i></button></div><div class="mb"><dl><dt>Estado</dt><dd>'+ES[p.est]+'</dd><dt>Responsable</dt><dd>'+NM[p.resp]+'</dd><dt>Participantes</dt><dd>'+(p.part.length?p.part.map(function(x){return NM[x]}).join(', '):'<b style="color:var(--amber)">Ninguno: depende de una sola persona</b>')+'</dd><dt>Próxima revisión</dt><dd>'+(p.rev||'—')+'</dd><dt>Enviado por</dt><dd>'+NM[p.por]+'</dd></dl></div><div class="mf" id="mf">'+(acts||'<span class="ks">Sin acciones disponibles en este estado.</span>')+'</div>';
+  document.getElementById('modal').classList.add('on');document.getElementById('cl').focus();
+  document.querySelectorAll('#mf [data-do]').forEach(function(b){b.onclick=function(){
+    if(b.getAttribute('aria-disabled')){say('No disponible con tu rol o por segregación de funciones');return}
+    var a=b.dataset.do;
+    if(a==='rechazar'){var m=prompt('Motivo del rechazo (obligatorio):');if(!m){say('El motivo es obligatorio. No se aplicó.');return}p.est='borrador';say(p.id+' devuelto a borrador. Motivo registrado.')}
+    if(a==='aprobar'){p.est='aprobado';say(p.id+' aprobado. Falta publicarlo.')}
+    if(a==='publicar'){p.est='publicado';p.rev=addD(365);p.doc=true;say(p.id+' publicado')}
+    closeM();render()}});
+}
+function closeM(){document.getElementById('modal').classList.remove('on');if(ret&&document.contains(ret))ret.focus();ret=null}
+function say(t){var e=document.getElementById('toast');e.textContent=t;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(function(){e.style.display='none'},3200)}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeM()});
+document.getElementById('modal').onclick=function(e){if(e.target===this)closeM()};
+/* ===== ARRANQUE ===== */
+var TT={doc:'Documentados',pen:'Pendientes de aprobación',venc:'Revisión vencida',pub:'Publicados vigentes',solo:'Dependen de una persona'};
+function render(){
+  document.querySelectorAll('header nav button').forEach(function(b){if(b.dataset.v===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  document.getElementById('main').innerHTML=view==='inicio'?vInicio():vProcesos();
+  document.querySelectorAll('[data-open]').forEach(function(b){b.onclick=function(){openP(b.dataset.open)};if(b.tagName==='TR')b.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();b.click()}}});
+  document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){fkey=b.dataset.go;ftitle=TT[fkey];view='procesos';render();window.scrollTo(0,0)}});
+  var pr=document.getElementById('print');if(pr)pr.onclick=function(){window.print()};
+  var cl=document.getElementById('clr');if(cl)cl.onclick=function(){fkey='';render()};
+}
+document.querySelectorAll('header nav button').forEach(function(b){b.onclick=function(){view=b.dataset.v;if(view==='inicio')fkey='';render()}});
+document.getElementById('who').onchange=function(){cur=this.value;render()};
+render();
+</script>
+</body>
+</html>

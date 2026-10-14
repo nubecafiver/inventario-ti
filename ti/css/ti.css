@@ -1,0 +1,94 @@
+/* CAFIVER TI — estilos de los módulos nuevos. Estilo "Minimalism & Swiss" (demo 1); reutiliza .btn, .fi, .pill y .modal-card de la app. */
+.ti-view{padding:1.25rem 1.75rem 2rem}
+.ti-head{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.ti-h1{font-size:19px;font-weight:700;color:#1c1e21;margin:0}.ti-sub{color:#4b5563;font-size:13px;margin-top:2px}
+.ti-mut{color:#4b5563}.ti-warn{color:#8a4b00;font-weight:600}.ti-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.ti-view :focus-visible,.ti-ov :focus-visible{outline:3px solid #1d4ed8;outline-offset:2px}
+/* indicadores */
+.ti-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(188px,1fr));gap:12px;margin-bottom:14px}
+.ti-kpi{all:unset;box-sizing:border-box;background:#fff;border:1px solid #e8eaed;border-radius:14px;padding:12px 14px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.06);transition:border-color .15s,transform .15s}
+.ti-kpi:hover{border-color:#1a73e8;transform:translateY(-1px)}.ti-kpi.on{border-color:#1a73e8;box-shadow:0 0 0 3px rgba(26,115,232,.15)}.ti-kpi:focus-visible{outline:3px solid #1d4ed8;outline-offset:2px}
+.ti-kl{font-size:12px;color:#34405a;font-weight:600}.ti-kv{font-size:28px;font-weight:700;color:#1c1e21;margin:4px 0 2px}.ti-kd{font-size:11px;color:#4b5563}
+/* barra de herramientas y tabla */
+.ti-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+.ti-card{background:#fff;border:1px solid #e8eaed;border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden;margin-bottom:12px}
+.ti-scroll{overflow-x:auto}
+.ti-table{width:100%;border-collapse:collapse;font-size:13px}
+.ti-table th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#4b5563;text-align:left;padding:10px 12px;border-bottom:1px solid #e8eaed;background:#fafbfc;font-weight:600;white-space:nowrap}
+.ti-table td{padding:10px 12px;border-bottom:1px solid #f1f3f6;vertical-align:top}
+.ti-row{cursor:pointer}.ti-row:hover td{background:#f6f8fc}.ti-row:focus-visible{outline:3px solid #1d4ed8;outline-offset:-3px}
+.ti-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#34405a}
+.ti-empty{text-align:center;color:#4b5563;padding:26px 12px!important}
+.ti-vencida{color:#a4161a;font-weight:700}
+.ti-tag{display:inline-block;font-size:10px;font-weight:700;background:#eef0f5;color:#3b4658;border-radius:99px;padding:1px 8px;margin-left:4px}.ti-tag.ok{background:#e3f4ea;color:#0f6b3a}
+/* estados */
+.pill.ti-e{font-size:11px;font-weight:700}
+.ti-e-borrador{background:#eef0f5;color:#3b4658}.ti-e-en_revision{background:#e8f0fe;color:#1557b0}.ti-e-pendiente_aprobacion{background:#fff1d6;color:#8a4b00}
+.ti-e-aprobado{background:#dff3f0;color:#0b5c53}.ti-e-publicado{background:#e3f4ea;color:#0f6b3a}.ti-e-en_revision_periodica{background:#efe6fa;color:#5a2c91}
+.ti-e-obsoleto{background:#fde7e7;color:#a4161a}.ti-e-reemplazada{background:#eef0f5;color:#556178}
+/* avisos */
+.ti-note{background:#eef3ff;border:1px solid #c9d6fb;color:#1e2f63;border-radius:10px;padding:10px 12px;font-size:12px;margin:10px 0}
+.ti-note.warn{background:#fff8e5;border-color:#fde68a;color:#78350f}.ti-note.err{background:#fde7e7;border-color:#fecaca;color:#7f1d1d}.ti-note.ok{background:#e3f4ea;border-color:#bbf7d0;color:#14532d}
+.ti-status{min-height:18px;font-size:12px;color:#8a4b00;font-weight:600;margin-top:8px}
+/* detalle */
+.ti-flow{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 12px}.ti-flow span{font-size:10px;padding:3px 9px;border-radius:12px;background:#eef0f5;color:#3b4658}
+.ti-flow .cur{background:#1a73e8;color:#fff;font-weight:700}.ti-flow .done{background:#e3f4ea;color:#0f6b3a}
+.ti-tabs{display:flex;gap:2px;border-bottom:1px solid #e8eaed;margin-bottom:12px;flex-wrap:wrap}
+.ti-tabs button{background:none;border:0;border-bottom:2px solid transparent;font:inherit;font-size:13px;padding:9px 14px;color:#4b5563;cursor:pointer;font-weight:500}
+.ti-tabs button[aria-selected=true]{color:#1557b0;border-color:#1a73e8;font-weight:600}.ti-tabs button:focus-visible{outline:3px solid #1d4ed8;outline-offset:-2px}
+.ti-dl{display:grid;grid-template-columns:170px 1fr;gap:8px 14px;font-size:13px;margin:0}.ti-dl dt{color:#4b5563;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}.ti-dl dd{margin:0;white-space:pre-wrap}
+.ti-ul{margin:0;padding-left:18px}
+.ti-steps{list-style:none;counter-reset:s;margin:0;padding:0}.ti-steps li{counter-increment:s;display:grid;grid-template-columns:34px 1fr;gap:10px;padding:12px 0;border-bottom:1px solid #f1f3f6}
+.ti-steps li:before{content:counter(s);background:#1a73e8;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.ti-sv{display:flex;gap:4px 16px;flex-wrap:wrap;color:#4b5563;font-size:12px;margin-top:3px}.ti-sv b{color:#34405a;font-weight:600}
+.ti-tl{border-left:2px solid #e8eaed;margin-left:6px;padding-left:14px}.ti-tl>div{position:relative;padding:6px 0;font-size:13px}.ti-tl>div:before{content:"";position:absolute;left:-19px;top:12px;width:8px;height:8px;border-radius:50%;background:#1a73e8}
+.btn.ti-off,.btn[aria-disabled=true]{background:#f3f4f6;color:#4b5563;border-style:dashed;cursor:not-allowed}
+.btn:disabled{opacity:.6;cursor:default}
+/* formularios */
+.ti-ov{position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:480;padding:20px;overflow-y:auto;backdrop-filter:blur(2px)}
+.ti-ov .modal-card{margin:auto;max-height:none}
+.ti-f{margin-bottom:12px}.ti-f>label{display:block;font-size:12px;font-weight:600;color:#34405a;margin-bottom:4px}
+.ti-f textarea.fi{resize:vertical;font-family:inherit}
+.ti-err{color:#a4161a;font-size:12px;font-weight:600;margin-top:3px;min-height:0}.ti-err:empty{display:none}
+.ti-help{font-size:12px;color:#4b5563;margin-top:3px}
+.ti-g2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.ti-g3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 12px}
+.ti-sec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#1557b0;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid #e8eaed}
+.ti-paso{border:1px solid #e8eaed;border-radius:10px;padding:10px 12px;margin-bottom:10px;background:#fafbfc}.ti-paso-h{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.ti-checks{display:flex;flex-wrap:wrap;gap:6px 16px}.ti-checks label{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:400;color:#1c1e21;margin:0}
+@media(max-width:800px){.ti-g2,.ti-g3{grid-template-columns:1fr}.ti-dl{grid-template-columns:1fr}.ti-kpis{grid-template-columns:1fr 1fr}.ti-ov{padding:8px}}
+@media(prefers-reduced-motion:reduce){.ti-kpi{transition:none}.ti-kpi:hover{transform:none}}
+
+/* Inicio (dashboard) */
+.ti-seccion{margin-bottom:22px}
+.ti-h2{font-size:14px;font-weight:700;color:#1c1e21;margin:0 0 10px}
+.ti-seccion-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}.ti-seccion-h .ti-h2{margin:0;flex:1;min-width:180px}.ti-seccion-h .ti-mut{font-size:12px}
+.ti-kpi-fija{cursor:default}.ti-kpi-fija:hover{border-color:#e8eaed;transform:none}
+.ti-nd{border-style:dashed;background:#fafbfc;box-shadow:none}.ti-nd .ti-kd{margin-top:6px}
+.ti-ndv{font-size:16px;font-weight:600;color:#4b5563}
+.ti-sembox{margin-top:8px}
+.ti-sem{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px}
+.ti-sem.ok{background:#e3f4ea;color:#0f6b3a}.ti-sem.warn{background:#fff1d6;color:#8a4b00}.ti-sem.bad{background:#fde7e7;color:#a4161a}.ti-sem.n{background:#eef0f5;color:#3b4658}
+.ti-atn{list-style:none;margin:0;padding:0}.ti-atn li+li{border-top:1px solid #f1f3f6}
+.ti-atn-b{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:11px 14px;cursor:pointer}
+.ti-atn-b:hover{background:#f6f8fc}.ti-atn-b:focus-visible{outline:3px solid #1d4ed8;outline-offset:-3px}
+.ti-atn-b b{display:block;font-size:13px}.ti-atn-b small{color:#4b5563;font-size:11px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.btn:disabled{opacity:.6;cursor:default}
+
+/* Mesa de ayuda */
+.ti-te-nuevo{background:#e8f0fe;color:#1557b0}.ti-te-asignado{background:#efe6fa;color:#5a2c91}.ti-te-en_atencion{background:#dff3f0;color:#0b5c53}
+.ti-te-espera_usuario,.ti-te-espera_tercero{background:#fff1d6;color:#8a4b00}.ti-te-resuelto{background:#e3f4ea;color:#0f6b3a}.ti-te-cerrado{background:#eef0f5;color:#3b4658}.ti-te-cancelado{background:#fde7e7;color:#a4161a}
+.ti-tp-critica{background:#fde7e7;color:#a4161a}.ti-tp-alta{background:#ffe9d6;color:#8a3b00}.ti-tp-media{background:#fff1d6;color:#7a5200}.ti-tp-baja{background:#eef0f5;color:#3b4658}
+.ti-chk{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#34405a;cursor:pointer}
+.ti-msgs{display:flex;flex-direction:column;gap:8px}.ti-msg{border:1px solid #e8eaed;border-radius:10px;padding:10px 12px;font-size:13px;white-space:pre-wrap}.ti-msg.int{background:#fffbea;border-color:#f0e2a8}.ti-msg-h{font-size:12px;margin-bottom:4px}
+.ti-sla{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#4b5563}.ti-sla label{display:flex;align-items:center;gap:4px;justify-content:space-between}.ti-sla input{width:64px}
+.ti-resp{display:flex;flex-wrap:wrap;gap:6px}
+.ti-table .ti-code{white-space:nowrap}
+
+/* Gestión de cambios */
+.ti-ce-borrador{background:#eef0f5;color:#3b4658}.ti-ce-pendiente_aprobacion{background:#fff1d6;color:#8a4b00}.ti-ce-aprobado{background:#dff3f0;color:#0b5c53}.ti-ce-en_implementacion{background:#e8f0fe;color:#1557b0}
+.ti-ce-implementado{background:#e3f4ea;color:#0f6b3a}.ti-ce-fallido,.ti-ce-rechazado{background:#fde7e7;color:#a4161a}.ti-ce-cancelado{background:#eef0f5;color:#556178}.ti-ce-cerrado{background:#efe6fa;color:#5a2c91}
+.ti-cr-alto{background:#fde7e7;color:#a4161a}.ti-cr-medio{background:#fff1d6;color:#7a5200}.ti-cr-bajo{background:#e3f4ea;color:#0f6b3a}.ti-tag.bad{background:#fde7e7;color:#a4161a}
+
+/* Proveedores y contratos */
+.ti-ct-borrador{background:#eef0f5;color:#3b4658}.ti-ct-pendiente_aprobacion{background:#fff1d6;color:#8a4b00}.ti-ct-vigente{background:#e3f4ea;color:#0f6b3a}.ti-ct-rechazado{background:#fde7e7;color:#a4161a}
+.ti-ct-renovado{background:#e8f0fe;color:#1557b0}.ti-ct-terminado,.ti-ct-cancelado{background:#eef0f5;color:#556178}

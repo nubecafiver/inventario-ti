@@ -1,0 +1,395 @@
+rules_version = '2';
+
+// CAFIVER TI — Reglas de seguridad de Cloud Firestore (PROPUESTA, no desplegada).
+//
+// ANTES DE PUBLICAR:
+//  1. Las reglas anteriores están guardadas en docs/reglas-anteriores.txt para poder revertir. Compáralas con la consola.
+//  2. El bloque final replica tus reglas actuales para todo lo que NO sea nuevo (docs/reglas-anteriores.txt). Se endurecerá
+//     en una etapa posterior, con autorización, para no romper el inventario.
+//  3. Publica primero en un proyecto de pruebas o con el emulador (ver docs/PLATAFORMA.md).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ---------- Funciones auxiliares ---------- */
+    function firmado() { return request.auth != null && request.auth.token.email != null; }
+    function correo() { return request.auth.token.email.lower(); }
+    function rutaUsuario() { return /databases/$(database)/documents/usuarios_ti/$(correo()); }
+    function hayRegistro() { return firmado() && exists(rutaUsuario()); }
+    function activo() { return hayRegistro() && get(rutaUsuario()).data.activo == true; }
+    function tieneRol(r) { return activo() && (r in get(rutaUsuario()).data.roles); }
+    // El Gerente de TI reúne los permisos del Administrador y del Director; el Consultor los del Responsable de proceso (más atender tickets asignados).
+    function esGerente() { return tieneRol('gerente'); }
+    function esAdmin() { return tieneRol('administrador') || tieneRol('gerente'); }
+    function esDirector() { return tieneRol('director') || tieneRol('gerente'); }
+    function esConsultor() { return tieneRol('consultor'); }
+    function esResp() { return tieneRol('resp_proceso') || tieneRol('consultor'); }
+    function esTecnico() { return tieneRol('tecnico'); }
+    // Administradores que pueden crear su propio registro la primera vez. Deben coincidir con TI.BOOTSTRAP_ADMINS en js/ti-core.js.
+    function esArranque() { return firmado() && correo() in ['ramaya@cafiver.com.mx']; }
+    function rolesValidos(l) { return l is list && l.size() <= 5 && l.hasOnly(['gerente', 'consultor', 'director', 'administrador', 'resp_proceso', 'tecnico', 'solicitante']); }
+
+    /* ---------- Usuarios y roles ---------- */
+    match /usuarios_ti/{id} {
+      // Cada quien puede leer su propio registro (para conocer su rol); los usuarios activos leen el directorio.
+      allow read: if firmado() && (id == correo() || activo());
+      allow create: if firmado() && request.resource.data.email == id && rolesValidos(request.resource.data.roles)
+                    && request.resource.data.activo is bool
+                    && (esAdmin() || (esArranque() && id == correo() && request.resource.data.roles == ['gerente'] && request.resource.data.activo == true));
+      allow update: if esAdmin() && request.resource.data.email == id && rolesValidos(request.resource.data.roles) && request.resource.data.activo is bool;
+      allow delete: if false;
+    }
+
+    /* ---------- Configuración (folios y mesa de ayuda) ---------- */
+    // Folios: ti_config/contadores {procesos, tickets, cambios, proveedores, contratos, respaldos}. Los procesos los incrementa el administrador o un responsable (el catálogo
+    // reserva varios a la vez); los tickets los incrementa cualquier usuario activo, de uno en uno.
+    function ctr() { return request.resource.data; }
+    function ctrAntes(k) { return resource.data.get(k, 0); }
+    function dc(k) { return request.resource.data.get(k, 0) - resource.data.get(k, 0); }
+    match /ti_config/{doc} {
+      allow read: if activo();
+      allow create: if (doc == 'contadores'
+                        && ((ctr().keys().hasOnly(['procesos']) && ctr().procesos is int && ctr().procesos >= 1 && (esAdmin() || esResp()))
+                         || (ctr().keys().hasOnly(['tickets']) && ctr().tickets == 1 && activo())
+                         || (ctr().keys().hasOnly(['cambios']) && ctr().cambios == 1 && (esAdmin() || esResp()))
+                         || (ctr().keys().hasOnly(['proveedores']) && ctr().proveedores == 1 && (esAdmin() || esResp()))
+                         || (ctr().keys().hasOnly(['contratos']) && ctr().contratos == 1 && (esAdmin() || esResp()))
+                         || (ctr().keys().hasOnly(['respaldos']) && ctr().respaldos == 1 && (esAdmin() || esResp()))))
+                    || (doc == 'tickets' && esAdmin() && configTicketsValida())
+                    || (doc == 'proveedores' && esAdmin() && configProveedoresValida())
+                    || (doc == 'respaldos' && esAdmin() && configRespaldosValida());
+      // Cada folio sube de uno en uno (los procesos pueden reservar varios a la vez) y no toca los demás.
+      allow update: if (doc == 'contadores' && ctr().keys().hasOnly(['procesos', 'tickets', 'cambios', 'proveedores', 'contratos', 'respaldos'])
+                        && ((dc('procesos') > 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && dc('respaldos') == 0 && (esAdmin() || esResp()))
+                         || (dc('tickets') == 1 && dc('procesos') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && dc('respaldos') == 0 && activo())
+                         || (dc('cambios') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && dc('respaldos') == 0 && (esAdmin() || esResp()))
+                         || (dc('proveedores') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('contratos') == 0 && dc('respaldos') == 0 && (esAdmin() || esResp()))
+                         || (dc('contratos') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('respaldos') == 0 && (esAdmin() || esResp()))
+                         || (dc('respaldos') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && (esAdmin() || esResp()))))
+                    || (doc == 'tickets' && esAdmin() && configTicketsValida())
+                    || (doc == 'proveedores' && esAdmin() && configProveedoresValida())
+                    || (doc == 'respaldos' && esAdmin() && configRespaldosValida());
+      allow delete: if false;
+    }
+    function configRespaldosValida() {
+      return request.resource.data.keys().hasOnly(['pruebaMaxDias', 'actualizadoPor', 'actualizadoEn']) && request.resource.data.pruebaMaxDias is number
+          && request.resource.data.pruebaMaxDias >= 1 && request.resource.data.pruebaMaxDias <= 1000
+          && request.resource.data.actualizadoPor == correo() && request.resource.data.actualizadoEn == request.time;
+    }
+    function configProveedoresValida() {
+      return request.resource.data.keys().hasOnly(['avisoVencimientoDias', 'actualizadoPor', 'actualizadoEn']) && request.resource.data.avisoVencimientoDias is number
+          && request.resource.data.avisoVencimientoDias >= 1 && request.resource.data.avisoVencimientoDias <= 720
+          && request.resource.data.actualizadoPor == correo() && request.resource.data.actualizadoEn == request.time;
+    }
+    function configTicketsValida() {
+      return request.resource.data.keys().hasOnly(['categorias', 'sla', 'horario', 'ventanaReaperturaDias', 'alertaPct', 'actualizadoPor', 'actualizadoEn'])
+          && request.resource.data.categorias is list && request.resource.data.categorias.size() > 0 && request.resource.data.categorias.size() <= 60
+          && request.resource.data.sla is map
+          && request.resource.data.ventanaReaperturaDias is number && request.resource.data.alertaPct is number
+          && request.resource.data.actualizadoPor == correo() && request.resource.data.actualizadoEn == request.time;
+    }
+
+    /* ---------- Resumen del inventario (calculado a mano por Director o Administrador) ---------- */
+    match /ti_resumenes/{id} {
+      allow read: if esAdmin() || esDirector();
+      allow create, update: if (esAdmin() || esDirector()) && id == 'inventario' && request.resource.data.calculadoPor == correo()
+                            && request.resource.data.keys().hasOnly(['calculadoEn', 'calculadoMs', 'calculadoPor', 'equiposLeidos', 'datos'])
+                            && request.resource.data.calculadoEn == request.time;
+      allow delete: if false;
+    }
+
+    /* ---------- Auditoría: solo se crea; nadie edita ni borra ---------- */
+    match /ti_auditoria/{id} {
+      allow read: if esAdmin() || esDirector();
+      allow create: if activo() && request.resource.data.usuario == correo()
+                    && request.resource.data.keys().hasOnly(['fecha', 'usuario', 'accion', 'tipoRegistro', 'registroId', 'resultado', 'detalle', 'motivo'])
+                    && request.resource.data.fecha == request.time;
+      allow update, delete: if false;
+    }
+
+    /* ---------- Procesos y procedimientos ---------- */
+    function esPropietario(p) { return p.responsable == correo() || p.creadoPor == correo() || correo() in p.participantes; }
+    function editorDe(p) { return esAdmin() || (esResp() && esPropietario(p)); }
+    function rutaProceso(id) { return /databases/$(database)/documents/ti_procesos/$(id); }
+    function publicado(p) { return p.versionPublicada is int && p.versionPublicada > 0; }
+    function puedeLeerProceso(p) { return esAdmin() || esDirector() || esResp() || (esTecnico() && publicado(p)); }
+
+    match /ti_procesos/{id} {
+      allow read: if puedeLeerProceso(resource.data);
+      // Crear: el estado de la cabecera debe coincidir con el de la versión 1, creada en el mismo lote.
+      allow create: if (esAdmin() || esResp()) && request.resource.data.creadoPor == correo()
+                    && request.resource.data.estado == 'borrador' && request.resource.data.versionTrabajo == 1 && request.resource.data.versionPublicada == null
+                    && request.resource.data.nombre is string && request.resource.data.nombre.size() > 0 && request.resource.data.nombre.size() <= 200
+                    && request.resource.data.responsable is string && request.resource.data.participantes is list
+                    && getAfter(/databases/$(database)/documents/ti_procesos/$(id)/versiones/1).data.estado == 'borrador';
+      // Actualizar: quien edita, o Director/Administrador para las transiciones. En todos los casos el estado de la cabecera
+      // debe ser exactamente el de la versión de trabajo, y la versión vigente debe estar publicada (así no se puede
+      // "publicar" tocando solo la cabecera).
+      allow update: if (editorDe(resource.data) || esDirector() || esAdmin())
+                    && request.resource.data.codigo == resource.data.codigo && request.resource.data.creadoPor == resource.data.creadoPor
+                    && request.resource.data.nombre is string && request.resource.data.nombre.size() > 0 && request.resource.data.nombre.size() <= 200
+                    && getAfter(/databases/$(database)/documents/ti_procesos/$(id)/versiones/$(string(request.resource.data.versionTrabajo))).data.estado == request.resource.data.estado
+                    && (request.resource.data.versionPublicada == null
+                        || getAfter(/databases/$(database)/documents/ti_procesos/$(id)/versiones/$(string(request.resource.data.versionPublicada))).data.estado in ['publicado', 'en_revision_periodica']);
+      allow delete: if false;
+
+      match /versiones/{n} {
+        function version() { return resource.data; }
+        function nueva() { return request.resource.data; }
+        function padre() { return get(rutaProceso(id)).data; }
+        function lecturaVersion() { return esAdmin() || esDirector() || esResp() || (esTecnico() && resource.data.estado in ['publicado', 'en_revision_periodica']); }
+        function editor() { return editorDe(padre()); }
+        // Al crear, la cabecera puede estar en el mismo lote (proceso nuevo): se lee su estado posterior.
+        function editorAlCrear() { return editorDe(getAfter(rutaProceso(id)).data); }
+        function revisor() { return esDirector() || esAdmin(); }
+        function inmutables() { return nueva().numero == version().numero && nueva().creadoPor == version().creadoPor; }
+        function transicion() {
+          return
+            (version().estado == 'borrador'              && nueva().estado == 'en_revision'           && editor())
+         || (version().estado == 'en_revision'           && nueva().estado in ['pendiente_aprobacion', 'borrador'] && editor())
+         || (version().estado == 'pendiente_aprobacion'  && nueva().estado == 'aprobado'              && esDirector()
+                                                           && !(correo() in version().editores) && nueva().aprobacion.por == correo())
+         || (version().estado == 'pendiente_aprobacion'  && nueva().estado == 'borrador'              && esDirector())
+         || (version().estado == 'aprobado'              && nueva().estado == 'publicado'             && revisor())
+         || (version().estado == 'publicado'             && nueva().estado == 'en_revision_periodica' && editor())
+         || (version().estado == 'en_revision_periodica' && nueva().estado == 'publicado'             && revisor())
+         || (version().estado in ['publicado', 'en_revision_periodica'] && nueva().estado == 'reemplazada' && revisor())
+         || (version().estado in ['borrador', 'aprobado', 'publicado', 'en_revision_periodica'] && nueva().estado == 'obsoleto' && revisor());
+        }
+
+        allow read: if lecturaVersion();
+        // Una versión nueva siempre nace como borrador, con quien la crea como primer editor.
+        allow create: if editorAlCrear() && nueva().estado == 'borrador' && nueva().numero == int(n)
+                      && nueva().creadoPor == correo() && nueva().editores == [correo()];
+        allow update: if inmutables() && (
+              // Editar un borrador: cambia el contenido y se agrega al editor; el estado no cambia.
+              (version().estado == 'borrador' && nueva().estado == 'borrador' && editor() && correo() in nueva().editores)
+              // Cualquier otro cambio es una transición permitida y el contenido queda intacto (versiones inmutables).
+           || (nueva().contenido == version().contenido && nueva().editores == version().editores && transicion()));
+        allow delete: if false;
+      }
+
+      match /historial/{h} {
+        allow read: if esAdmin() || esDirector() || esResp();
+        allow create: if (editorDe(getAfter(rutaProceso(id)).data) || esDirector() || esAdmin()) && request.resource.data.usuario == correo();
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- Mesa de ayuda ---------- */
+    // Administrador, Director y Técnico ven todos los tickets; los demás solo los que crearon. El ticket guarda únicamente el ID
+    // del equipo afectado. Las transiciones de estado válidas están en la tabla de abajo (la misma que ti-logic.js).
+    function equipoTI() { return esAdmin() || esDirector() || esTecnico(); }
+    function rutaTicket(id) { return /databases/$(database)/documents/ti_tickets/$(id); }
+    function tk() { return resource.data; }
+    function tkNuevo() { return request.resource.data; }
+    function cambia() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function soyElSolicitante() { return tk().solicitanteEmail == correo(); }
+    function ventanaDias() { return exists(/databases/$(database)/documents/ti_config/tickets) ? get(/databases/$(database)/documents/ti_config/tickets).data.ventanaReaperturaDias : 5; }
+    // cerradoMs puede existir con valor null (ticket resuelto aún no cerrado): se usa resueltoMs en ese caso.
+    function refCierre() { return tk().cerradoMs != null ? tk().cerradoMs : tk().resueltoMs; }
+    function dentroDeVentana() { return refCierre() is int && request.time.toMillis() - refCierre() <= ventanaDias() * 86400000; }
+    function transicionValida(a, b) {
+      return (a == 'nuevo' && b in ['asignado', 'cancelado'])
+          || (a == 'asignado' && b in ['en_atencion', 'cancelado'])
+          || (a == 'en_atencion' && b in ['espera_usuario', 'espera_tercero', 'resuelto', 'cancelado'])
+          || (a in ['espera_usuario', 'espera_tercero'] && b in ['en_atencion', 'cancelado'])
+          || (a == 'resuelto' && b in ['cerrado', 'en_atencion'])
+          || (a == 'cerrado' && b == 'en_atencion');
+    }
+    function camposFijos() {
+      return !cambia().hasAny(['codigo', 'solicitanteEmail', 'creadoMs', 'creadoEn', 'titulo', 'descripcion', 'tipo', 'categoria', 'evidencias', 'activoId', 'departamento', 'sistema']);
+    }
+    function estadoOk() { return tkNuevo().estado == tk().estado || transicionValida(tk().estado, tkNuevo().estado); }
+    // Quien atiende: el administrador siempre; el técnico solo si el ticket es suyo o lo toma (sin responsable); el director solo asigna y cambia prioridad.
+    function atiendeTI() {
+      return esAdmin()
+          || ((esTecnico() || esConsultor()) && (tk().responsable == correo() || (tk().responsable == null && tkNuevo().responsable == correo() && tk().estado == 'nuevo')))
+          || (esDirector() && cambia().hasOnly(['responsable', 'estado', 'impacto', 'urgencia', 'prioridad', 'actualizadoEn']) && (tkNuevo().estado == tk().estado || (tk().estado == 'nuevo' && tkNuevo().estado == 'asignado')));
+    }
+    function solicitanteActua() {
+      return soyElSolicitante() && (
+          (tk().estado == 'nuevo' && tkNuevo().estado == 'cancelado' && cambia().hasOnly(['estado', 'esperas', 'actualizadoEn']))
+       || (tk().estado == 'espera_usuario' && tkNuevo().estado == 'en_atencion' && cambia().hasOnly(['estado', 'esperas', 'actualizadoEn']))
+       || (tk().estado == 'resuelto' && tkNuevo().estado == 'cerrado' && cambia().hasOnly(['estado', 'cerradoMs', 'confirmacion', 'actualizadoEn']))
+       || (tk().estado in ['resuelto', 'cerrado'] && tkNuevo().estado == 'en_atencion' && dentroDeVentana()
+           && cambia().hasOnly(['estado', 'resueltoMs', 'cerradoMs', 'confirmacion', 'reaperturas', 'actualizadoEn']) && tkNuevo().reaperturas == tk().get('reaperturas', 0) + 1));
+    }
+
+    match /ti_tickets/{id} {
+      // El Consultor lee los tickets que tiene asignados, los que creó y los nuevos sin responsable (para tomarlos).
+      allow read: if equipoTI() || (activo() && soyElSolicitante()) || (esConsultor() && (tk().responsable == correo() || (tk().responsable == null && tk().estado == 'nuevo')));
+      allow create: if activo() && tkNuevo().solicitanteEmail == correo() && tkNuevo().estado == 'nuevo' && tkNuevo().responsable == null
+                    && tkNuevo().codigo == id && tkNuevo().tipo in ['incidente', 'solicitud'] && tkNuevo().impacto in ['alto', 'medio', 'bajo'] && tkNuevo().urgencia in ['alta', 'media', 'baja']
+                    && tkNuevo().prioridad in ['critica', 'alta', 'media', 'baja']
+                    && tkNuevo().titulo is string && tkNuevo().titulo.size() > 0 && tkNuevo().titulo.size() <= 200
+                    && tkNuevo().descripcion is string && tkNuevo().descripcion.size() > 0 && tkNuevo().descripcion.size() <= 5000
+                    && tkNuevo().esperas == [] && tkNuevo().reaperturas == 0 && tkNuevo().escaladoNivel == 0
+                    && tkNuevo().creadoMs is int && math.abs(tkNuevo().creadoMs - request.time.toMillis()) < 600000 && tkNuevo().creadoEn == request.time;
+      allow update: if camposFijos() && estadoOk() && (
+                    // El administrador y el equipo técnico, con las restricciones de arriba. Cancelar un ticket ajeno es solo del administrador.
+                    ((equipoTI() || esConsultor()) && atiendeTI() && (tkNuevo().estado != 'cancelado' || tk().estado == tkNuevo().estado || esAdmin()))
+                    // Primera respuesta pública (la registra el comentario de TI).
+                 || ((equipoTI() || (esConsultor() && tk().responsable == correo())) && tk().primeraRespuestaMs == null && cambia().hasOnly(['primeraRespuestaMs', 'actualizadoEn']))
+                 || solicitanteActua());
+      allow delete: if false;
+
+      match /comentarios/{c} {
+        function padreT() { return get(rutaTicket(id)).data; }
+        allow read: if equipoTI() || (esConsultor() && (padreT().responsable == correo() || padreT().responsable == null)) || (activo() && padreT().solicitanteEmail == correo() && resource.data.interno == false);
+        allow create: if activo() && request.resource.data.autor == correo() && request.resource.data.texto is string && request.resource.data.texto.size() > 0 && request.resource.data.texto.size() <= 2000
+                      && request.resource.data.interno is bool && request.resource.data.fecha == request.time
+                      && (equipoTI() || (esConsultor() && getAfter(rutaTicket(id)).data.responsable == correo()) || (getAfter(rutaTicket(id)).data.solicitanteEmail == correo() && request.resource.data.interno == false));
+        allow update, delete: if false;
+      }
+      match /historial/{h} {
+        allow read: if equipoTI() || (esConsultor() && (get(rutaTicket(id)).data.responsable == correo()));
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- Gestión de cambios ---------- */
+    // Crean: Gerente, Administrador, Responsable de proceso y Consultor. Aprueban: Gerente y Director (no lo que solicitaron, salvo emergencia).
+    // Implementan: quien tiene asignado el cambio (Consultor) o el Gerente/Administrador. Ven todo: Gerente, Administrador y Director.
+    function rutaCambio(id) { return /databases/$(database)/documents/ti_cambios/$(id); }
+    function cm() { return resource.data; }
+    function cmNuevo() { return request.resource.data; }
+    function implementaCambio() { return esAdmin() || (esConsultor() && cm().responsableImpl == correo()); }
+    function completoParaEnviar() {
+      return cmNuevo().planImplementacion is string && cmNuevo().planImplementacion.size() > 0 && cmNuevo().planPruebas is string && cmNuevo().planPruebas.size() > 0
+          && cmNuevo().planReversa is string && cmNuevo().planReversa.size() > 0 && cmNuevo().descripcion is string && cmNuevo().descripcion.size() > 0
+          && cmNuevo().inicioMs is int && cmNuevo().finMs is int && cmNuevo().finMs > cmNuevo().inicioMs;
+    }
+    match /ti_cambios/{id} {
+      allow read: if esAdmin() || esDirector() || (activo() && (cm().solicitanteEmail == correo() || cm().responsableImpl == correo()));
+      allow create: if (esAdmin() || esResp()) && cmNuevo().solicitanteEmail == correo() && cmNuevo().estado == 'borrador' && cmNuevo().codigo == id && cmNuevo().aprobacion == null
+                    && cmNuevo().tipo in ['normal', 'emergencia']
+                    && cmNuevo().titulo is string && cmNuevo().titulo.size() > 0 && cmNuevo().titulo.size() <= 200
+                    && cmNuevo().creadoMs is int && math.abs(cmNuevo().creadoMs - request.time.toMillis()) < 600000 && cmNuevo().creadoEn == request.time;
+      allow update: if !cambia().hasAny(['codigo', 'solicitanteEmail', 'creadoMs', 'creadoEn']) && (
+            // Editar el borrador (quien lo solicitó o el Gerente/Administrador); el estado y la aprobación no cambian.
+            (cm().estado == 'borrador' && cmNuevo().estado == 'borrador' && (cm().solicitanteEmail == correo() || esAdmin()) && !cambia().hasAny(['estado', 'aprobacion']))
+            // Enviar a aprobación (con los planes completos).
+         || (cm().estado == 'borrador' && cmNuevo().estado == 'pendiente_aprobacion' && (cm().solicitanteEmail == correo() || esAdmin()) && cambia().hasOnly(['estado', 'enviadoMs', 'actualizadoEn']) && completoParaEnviar())
+            // Decisión del Gerente/Director: nadie aprueba lo que solicitó, salvo una emergencia.
+         || (cm().estado == 'pendiente_aprobacion' && cmNuevo().estado == 'aprobado' && esDirector() && (cm().solicitanteEmail != correo() || cm().tipo == 'emergencia')
+             && cambia().hasOnly(['estado', 'aprobacion', 'actualizadoEn']) && cmNuevo().aprobacion.por == correo())
+         || (cm().estado == 'pendiente_aprobacion' && cmNuevo().estado in ['rechazado', 'borrador'] && esDirector() && cambia().hasOnly(['estado', 'motivoRechazo', 'actualizadoEn']))
+            // Implementación.
+         || (cm().estado == 'aprobado' && cmNuevo().estado == 'en_implementacion' && implementaCambio() && cambia().hasOnly(['estado', 'inicioRealMs', 'actualizadoEn']))
+         || (cm().estado == 'en_implementacion' && cmNuevo().estado in ['implementado', 'fallido'] && implementaCambio()
+             && cambia().hasOnly(['estado', 'finRealMs', 'resultado', 'fallo', 'revertido', 'finalizadoMs', 'actualizadoEn']) && cmNuevo().fallo == (cmNuevo().estado == 'fallido'))
+         || (cm().estado in ['implementado', 'fallido'] && cmNuevo().estado == 'cerrado' && esDirector() && cambia().hasOnly(['estado', 'revision', 'cerradoMs', 'actualizadoEn']))
+            // Cancelar: quien lo solicitó antes de aprobarse; el Gerente/Administrador hasta antes de implementarse.
+         || (cmNuevo().estado == 'cancelado' && cambia().hasOnly(['estado', 'actualizadoEn'])
+             && ((cm().estado in ['borrador', 'pendiente_aprobacion'] && cm().solicitanteEmail == correo()) || (cm().estado in ['borrador', 'pendiente_aprobacion', 'aprobado'] && esAdmin()))));
+      allow delete: if false;
+
+      match /historial/{h} {
+        allow read: if esAdmin() || esDirector();
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- Proveedores y contratos ---------- */
+    // Crean: Gerente, Administrador, Consultor y Responsable de proceso. Aprueban contratos: Gerente y Director (nunca el que crearon).
+    // Ven todo: Gerente, Administrador y Director; el Consultor, lo que creó o tiene asignado.
+    function pv() { return resource.data; }
+    function pvNuevo() { return request.resource.data; }
+    function veProv() { return esAdmin() || esDirector() || (activo() && (pv().creadoPor == correo() || pv().responsable == correo())); }
+    match /ti_proveedores/{id} {
+      allow read: if veProv();
+      allow create: if (esAdmin() || esResp()) && pvNuevo().creadoPor == correo() && pvNuevo().codigo == id && pvNuevo().creadoEn == request.time
+                    && pvNuevo().nombre is string && pvNuevo().nombre.size() > 0 && pvNuevo().nombre.size() <= 200
+                    && pvNuevo().categoria in ['software', 'hardware', 'servicios', 'telecom', 'nube', 'otro'] && pvNuevo().estado in ['activo', 'inactivo'];
+      allow update: if !cambia().hasAny(['codigo', 'creadoPor', 'creadoEn']) && (esAdmin() || (esResp() && (pv().creadoPor == correo() || pv().responsable == correo())))
+                    && pvNuevo().nombre is string && pvNuevo().nombre.size() > 0 && pvNuevo().nombre.size() <= 200 && pvNuevo().estado in ['activo', 'inactivo'];
+      allow delete: if false;
+      match /historial/{h} {
+        allow read: if esAdmin() || esDirector();
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow update, delete: if false;
+      }
+    }
+    function ct() { return resource.data; }
+    function ctNuevo() { return request.resource.data; }
+    function completoContrato() {
+      return ctNuevo().objeto is string && ctNuevo().objeto.size() > 0 && ctNuevo().inicio is string && ctNuevo().fin is string && ctNuevo().fin >= ctNuevo().inicio
+          && ctNuevo().monto is number && ctNuevo().monto >= 0 && ctNuevo().responsable is string && ctNuevo().responsable.size() > 0 && ctNuevo().proveedorId is string;
+    }
+    match /ti_contratos/{id} {
+      allow read: if esAdmin() || esDirector() || (activo() && (ct().creadoPor == correo() || ct().responsable == correo()));
+      allow create: if (esAdmin() || esResp()) && ctNuevo().creadoPor == correo() && ctNuevo().estado == 'borrador' && ctNuevo().codigo == id && ctNuevo().aprobacion == null
+                    && ctNuevo().titulo is string && ctNuevo().titulo.size() > 0 && ctNuevo().titulo.size() <= 200
+                    && ctNuevo().creadoMs is int && math.abs(ctNuevo().creadoMs - request.time.toMillis()) < 600000 && ctNuevo().creadoEn == request.time;
+      allow update: if !cambia().hasAny(['codigo', 'creadoPor', 'creadoMs', 'creadoEn']) && (
+            (ct().estado == 'borrador' && ctNuevo().estado == 'borrador' && (ct().creadoPor == correo() || esAdmin()) && !cambia().hasAny(['estado', 'aprobacion']))
+         || (ct().estado == 'borrador' && ctNuevo().estado == 'pendiente_aprobacion' && (ct().creadoPor == correo() || esAdmin()) && cambia().hasOnly(['estado', 'actualizadoEn']) && completoContrato())
+         || (ct().estado == 'pendiente_aprobacion' && ctNuevo().estado == 'vigente' && esDirector() && ct().creadoPor != correo() && cambia().hasOnly(['estado', 'aprobacion', 'actualizadoEn']) && ctNuevo().aprobacion.por == correo())
+         || (ct().estado == 'pendiente_aprobacion' && ctNuevo().estado in ['rechazado', 'borrador'] && esDirector() && cambia().hasOnly(['estado', 'motivoRechazo', 'actualizadoEn']))
+         || (ct().estado == 'vigente' && ctNuevo().estado == 'terminado' && (esAdmin() || esDirector()) && cambia().hasOnly(['estado', 'terminadoMs', 'actualizadoEn']))
+         || (ct().estado == 'vigente' && ctNuevo().estado == 'renovado' && esDirector() && cambia().hasOnly(['estado', 'actualizadoEn']))
+         || (ct().estado in ['borrador', 'pendiente_aprobacion'] && ctNuevo().estado == 'cancelado' && (ct().creadoPor == correo() || esAdmin()) && cambia().hasOnly(['estado', 'actualizadoEn'])));
+      allow delete: if false;
+      match /historial/{h} {
+        allow read: if esAdmin() || esDirector();
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- Respaldos (solo control) ---------- */
+    // La plataforma no hace respaldos: registra los trabajos, sus ejecuciones y sus pruebas de restauración. Crean y registran: Gerente,
+    // Administrador y el responsable o creador del trabajo (Consultor). Ven todo: Gerente, Administrador y Director.
+    function rs() { return resource.data; }
+    function rsNuevo() { return request.resource.data; }
+    function veRespaldo() { return esAdmin() || esDirector() || (activo() && (rs().creadoPor == correo() || rs().responsable == correo())); }
+    function rutaRespaldo(id) { return /databases/$(database)/documents/ti_respaldos/$(id); }
+    function registraRespaldo(id) { return esAdmin() || (esResp() && (get(rutaRespaldo(id)).data.creadoPor == correo() || get(rutaRespaldo(id)).data.responsable == correo())); }
+    function registroValido(resultados) {
+      return request.resource.data.registradoPor == correo() && request.resource.data.fecha == request.time && request.resource.data.resultado in resultados
+          && request.resource.data.fechaMs is int && request.resource.data.fechaMs <= request.time.toMillis() + 300000;
+    }
+    match /ti_respaldos/{id} {
+      allow read: if veRespaldo();
+      allow create: if (esAdmin() || esResp()) && rsNuevo().creadoPor == correo() && rsNuevo().codigo == id && rsNuevo().estado == 'activo' && rsNuevo().creadoEn == request.time
+                    && rsNuevo().nombre is string && rsNuevo().nombre.size() > 0 && rsNuevo().nombre.size() <= 200
+                    && rsNuevo().frecuencia in ['diario', 'semanal', 'mensual', 'trimestral', 'anual']
+                    && rsNuevo().ultimaEjecucionMs == null && rsNuevo().ultimaPruebaMs == null;
+      allow update: if !cambia().hasAny(['codigo', 'creadoPor', 'creadoMs', 'creadoEn']) && (
+            // Editar datos del trabajo: Gerente/Administrador o quien lo creó o tiene asignado; el estado y los resúmenes no cambian aquí.
+            ((esAdmin() || (esResp() && (rs().creadoPor == correo() || rs().responsable == correo()))) && !cambia().hasAny(['estado', 'ultimaEjecucionMs', 'ultimaEjecucionResultado', 'ultimaPruebaMs', 'ultimaPruebaResultado']))
+            // Resúmenes de la última ejecución o prueba (se escriben junto con el registro).
+         || ((esAdmin() || (esResp() && (rs().creadoPor == correo() || rs().responsable == correo()))) && rs().estado == 'activo' && cambia().hasOnly(['ultimaEjecucionMs', 'ultimaEjecucionResultado', 'ultimaPruebaMs', 'ultimaPruebaResultado', 'actualizadoEn']))
+            // Pausar y reactivar: responsable o Gerente. Retirar: solo Gerente/Administrador.
+         || (cambia().hasOnly(['estado', 'actualizadoEn']) && ((rs().estado == 'activo' && rsNuevo().estado == 'pausado') || (rs().estado == 'pausado' && rsNuevo().estado == 'activo')) && (esAdmin() || (esResp() && (rs().creadoPor == correo() || rs().responsable == correo()))))
+         || (cambia().hasOnly(['estado', 'actualizadoEn']) && rs().estado in ['activo', 'pausado'] && rsNuevo().estado == 'retirado' && esAdmin()));
+      allow delete: if false;
+      match /ejecuciones/{e} {
+        allow read: if esAdmin() || esDirector() || (activo() && (get(rutaRespaldo(id)).data.creadoPor == correo() || get(rutaRespaldo(id)).data.responsable == correo()));
+        allow create: if registraRespaldo(id) && registroValido(['exitoso', 'con_errores', 'fallido']);
+        allow update, delete: if false;
+      }
+      match /pruebas/{e} {
+        allow read: if esAdmin() || esDirector() || (activo() && (get(rutaRespaldo(id)).data.creadoPor == correo() || get(rutaRespaldo(id)).data.responsable == correo()));
+        allow create: if registraRespaldo(id) && registroValido(['exitosa', 'parcial', 'fallida']);
+        allow update, delete: if false;
+      }
+      match /historial/{h} {
+        allow read: if esAdmin() || esDirector();
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- INVENTARIO y todo lo que no es nuevo (transitorio) ----------
+       Idéntico a las reglas anteriores (docs/reglas-anteriores.txt): cualquier usuario autenticado lee y escribe,
+       EXCEPTO en las colecciones nuevas de la plataforma (ti_* y usuarios_ti), que quedan protegidas por rol.
+       Así el inventario no cambia aunque existiera alguna colección no detectada. Se endurecerá en una etapa
+       posterior, con autorización. */
+    match /{col}/{doc=**} {
+      allow read, write: if request.auth != null && !col.matches('ti_.*|usuarios_ti');
+    }
+  }
+}

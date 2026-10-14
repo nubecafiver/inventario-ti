@@ -1,0 +1,64 @@
+/* CAFIVER TI — estilos base y carcasa (inicio de sesión, menú, barra superior). Estilo "Minimalism & Swiss", como el demo elegido.
+   App independiente: no depende de los estilos de la app de inventario. */
+:root{--bg:#eef2f7;--ink:#1c1e21;--mut:#4b5563;--line:#e8eaed;--blue:#1a73e8;--blue2:#1557b0;--side:#0f172a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:13px;line-height:1.5}
+.hidden{display:none!important}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:#c8cad0;border-radius:3px}
+button{font-family:inherit}
+:focus-visible{outline:3px solid #1d4ed8;outline-offset:2px}
+/* componentes reutilizados por los módulos */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:1px solid #dde1e7;background:#fff;color:var(--ink);font-size:12px;font-weight:500;cursor:pointer;min-height:34px;text-decoration:none;transition:background-color .15s,border-color .15s}
+.btn:hover{background:#f0f2f5}.btn-sm{padding:5px 11px;font-size:11px;min-height:30px}
+.btn-blue{background:linear-gradient(135deg,#1a73e8,#1557b0);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(26,115,232,.3)}.btn-blue:hover{background:linear-gradient(135deg,#1a73e8,#1557b0);filter:brightness(1.06)}
+.fi{font-size:13px;padding:9px 12px;border:1.5px solid #e0e2e6;border-radius:10px;outline:none;font-family:inherit;width:100%;background:#fff;color:var(--ink);transition:border-color .15s}
+.fi:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,115,232,.12)}
+.fi-sm{font-size:12px;padding:7px 10px;border:1.5px solid #e0e2e6;border-radius:8px;outline:none;font-family:inherit;background:#fff;color:var(--ink);min-height:34px}.fi-sm:focus{border-color:var(--blue)}
+.pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;line-height:1.6}
+.icon-btn{padding:5px 9px;border:1px solid #e0e2e6;border-radius:7px;cursor:pointer;background:#fff;font-size:12px;min-height:30px;min-width:30px}.icon-btn:hover{background:#f0f2f5}
+.modal-card{background:#fff;border-radius:16px;width:100%;max-width:720px;box-shadow:0 16px 48px rgba(0,0,0,.22);margin:auto}.modal-card.wide{max-width:900px}
+.modal-hd{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;background:#fff;z-index:1;border-radius:16px 16px 0 0}.modal-hd h3{font-size:15px;font-weight:700}
+.modal-body{padding:16px 20px 20px}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;background:#fafbfc;border-radius:0 0 16px 16px}
+#ti-toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,20px);background:#0f172a;color:#fff;padding:11px 18px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:600;max-width:90vw;text-align:center}
+#ti-toast.on{opacity:1;transform:translate(-50%,0)}
+/* inicio de sesión */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;background:linear-gradient(135deg,#1a73e8 0%,#0d47a1 100%)}
+.lcard{background:#fff;border-radius:20px;padding:2.2rem 2rem;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.lcard h1{font-size:22px;text-align:center}.lcard .sub{text-align:center;color:var(--mut);font-size:12px;margin:4px 0 1.4rem}
+.lcard label{display:block;font-size:11px;font-weight:700;color:#4b5563;letter-spacing:.04em;text-transform:uppercase;margin:0 0 5px}
+.lcard .campo{margin-bottom:14px}
+#login-error{display:none;background:#fce8e6;color:#a4161a;border-radius:10px;padding:10px 14px;font-size:12px;margin-bottom:14px;line-height:1.5}
+#login-btn{width:100%;justify-content:center;padding:12px;font-size:14px;font-weight:600;border-radius:10px;min-height:44px}
+.lmark{width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg,#1a73e8,#0d47a1);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 14px}
+/* aplicación */
+#app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+#side{background:var(--side);color:#cbd5e1;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;padding:16px 0 12px}
+.marca{display:flex;align-items:center;gap:10px;padding:0 16px 14px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px}
+.marca .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px}
+.marca b{display:block;color:#fff;font-size:14px}.marca small{display:block;color:#94a3b8;font-size:10px;line-height:1.3}
+#side nav{flex:1;overflow-y:auto;padding:6px 0}
+.tnav{display:flex;align-items:center;gap:10px;width:100%;padding:0 16px;min-height:42px;color:#94a3b8;background:none;border:0;border-left:3px solid transparent;font-size:12.5px;font-weight:500;cursor:pointer;text-align:left;text-decoration:none}
+.tnav:hover{color:#e2e8f0}.tnav.on{color:#fff;background:rgba(129,140,248,.14);border-left-color:#818cf8}
+.tnav .tnav-icon{font-size:18px;flex:none}.tnav .ext{margin-left:auto;font-size:13px;opacity:.7}
+.tnav:focus-visible{outline:3px solid #a5b4fc;outline-offset:-3px}
+.sbpie{padding:10px 14px 0;border-top:1px solid rgba(255,255,255,.08);font-size:11px}
+.sbpie .quien{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.avatar{width:28px;height:28px;border-radius:50%;background:#1e293b;color:#a5b4fc;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none}
+.sbpie .quien b{display:block;color:#e2e8f0;font-size:12px}.sbpie .quien small{color:#94a3b8;display:block;font-size:10px}
+.sbpie .btn{background:rgba(255,255,255,.07);color:#cbd5e1;border-color:rgba(255,255,255,.12);width:100%;justify-content:center}.sbpie .btn:hover{background:rgba(255,255,255,.14)}
+#principal{min-width:0;display:flex;flex-direction:column;min-height:100vh}
+#topbar{display:none;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--line)}
+#burger{border:1px solid #e0e2e6;background:#fff;border-radius:8px;min-width:40px;min-height:40px;font-size:18px;cursor:pointer}
+.ti-home h1{font-size:19px;margin-bottom:2px}
+.ti-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:14px}
+.ti-mod{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:8px}
+.ti-mod h2{font-size:14px;display:flex;align-items:center;gap:8px}.ti-mod p{color:var(--mut);font-size:12.5px;flex:1}
+.ti-mod .btn{align-self:flex-start}
+@media(max-width:860px){
+  #app{grid-template-columns:1fr}
+  #side{position:fixed;inset:0 auto 0 0;width:250px;z-index:300;transform:translateX(-100%);transition:transform .2s}
+  body.menu-abierto #side{transform:none;box-shadow:0 0 40px rgba(0,0,0,.4)}
+  #topbar{display:flex}.ti-view{padding:1rem}
+}
+@media(prefers-reduced-motion:reduce){#side,#ti-toast{transition:none}}
