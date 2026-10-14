@@ -83,3 +83,8 @@
 .ti-sla{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#4b5563}.ti-sla label{display:flex;align-items:center;gap:4px;justify-content:space-between}.ti-sla input{width:64px}
 .ti-resp{display:flex;flex-wrap:wrap;gap:6px}
 .ti-table .ti-code{white-space:nowrap}
+
+/* Gestión de cambios */
+.ti-ce-borrador{background:#eef0f5;color:#3b4658}.ti-ce-pendiente_aprobacion{background:#fff1d6;color:#8a4b00}.ti-ce-aprobado{background:#dff3f0;color:#0b5c53}.ti-ce-en_implementacion{background:#e8f0fe;color:#1557b0}
+.ti-ce-implementado{background:#e3f4ea;color:#0f6b3a}.ti-ce-fallido,.ti-ce-rechazado{background:#fde7e7;color:#a4161a}.ti-ce-cancelado{background:#eef0f5;color:#556178}.ti-ce-cerrado{background:#efe6fa;color:#5a2c91}
+.ti-cr-alto{background:#fde7e7;color:#a4161a}.ti-cr-medio{background:#fff1d6;color:#7a5200}.ti-cr-bajo{background:#e3f4ea;color:#0f6b3a}.ti-tag.bad{background:#fde7e7;color:#a4161a}

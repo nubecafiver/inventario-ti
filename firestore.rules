@@ -48,11 +48,13 @@ service cloud.firestore {
       allow read: if activo();
       allow create: if (doc == 'contadores'
                         && ((ctr().keys().hasOnly(['procesos']) && ctr().procesos is int && ctr().procesos >= 1 && (esAdmin() || esResp()))
-                         || (ctr().keys().hasOnly(['tickets']) && ctr().tickets == 1 && activo())))
+                         || (ctr().keys().hasOnly(['tickets']) && ctr().tickets == 1 && activo())
+                         || (ctr().keys().hasOnly(['cambios']) && ctr().cambios == 1 && (esAdmin() || esResp()))))
                     || (doc == 'tickets' && esAdmin() && configTicketsValida());
-      allow update: if (doc == 'contadores' && ctr().keys().hasOnly(['procesos', 'tickets'])
-                        && ((ctr().get('procesos', 0) > ctrAntes('procesos') && ctr().get('tickets', 0) == ctrAntes('tickets') && (esAdmin() || esResp()))
-                         || (ctr().get('tickets', 0) == ctrAntes('tickets') + 1 && ctr().get('procesos', 0) == ctrAntes('procesos') && activo())))
+      allow update: if (doc == 'contadores' && ctr().keys().hasOnly(['procesos', 'tickets', 'cambios'])
+                        && ((ctr().get('procesos', 0) > ctrAntes('procesos') && ctr().get('tickets', 0) == ctrAntes('tickets') && ctr().get('cambios', 0) == ctrAntes('cambios') && (esAdmin() || esResp()))
+                         || (ctr().get('tickets', 0) == ctrAntes('tickets') + 1 && ctr().get('procesos', 0) == ctrAntes('procesos') && ctr().get('cambios', 0) == ctrAntes('cambios') && activo())
+                         || (ctr().get('cambios', 0) == ctrAntes('cambios') + 1 && ctr().get('procesos', 0) == ctrAntes('procesos') && ctr().get('tickets', 0) == ctrAntes('tickets') && (esAdmin() || esResp()))))
                     || (doc == 'tickets' && esAdmin() && configTicketsValida());
       allow delete: if false;
     }
@@ -219,6 +221,50 @@ service cloud.firestore {
       }
       match /historial/{h} {
         allow read: if equipoTI() || (esConsultor() && (get(rutaTicket(id)).data.responsable == correo()));
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- Gestión de cambios ---------- */
+    // Crean: Gerente, Administrador, Responsable de proceso y Consultor. Aprueban: Gerente y Director (no lo que solicitaron, salvo emergencia).
+    // Implementan: quien tiene asignado el cambio (Consultor) o el Gerente/Administrador. Ven todo: Gerente, Administrador y Director.
+    function rutaCambio(id) { return /databases/$(database)/documents/ti_cambios/$(id); }
+    function cm() { return resource.data; }
+    function cmNuevo() { return request.resource.data; }
+    function implementaCambio() { return esAdmin() || (esConsultor() && cm().responsableImpl == correo()); }
+    function completoParaEnviar() {
+      return cmNuevo().planImplementacion is string && cmNuevo().planImplementacion.size() > 0 && cmNuevo().planPruebas is string && cmNuevo().planPruebas.size() > 0
+          && cmNuevo().planReversa is string && cmNuevo().planReversa.size() > 0 && cmNuevo().descripcion is string && cmNuevo().descripcion.size() > 0
+          && cmNuevo().inicioMs is int && cmNuevo().finMs is int && cmNuevo().finMs > cmNuevo().inicioMs;
+    }
+    match /ti_cambios/{id} {
+      allow read: if esAdmin() || esDirector() || (activo() && (cm().solicitanteEmail == correo() || cm().responsableImpl == correo()));
+      allow create: if (esAdmin() || esResp()) && cmNuevo().solicitanteEmail == correo() && cmNuevo().estado == 'borrador' && cmNuevo().codigo == id && cmNuevo().aprobacion == null
+                    && cmNuevo().tipo in ['normal', 'emergencia']
+                    && cmNuevo().titulo is string && cmNuevo().titulo.size() > 0 && cmNuevo().titulo.size() <= 200
+                    && cmNuevo().creadoMs is int && math.abs(cmNuevo().creadoMs - request.time.toMillis()) < 600000 && cmNuevo().creadoEn == request.time;
+      allow update: if !cambia().hasAny(['codigo', 'solicitanteEmail', 'creadoMs', 'creadoEn']) && (
+            // Editar el borrador (quien lo solicitó o el Gerente/Administrador); el estado y la aprobación no cambian.
+            (cm().estado == 'borrador' && cmNuevo().estado == 'borrador' && (cm().solicitanteEmail == correo() || esAdmin()) && !cambia().hasAny(['estado', 'aprobacion']))
+            // Enviar a aprobación (con los planes completos).
+         || (cm().estado == 'borrador' && cmNuevo().estado == 'pendiente_aprobacion' && (cm().solicitanteEmail == correo() || esAdmin()) && cambia().hasOnly(['estado', 'enviadoMs', 'actualizadoEn']) && completoParaEnviar())
+            // Decisión del Gerente/Director: nadie aprueba lo que solicitó, salvo una emergencia.
+         || (cm().estado == 'pendiente_aprobacion' && cmNuevo().estado == 'aprobado' && esDirector() && (cm().solicitanteEmail != correo() || cm().tipo == 'emergencia')
+             && cambia().hasOnly(['estado', 'aprobacion', 'actualizadoEn']) && cmNuevo().aprobacion.por == correo())
+         || (cm().estado == 'pendiente_aprobacion' && cmNuevo().estado in ['rechazado', 'borrador'] && esDirector() && cambia().hasOnly(['estado', 'motivoRechazo', 'actualizadoEn']))
+            // Implementación.
+         || (cm().estado == 'aprobado' && cmNuevo().estado == 'en_implementacion' && implementaCambio() && cambia().hasOnly(['estado', 'inicioRealMs', 'actualizadoEn']))
+         || (cm().estado == 'en_implementacion' && cmNuevo().estado in ['implementado', 'fallido'] && implementaCambio()
+             && cambia().hasOnly(['estado', 'finRealMs', 'resultado', 'fallo', 'revertido', 'finalizadoMs', 'actualizadoEn']) && cmNuevo().fallo == (cmNuevo().estado == 'fallido'))
+         || (cm().estado in ['implementado', 'fallido'] && cmNuevo().estado == 'cerrado' && esDirector() && cambia().hasOnly(['estado', 'revision', 'cerradoMs', 'actualizadoEn']))
+            // Cancelar: quien lo solicitó antes de aprobarse; el Gerente/Administrador hasta antes de implementarse.
+         || (cmNuevo().estado == 'cancelado' && cambia().hasOnly(['estado', 'actualizadoEn'])
+             && ((cm().estado in ['borrador', 'pendiente_aprobacion'] && cm().solicitanteEmail == correo()) || (cm().estado in ['borrador', 'pendiente_aprobacion', 'aprobado'] && esAdmin()))));
+      allow delete: if false;
+
+      match /historial/{h} {
+        allow read: if esAdmin() || esDirector();
         allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
         allow update, delete: if false;
       }

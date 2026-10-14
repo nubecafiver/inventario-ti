@@ -229,3 +229,61 @@ test('consultor: toma un ticket nuevo sin responsable; consulta con filtro de si
   await assertFails(getDocs(collection(db('cons'), 'ti_tickets')));
   await assertSucceeds(updateDoc(tref('cons'), { responsable: U.cons, estado: 'asignado', actualizadoEn: serverTimestamp() }));
 });
+
+/* ===================== GESTIÓN DE CAMBIOS — preparadas, no ejecutadas ===================== */
+const cambio = (extra) => Object.assign({ codigo: 'CHG-0001', titulo: 'C', tipo: 'normal', descripcion: 'd', justificacion: 'j', sistema: 'Red', activoIds: '', impacto: 'medio', probabilidad: 'baja', riesgo: 'bajo', planImplementacion: 'p', planPruebas: 't', planReversa: 'r', inicioMs: 1000, finMs: 2000, estado: 'borrador', solicitanteEmail: U.cons, responsableImpl: U.cons, evidencias: [], aprobacion: null, creadoMs: Date.now() }, extra || {});
+async function sembrarCambio(extra) {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const f = ctx.firestore();
+    for (const k of Object.keys(ROLES)) await setDoc(doc(f, 'usuarios_ti', U[k]), { email: U[k], roles: ROLES[k], activo: true });
+    await setDoc(doc(f, 'ti_cambios', 'CHG-0001'), cambio(extra));
+  });
+}
+const cref = (k) => doc(db(k), 'ti_cambios', 'CHG-0001');
+test('cambios: crean gerente y consultor (a su nombre, en borrador); técnico y solicitante no', async () => {
+  await sembrarCambio();
+  const nuevo = (k, id) => setDoc(doc(db(k), 'ti_cambios', id), cambio({ codigo: id, solicitanteEmail: U[k], creadoEn: serverTimestamp() }));
+  await assertSucceeds(nuevo('cons', 'CHG-0002')); await assertSucceeds(nuevo('ger', 'CHG-0003'));
+  await assertFails(nuevo('tec', 'CHG-0004')); await assertFails(nuevo('sol', 'CHG-0005'));
+  await assertFails(setDoc(doc(db('cons'), 'ti_cambios', 'CHG-0006'), cambio({ codigo: 'CHG-0006', solicitanteEmail: U.ger, creadoEn: serverTimestamp() })));
+  await assertFails(setDoc(doc(db('cons'), 'ti_cambios', 'CHG-0007'), cambio({ codigo: 'CHG-0007', estado: 'aprobado', creadoEn: serverTimestamp() })));
+});
+test('cambios: lectura — gerente todos; consultor solo solicitados o asignados; solicitante nada', async () => {
+  await sembrarCambio();
+  await assertSucceeds(getDoc(cref('ger'))); await assertSucceeds(getDoc(cref('dir'))); await assertSucceeds(getDoc(cref('cons')));
+  await assertFails(getDoc(cref('cons2'))); await assertFails(getDoc(cref('sol')));
+  await assertFails(getDocs(collection(db('cons'), 'ti_cambios')));
+  await assertSucceeds(getDocs(query(collection(db('cons'), 'ti_cambios'), where('solicitanteEmail', '==', U.cons))));
+});
+test('cambios: enviar exige planes completos; aprobar solo el gerente/director y no lo propio (salvo emergencia)', async () => {
+  await sembrarCambio({ planReversa: '' });
+  await assertFails(updateDoc(cref('cons'), { estado: 'pendiente_aprobacion', enviadoMs: Date.now(), actualizadoEn: serverTimestamp() }));
+  await sembrarCambio();
+  await assertSucceeds(updateDoc(cref('cons'), { estado: 'pendiente_aprobacion', enviadoMs: Date.now(), actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(cref('cons'), { estado: 'aprobado', aprobacion: { por: U.cons }, actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(cref('ger'), { estado: 'aprobado', aprobacion: { por: U.ger, fecha: 1, excepcion: false }, actualizadoEn: serverTimestamp() }));
+  await sembrarCambio({ estado: 'pendiente_aprobacion', solicitanteEmail: U.ger });
+  await assertFails(updateDoc(cref('ger'), { estado: 'aprobado', aprobacion: { por: U.ger }, actualizadoEn: serverTimestamp() }));
+  await sembrarCambio({ estado: 'pendiente_aprobacion', solicitanteEmail: U.ger, tipo: 'emergencia' });
+  await assertSucceeds(updateDoc(cref('ger'), { estado: 'aprobado', aprobacion: { por: U.ger, excepcion: true }, actualizadoEn: serverTimestamp() }));
+});
+test('cambios: implementa solo el asignado o el gerente; no se salta estados; cerrar es del gerente; cancelar según rol', async () => {
+  await sembrarCambio({ estado: 'aprobado' });
+  await assertFails(updateDoc(cref('cons2'), { estado: 'en_implementacion', inicioRealMs: 1, actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(cref('cons'), { estado: 'implementado', actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(cref('cons'), { estado: 'en_implementacion', inicioRealMs: 1, actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(cref('cons'), { estado: 'implementado', finRealMs: 2, resultado: 'ok', fallo: false, finalizadoMs: 2, actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(cref('cons'), { estado: 'cerrado', revision: 'x', cerradoMs: 3, actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(cref('ger'), { estado: 'cerrado', revision: 'x', cerradoMs: 3, actualizadoEn: serverTimestamp() }));
+  await sembrarCambio({ estado: 'aprobado' });
+  await assertFails(updateDoc(cref('cons'), { estado: 'cancelado', actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(cref('ger'), { estado: 'cancelado', actualizadoEn: serverTimestamp() }));
+  await assertFails(deleteDoc(cref('ger')));
+});
+test('ti_config: folio de cambios lo incrementa quien puede crear cambios (+1); solicitante no', async () => {
+  await sembrarCambio();
+  await assertSucceeds(setDoc(doc(db('cons'), 'ti_config', 'contadores'), { cambios: 1 }));
+  await assertSucceeds(updateDoc(doc(db('ger'), 'ti_config', 'contadores'), { cambios: 2 }));
+  await assertFails(updateDoc(doc(db('ger'), 'ti_config', 'contadores'), { cambios: 9 }));
+  await assertFails(updateDoc(doc(db('sol'), 'ti_config', 'contadores'), { cambios: 3 }));
+});

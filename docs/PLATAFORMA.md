@@ -8,7 +8,8 @@
 | 3 Procesos y procedimientos | Implementada y probada con Firebase simulado. **Reglas sin probar con el emulador.** |
 | 4 Dashboard de Inicio | **Primera versión hecha y probada con datos simulados:** atención por rol, indicadores de procesos e indicadores del inventario (solo lectura). Sin metas ni tendencias (no hay histórico). Garantías y equipos en reparación: "No disponible" (ver más abajo). |
 | 5 Mesa de ayuda | **Implementada y probada con Firebase simulado** (ver "Mesa de ayuda"). Los SLA no vienen definidos: los configura el administrador. **Reglas sin probar con el emulador.** |
-| 6–10 Cambios, proyectos, contratos, respaldos, IA y SAP | **No iniciadas.** No aparecen en el menú. |
+| 6 Gestión de cambios | **Implementada y probada con Firebase simulado** (ver "Gestión de cambios"). **Reglas sin probar con el emulador.** |
+| 7–10 Proyectos, contratos, respaldos, IA y SAP | **No iniciadas.** No aparecen en el menú. |
 
 ## Arquitectura
 Firebase puro: Authentication + Cloud Firestore, alojado donde ya estaba (GitHub Pages). Sin servidor propio, sin Cloud Functions, sin Storage.
@@ -39,11 +40,13 @@ Dirección en GitHub Pages (una vez publicada la rama): `…/inventario-ti/ti/`.
 | `ti_procesos/{id}/versiones/{n}` | `numero, estado, contenido{…, pasos[]}, editores[], aprobacion, creadoPor, publicadoEn, …` | Fuente oficial del contenido y del estado de cada versión. Aprobadas y publicadas son inmutables. |
 | `ti_procesos/{id}/historial/*` | `fecha, usuario, accion, version, detalle, motivo` | Solo creación. |
 | `ti_auditoria/*` | `fecha, usuario, accion, tipoRegistro, registroId, resultado, detalle, motivo` | Solo creación; nadie edita ni borra. |
-| `ti_config/contadores` | `procesos`, `tickets` (último folio) | Se incrementa en transacción. |
+| `ti_config/contadores` | `procesos`, `tickets`, `cambios` (último folio) | Se incrementa en transacción. |
 | `ti_tickets/{TCK-####}` | `codigo, titulo, descripcion, tipo, categoria, impacto, urgencia, prioridad, estado, solicitanteEmail, responsable, departamento, sistema, activoId, evidencias[], esperas[], escaladoNivel, reaperturas, primeraRespuestaMs, resueltoMs, cerradoMs, diagnostico, solucion, confirmacion, creadoMs, …` | `activoId` es solo el ID del equipo del inventario (no se copian sus datos). Tiempos en milisegundos. |
 | `ti_tickets/{id}/comentarios/*` | `texto, autor, interno, fechaMs, fecha` | `interno = true`: notas del equipo de TI que el solicitante no puede leer. Solo creación. |
 | `ti_tickets/{id}/historial/*` | `fecha, usuario, accion, detalle, motivo` | Solo creación; solo lo lee TI. |
 | `ti_config/tickets` | `categorias[], sla{categoria+prioridad → {respuestaH, resolucionH}}, horario, ventanaReaperturaDias, alertaPct` | Lo edita solo el Administrador. Sin SLA ni horario por defecto. |
+| `ti_cambios/{CHG-####}` | `codigo, titulo, tipo, descripcion, justificacion, sistema, activoIds, impacto, probabilidad, riesgo, planImplementacion, planPruebas, planReversa, inicioMs, finMs, responsableImpl, solicitanteEmail, estado, aprobacion, resultado, fallo, revertido, revision, ticketId, evidencias[], …` | `activoIds` son solo IDs del inventario. |
+| `ti_cambios/{id}/historial/*` | `fecha, usuario, accion, detalle, motivo` | Solo creación. |
 | `ti_resumenes/inventario` | `calculadoEn, calculadoMs, calculadoPor, equiposLeidos, datos{…}` | Resumen del inventario, calculado a mano; lo lee el dashboard. |
 
 **Sincronización de campos copiados.** `estado`, `versionPublicada`, `proximaRevision` y `documentado` de la cabecera se escriben en la **misma transacción** que el cambio de la versión. Las reglas exigen que `estado` de la cabecera sea igual al de la versión de trabajo y que `versionPublicada` apunte a una versión publicada, para que no se pueda "publicar" tocando solo la cabecera. `documentado` lo calcula el cliente al publicar (las reglas no pueden verificarlo; ver limitaciones).
@@ -73,9 +76,10 @@ CAFIVER TI es la plataforma; el **Inventario de equipos es un módulo dentro de 
 1. **Inicio** (dashboard; ver "Dashboard de Inicio").
 2. **Procesos y procedimientos** (según rol).
 3. **Mesa de ayuda** (todos los roles).
-4. **Inventario de equipos** (enlace a la app de inventario existente, en otra pestaña; visible para todos los que inician sesión, igual que hoy).
-5. *(Gestión de cambios, Proyectos, Proveedores y Respaldos aparecerán cuando existan.)*
-6. **Administración** (usuarios, roles y auditoría; según rol).
+4. **Gestión de cambios** (quien crea o ve cambios).
+5. **Inventario de equipos** (enlace a la app de inventario existente, en otra pestaña; visible para todos los que inician sesión, igual que hoy).
+6. *(Proyectos, Proveedores y Respaldos aparecerán cuando existan.)*
+7. **Administración** (usuarios, roles y auditoría; según rol).
 
 ## Mesa de ayuda
 **Ticket.** Tipo (incidente o solicitud), categoría, título, descripción, departamento, sistema afectado, equipo (ID o activo fijo, verificado con una consulta puntual a `equipos`), impacto, urgencia y evidencias como enlaces https. El folio es `TCK-####` (transacción sobre `ti_config/contadores`).
@@ -108,6 +112,21 @@ CAFIVER TI es la plataforma; el **Inventario de equipos es un módulo dentro de 
 **Costo de lecturas.** El equipo de TI escucha dos consultas acotadas (abiertos, y resueltos en los últimos 90 días); un solicitante, solo `solicitanteEmail == yo`. No se lee la colección completa ni el inventario (la verificación del equipo es una lectura, o dos).
 
 **Exportar.** Botón "Exportar CSV" de lo que muestra la tabla (neutraliza celdas que empiezan con `=`, `+`, `-`, `@`).
+
+## Gestión de cambios
+**Cambio.** Tipo (normal o emergencia), título, descripción, justificación, sistema afectado, equipos afectados (IDs), impacto, probabilidad de falla, ventana planeada (inicio y fin), quién lo implementa, plan de implementación, plan de pruebas, **plan de reversa**, ticket relacionado y evidencias (enlaces https). Folio `CHG-####`.
+
+**Riesgo = impacto × probabilidad** (3/2/1 cada uno): ≥ 6 alto, 3–4 medio, ≤ 2 bajo. Es una convención, no una política oficial de CAFIVER.
+
+**Flujo:** Borrador → Pendiente de aprobación → Aprobado → En implementación → Implementado o Fallido/revertido → Cerrado (con revisión posterior). También Rechazado y Cancelado. Un borrador solo exige título; para **enviarlo** deben estar completos descripción, justificación, sistema, riesgo, ventana y los tres planes (si falta algo, se abre el editor con los campos marcados).
+- Aprueban, rechazan, devuelven y cierran el **Gerente** y el **Director**. Nadie aprueba lo que solicitó; la única excepción es una **emergencia**, con motivo obligatorio, y queda marcada como excepción.
+- Implementa quien tiene asignado el cambio (Consultor) o el Gerente/Administrador. Cancela quien lo solicitó (antes de aprobarse) o el Gerente (hasta antes de implementarse).
+- **Choques de ventana:** al ver o aprobar un cambio se avisa si se traslapa con otro pendiente, aprobado o en curso sobre el mismo sistema (texto igual, sin distinguir mayúsculas) o algún mismo equipo. Es un aviso, no un bloqueo.
+- Cada acción es una transacción: cambio + historial + auditoría.
+
+**Indicadores:** abiertos; pendientes de aprobación; programados en 7 días (aprobados con inicio en los próximos 7 días); ventana vencida (aprobados cuyo fin ya pasó); emergencias (no canceladas); **tasa de éxito** = finalizados sin falla ÷ finalizados en los últimos 90 días, **solo con ≥ 5 finalizados**, si no "No disponible".
+
+**Visibilidad.** Gerente, Administrador y Director ven todos (dos consultas acotadas: abiertos y finalizados en 90 días). El Consultor ve los que solicitó o tiene asignados. El Solicitante y el Técnico no tienen acceso.
 
 ## Equipo y roles iniciales (decididos por la Gerencia de TI)
 ramaya@cafiver.com.mx entra como **Gerente de TI** (se crea su propio registro la primera vez). El botón "Asignar roles iniciales al equipo" da el rol **Consultor de TI** a vlopez@, aosorio@, soportetecnico@ y dgomez@. soportetec@ (otra persona) no recibe rol. Los roles se pueden cambiar después en Administración.
@@ -184,8 +203,8 @@ Variables de entorno y secretos: **ninguno**. La configuración pública de Fire
 ## Pruebas
 | Prueba | Resultado |
 |---|---|
-| `node --test tests/logica.test.js` — lógica pura | **59 de 59 correctas.** Lo anterior más la mesa de ayuda: matriz de prioridad, horario laboral (noches y fines de semana), pausas por espera, fecha objetivo, estados de SLA, permisos y flujo de acciones, ventana de reapertura, validación e indicadores con muestra mínima. |
-| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **160 de 160 correctas** (51 son de la mesa de ayuda: crear, asignar, atender, esperar, responder, resolver, confirmar y reabrir con distintos roles; visibilidad; nota interna; SLA configurado desde Administración; CSV; dashboard). Que `index.html` no cambió, dashboard de Inicio (cifras exactas con datos sembrados, caché y costo de lecturas, permisos por rol, estados vacíos, errores), arranque, equipo inicial, estructura del menú, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
+| `node --test tests/logica.test.js` — lógica pura | **68 de 68 correctas.** Lo anterior más la mesa de ayuda: matriz de prioridad, horario laboral (noches y fines de semana), pausas por espera, fecha objetivo, estados de SLA, permisos y flujo de acciones, ventana de reapertura, validación e indicadores con muestra mínima. |
+| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **187 de 187 correctas** (51 son de la mesa de ayuda: crear, asignar, atender, esperar, responder, resolver, confirmar y reabrir con distintos roles; visibilidad; nota interna; SLA configurado desde Administración; CSV; dashboard). Que `index.html` no cambió, dashboard de Inicio (cifras exactas con datos sembrados, caché y costo de lecturas, permisos por rol, estados vacíos, errores), arranque, equipo inicial, estructura del menú, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
 | `tests/reglas.test.js` — reglas con el emulador | **NO ejecutadas** (incluidas las nuevas de tickets). El entorno de desarrollo bloqueaba `registry.npmjs.org`, `gstatic.com` y `storage.googleapis.com`. Están escritas y listas para ejecutar donde haya internet. |
 
 La simulación **no aplica reglas de seguridad**, así que las pruebas de integración no demuestran que las reglas funcionen. Tampoco se probó contra el Firebase real.
@@ -203,6 +222,7 @@ La simulación **no aplica reglas de seguridad**, así que las pruebas de integr
 - Un Administrador que también sea Director no puede aprobar lo que él mismo editó.
 
 ## Seguimiento de cambios
+- 2026-10-14 — Fase 6: gestión de cambios (riesgo, planes con reversa, aprobación con segregación, ventana y choques, implementación, revisión posterior, indicadores, sección en Inicio, reglas propuestas y pruebas). Reglas **sin ejecutar**.
 - 2026-10-14 — Roles: nuevo **Gerente de TI** (ve y puede todo) y **Consultor de TI** (atiende solo lo asignado o sin responsable; solo el Gerente aprueba). Reglas actualizadas (sin ejecutar).
 - 2026-10-14 — Fase 5: mesa de ayuda (tickets, prioridad, SLA configurable con horario y pausas, conversación con notas internas, indicadores con muestra mínima, configuración en Administración, sección en Inicio, reglas de Firestore propuestas y pruebas). Las reglas de tickets **no se han ejecutado**.
 - 2026-10-14 — Fase 1 y primera versión de las Fases 2 y 3: `firestore.rules`, `tests/`, `docs/` y los módulos (primero con tres cambios en `index.html`; ver la corrección de rumbo siguiente).

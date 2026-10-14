@@ -513,3 +513,67 @@ test('consultor: toma y atiende lo suyo; no atiende lo de otro consultor ni asig
   assert.ok(ticketIds(ger, tk(), cfg).includes('asignar') && ticketIds(ger, tk(), cfg).includes('cancelar_ti'));
   assert.ok(!ticketIds(cons, tk(), cfg).includes('cancelar_ti'));
 });
+
+/* ===================== GESTIÓN DE CAMBIOS ===================== */
+const cam = (extra) => Object.assign({ id: 'CHG-0001', titulo: 'Actualizar firmware', tipo: 'normal', descripcion: 'd', justificacion: 'j', sistema: 'Red', activoIds: 'EQ-1', impacto: 'medio', probabilidad: 'baja', riesgo: 'bajo',
+  planImplementacion: 'p', planPruebas: 't', planReversa: 'r', inicioMs: D(20, 20), finMs: D(20, 23), estado: 'borrador', solicitanteEmail: 'cons@x.mx', responsableImpl: 'cons@x.mx', evidencias: [] }, extra || {});
+const camIds = (u, c) => L.accionesCambioDisponibles({ user: u, cambio: c }).filter((a) => a.ok).map((a) => a.id);
+test('cambios: matriz de riesgo impacto × probabilidad', () => {
+  assert.equal(L.riesgoDe('alto', 'alta'), 'alto'); assert.equal(L.riesgoDe('alto', 'media'), 'alto'); assert.equal(L.riesgoDe('medio', 'media'), 'medio');
+  assert.equal(L.riesgoDe('alto', 'baja'), 'medio'); assert.equal(L.riesgoDe('bajo', 'media'), 'bajo'); assert.equal(L.riesgoDe('bajo', 'baja'), 'bajo'); assert.equal(L.riesgoDe('x', 'baja'), null);
+});
+test('cambios: validación (borrador solo pide título; enviar exige planes, riesgo y ventana)', () => {
+  assert.deepEqual(L.validarCambio({ titulo: 'x', tipo: 'normal' }, false), {});
+  const e = L.validarCambio({ titulo: 'x', tipo: 'normal', inicioMs: 10, finMs: 5, activoIds: 'a b', evidencias: [{ titulo: '', url: 'http://a' }] }, true);
+  ['descripcion', 'justificacion', 'sistema', 'planImplementacion', 'planPruebas', 'planReversa', 'impacto', 'probabilidad', 'finMs', 'activoIds', 'ev0.titulo', 'ev0.url'].forEach((k) => assert.ok(e[k], k));
+  assert.deepEqual(L.validarCambio(cam(), true), {});
+});
+test('cambios: flujo completo con segregación (el solicitante no aprueba lo suyo)', () => {
+  let c = cam(); const paso = (u, id, d, ahora) => { const r = L.aplicarAccionCambio({ user: u, cambio: c, ahora }, id, d); c = Object.assign({}, c, r.cambios); return r; };
+  assert.ok(camIds(cons, c).includes('enviar')); assert.ok(!camIds(cons2, c).includes('enviar'));
+  paso(cons, 'enviar', {}, D(15, 9)); assert.equal(c.estado, 'pendiente_aprobacion');
+  assert.ok(!camIds(cons, c).includes('aprobar'), 'el consultor no aprueba'); assert.ok(camIds(ger, c).includes('aprobar'));
+  paso(ger, 'aprobar', {}, D(15, 10)); assert.equal(c.aprobacion.por, 'ger@x.mx'); assert.equal(c.aprobacion.excepcion, false);
+  assert.ok(camIds(cons, c).includes('iniciar')); assert.ok(!camIds(cons2, c).includes('iniciar'));
+  paso(cons, 'iniciar', {}, D(20, 20)); paso(cons, 'finalizar_ok', { resultado: 'Sin incidentes' }, D(20, 22));
+  assert.equal(c.estado, 'implementado'); assert.equal(c.fallo, false);
+  assert.ok(!camIds(cons, c).includes('cerrar')); paso(ger, 'cerrar', { revision: 'Todo correcto' }, D(21, 9)); assert.equal(c.estado, 'cerrado');
+});
+test('cambios: el gerente no aprueba lo que solicitó, salvo emergencia con motivo (queda como excepción)', () => {
+  const normal = cam({ estado: 'pendiente_aprobacion', solicitanteEmail: 'ger@x.mx' });
+  assert.ok(!camIds(ger, normal).includes('aprobar'));
+  const emerg = cam({ estado: 'pendiente_aprobacion', solicitanteEmail: 'ger@x.mx', tipo: 'emergencia' });
+  assert.ok(camIds(ger, emerg).includes('aprobar'));
+  assert.throws(() => L.aplicarAccionCambio({ user: ger, cambio: emerg }, 'aprobar', {}), /obligatorios/);
+  assert.equal(L.aplicarAccionCambio({ user: ger, cambio: emerg }, 'aprobar', { motivo: 'Caída total' }).cambios.aprobacion.excepcion, true);
+});
+test('cambios: enviar un borrador incompleto falla con el detalle de campos', () => {
+  assert.throws(() => L.aplicarAccionCambio({ user: cons, cambio: cam({ planReversa: '' }) }, 'enviar', {}), (e) => !!(e.detalle && e.detalle.planReversa));
+});
+test('cambios: rechazar y devolver exigen motivo; fallo marca revertido; cancelar según rol', () => {
+  const pend = cam({ estado: 'pendiente_aprobacion' });
+  assert.throws(() => L.aplicarAccionCambio({ user: ger, cambio: pend }, 'rechazar', {}), /obligatorios/);
+  assert.equal(L.aplicarAccionCambio({ user: ger, cambio: pend }, 'devolver', { motivo: 'Falta plan' }).cambios.estado, 'borrador');
+  const imp = cam({ estado: 'en_implementacion' });
+  const f = L.aplicarAccionCambio({ user: cons, cambio: imp }, 'finalizar_fallo', { resultado: 'Se cayó', revertido: true }).cambios;
+  assert.equal(f.estado, 'fallido'); assert.equal(f.revertido, true); assert.equal(f.fallo, true);
+  assert.ok(camIds(cons, cam({ estado: 'pendiente_aprobacion' })).includes('cancelar')); assert.ok(!camIds(cons, cam({ estado: 'aprobado' })).includes('cancelar'));
+  assert.ok(camIds(ger, cam({ estado: 'aprobado' })).includes('cancelar'));
+});
+test('cambios: visibilidad (consultor solo los suyos; gerente todos)', () => {
+  assert.equal(L.puedeVerCambio(cons, cam()), true); assert.equal(L.puedeVerCambio(cons2, cam()), false); assert.equal(L.puedeVerCambio(ger, cam()), true);
+  assert.equal(L.puedeVerCambio(cons2, cam({ responsableImpl: 'cons2@x.mx' })), true); assert.equal(L.puedeVerCambio(sol, cam()), false);
+});
+test('cambios: conflictos de ventana por sistema o equipo', () => {
+  const otros = [cam({ id: 'A', estado: 'aprobado', inicioMs: D(20, 22), finMs: D(21, 1), sistema: 'red', activoIds: 'ZZ-9' }), cam({ id: 'B', estado: 'aprobado', inicioMs: D(20, 22), finMs: D(21, 1), sistema: 'ERP', activoIds: 'eq-1' }),
+    cam({ id: 'C', estado: 'aprobado', inicioMs: D(20, 22), finMs: D(21, 1), sistema: 'ERP', activoIds: 'Q' }), cam({ id: 'D', estado: 'borrador', inicioMs: D(20, 22), finMs: D(21, 1) }), cam({ id: 'E', estado: 'aprobado', inicioMs: D(22, 9), finMs: D(22, 11) })];
+  assert.deepEqual(L.conflictosCambio(cam(), otros).map((x) => x.id).sort(), ['A', 'B']);
+});
+test('cambios: indicadores y muestra mínima de éxito', () => {
+  const ahora = D(20, 9), fin = (n, fallo) => cam({ id: 'F' + n, estado: 'implementado', resultado: 'r', fallo, finalizadoMs: ahora - 86400000 });
+  const poc = L.indicadoresCambios([fin(1, false), fin(2, true), cam({ estado: 'pendiente_aprobacion' }), cam({ estado: 'aprobado', inicioMs: ahora + 86400000, finMs: ahora + 90000000 }), cam({ estado: 'aprobado', inicioMs: ahora - 5 * 86400000, finMs: ahora - 4 * 86400000 }), cam({ tipo: 'emergencia', creadoMs: ahora - 1000, estado: 'aprobado', inicioMs: ahora + 30 * 86400000, finMs: ahora + 31 * 86400000 })], ahora);
+  assert.equal(poc.abiertos, 4); assert.equal(poc.pendientesAprobacion, 1); assert.equal(poc.programados7d, 1); assert.equal(poc.vencidos, 1); assert.equal(poc.emergencias, 1); assert.equal(poc.tasaExito, null);
+  const cinco = L.indicadoresCambios([fin(1, false), fin(2, false), fin(3, false), fin(4, false), fin(5, true)], ahora);
+  assert.equal(cinco.tasaExito, 80);
+  assert.equal(L.indicadoresCambios([Object.assign(fin(9, false), { finalizadoMs: ahora - 100 * 86400000 })], ahora).finalizados, 0, 'fuera de la ventana de 90 días');
+});

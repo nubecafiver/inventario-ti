@@ -46,3 +46,6 @@ El dashboard **lee** la colección `equipos` solo cuando el Director o el Admini
 
 ## Mesa de ayuda (Fase 5): qué agregan las reglas
 `firestore.rules` ahora también protege `ti_tickets` (con `comentarios` e `historial`) y `ti_config/tickets`, y permite que cualquier usuario activo incremente `tickets` en `ti_config/contadores`. Antes de publicar, ejecuta `tests/reglas.test.js` (incluye los casos de tickets) y, en el **Simulador de reglas** de la consola, prueba al menos: un solicitante leyendo un ticket ajeno (denegado), un técnico cancelando un ticket (denegado), un solicitante leyendo un comentario interno (denegado) y el administrador guardando `ti_config/tickets` (permitido). Sin publicar estas reglas la mesa de ayuda fallará con "permiso denegado".
+
+## Gestión de cambios (Fase 6)
+Las reglas agregan `ti_cambios` (con `historial`) y el folio `cambios` en `ti_config/contadores`. Prueba en el Simulador: un consultor aprobando su propio cambio (denegado), un consultor leyendo el cambio de otro (denegado), un consultor enviando un borrador sin plan de reversa (denegado) y el Gerente aprobando un cambio ajeno pendiente (permitido).

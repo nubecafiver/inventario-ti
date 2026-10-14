@@ -17,16 +17,16 @@
     solicitante:   'Solicitante'
   };
   var PERMISOS_POR_ROL = {
-    director:      ['procesos.ver', 'procesos.aprobar', 'procesos.publicar', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar'],
-    administrador: ['procesos.ver', 'procesos.crear', 'procesos.editar_todos', 'procesos.publicar', 'procesos.catalogo', 'usuarios.admin', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'tickets.atender', 'tickets.configurar'],
-    resp_proceso:  ['procesos.ver', 'procesos.crear', 'procesos.editar_propios', 'tickets.crear', 'tickets.ver_propios'],
+    director:      ['procesos.ver', 'procesos.aprobar', 'procesos.publicar', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'cambios.ver_todos', 'cambios.aprobar'],
+    administrador: ['procesos.ver', 'procesos.crear', 'procesos.editar_todos', 'procesos.publicar', 'procesos.catalogo', 'usuarios.admin', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'tickets.atender', 'tickets.configurar', 'cambios.crear', 'cambios.ver_todos', 'cambios.ver_propios', 'cambios.implementar_todos', 'cambios.cancelar_todos'],
+    resp_proceso:  ['procesos.ver', 'procesos.crear', 'procesos.editar_propios', 'tickets.crear', 'tickets.ver_propios', 'cambios.crear', 'cambios.ver_propios'],
     tecnico:       ['procesos.ver_publicados', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.atender'],
     solicitante:   ['tickets.crear', 'tickets.ver_propios']
   };
   /* Gerente de TI = todo lo del Administrador y del Director (unión calculada, no copiada). Consultor = Responsable de proceso
      + atender tickets (solo los asignados a él o los que nadie ha tomado). Los roles anteriores se conservan. */
   PERMISOS_POR_ROL.gerente = PERMISOS_POR_ROL.administrador.concat(PERMISOS_POR_ROL.director.filter(function (p) { return PERMISOS_POR_ROL.administrador.indexOf(p) < 0; }));
-  PERMISOS_POR_ROL.consultor = PERMISOS_POR_ROL.resp_proceso.concat(['tickets.atender']);
+  PERMISOS_POR_ROL.consultor = PERMISOS_POR_ROL.resp_proceso.concat(['tickets.atender', 'cambios.implementar']);
   function permisos(roles) {
     var set = {};
     (roles || []).forEach(function (r) { (PERMISOS_POR_ROL[r] || []).forEach(function (p) { set[p] = true; }); });
@@ -477,6 +477,122 @@
     return f[clave] || null;
   }
 
+
+  /* =====================================================================================================
+     GESTIÓN DE CAMBIOS. Lógica pura: riesgo, estados, acciones, conflictos de ventana e indicadores.
+     Todo cambio (normal o de emergencia) lo aprueba el Gerente/Director; nadie aprueba lo que solicitó, salvo una
+     emergencia aprobada por quien tiene permiso con motivo (queda marcada como excepción). Tiempos en milisegundos.
+     ===================================================================================================== */
+  var TIPOS_CAMBIO = { normal: 'Normal', emergencia: 'Emergencia' };
+  var ESTADOS_CAMBIO = ['borrador', 'pendiente_aprobacion', 'aprobado', 'en_implementacion', 'implementado', 'fallido', 'rechazado', 'cancelado', 'cerrado'];
+  var CAMBIO_ESTADO_LABEL = { borrador: 'Borrador', pendiente_aprobacion: 'Pendiente de aprobación', aprobado: 'Aprobado', en_implementacion: 'En implementación', implementado: 'Implementado', fallido: 'Fallido / revertido', rechazado: 'Rechazado', cancelado: 'Cancelado', cerrado: 'Cerrado' };
+  var CAMBIO_ABIERTOS = ['borrador', 'pendiente_aprobacion', 'aprobado', 'en_implementacion'];
+  var RIESGO_LABEL = { alto: 'Alto', medio: 'Medio', bajo: 'Bajo' };
+  var PROBABILIDADES = { alta: 'Alta', media: 'Media', baja: 'Baja' };
+  var VENTANA_CAMBIOS_DIAS = 90;
+  /* Riesgo = impacto × probabilidad de falla (3/2/1 cada uno): ≥6 alto, 3-4 medio, ≤2 bajo. Convención, no política oficial. */
+  function riesgoDe(impacto, prob) {
+    var i = { alto: 3, medio: 2, bajo: 1 }[impacto], p = { alta: 3, media: 2, baja: 1 }[prob];
+    if (!i || !p) return null; var v = i * p; return v >= 6 ? 'alto' : v >= 3 ? 'medio' : 'bajo';
+  }
+  function puedeVerCambio(u, c) { return tiene(u, 'cambios.ver_todos') || (tiene(u, 'cambios.ver_propios') && (c.solicitanteEmail === u.email || c.responsableImpl === u.email)); }
+  function validarCambio(d, completo) {
+    var e = {};
+    if (!texto(d.titulo)) e.titulo = 'Escribe un título breve.'; else if (texto(d.titulo).length > 200) e.titulo = 'Máximo 200 caracteres.';
+    if (!TIPOS_CAMBIO[d.tipo]) e.tipo = 'Elige el tipo.';
+    if (texto(d.activoIds) && !texto(d.activoIds).split(',').every(function (x) { return /^[A-Za-z0-9_-]{3,40}$/.test(texto(x)); })) e.activoIds = 'Usa IDs separados por coma (letras, números y guiones).';
+    (d.evidencias || []).forEach(function (x, i) { if (!texto(x.titulo)) e['ev' + i + '.titulo'] = 'Escribe un título.'; if (!urlSegura(x.url)) e['ev' + i + '.url'] = 'Usa un enlace https:// válido.'; });
+    if (completo) {
+      [['descripcion', 'Describe el cambio.'], ['justificacion', 'Explica por qué es necesario.'], ['sistema', 'Indica el sistema o servicio afectado.'], ['planImplementacion', 'Describe el plan de implementación.'], ['planPruebas', 'Describe cómo se probará.'], ['planReversa', 'Describe el plan de reversa (cómo se deshace).']].forEach(function (k) { if (!texto(d[k[0]])) e[k[0]] = k[1]; });
+      if (!IMPACTOS[d.impacto]) e.impacto = 'Elige el impacto.';
+      if (!PROBABILIDADES[d.probabilidad]) e.probabilidad = 'Elige la probabilidad de falla.';
+      if (!(d.inicioMs > 0)) e.inicioMs = 'Indica el inicio de la ventana.';
+      if (!(d.finMs > 0)) e.finMs = 'Indica el fin de la ventana.'; else if (d.inicioMs > 0 && d.finMs <= d.inicioMs) e.finMs = 'El fin debe ser posterior al inicio.';
+    }
+    return e;
+  }
+  /* Otros cambios vivos cuya ventana se traslapa con la de este y que tocan el mismo sistema o algún mismo equipo. */
+  function conflictosCambio(c, otros) {
+    function ids(x) { return texto(x.activoIds).split(',').map(function (y) { return texto(y).toLowerCase(); }).filter(Boolean); }
+    var mis = ids(c), sis = texto(c.sistema).toLowerCase();
+    return (otros || []).filter(function (o) {
+      if (o.id === c.id || ['pendiente_aprobacion', 'aprobado', 'en_implementacion'].indexOf(o.estado) < 0) return false;
+      if (!(c.inicioMs < o.finMs && o.inicioMs < c.finMs)) return false;
+      return (sis && texto(o.sistema).toLowerCase() === sis) || ids(o).some(function (x) { return mis.indexOf(x) >= 0; });
+    });
+  }
+  function esGestorCambios(u, c) { return tiene(u, 'cambios.implementar_todos') || (tiene(u, 'cambios.implementar') && c.responsableImpl === u.email); }
+  var ACCIONES_CAMBIO = {
+    enviar:    { label: 'Enviar a aprobación', desde: ['borrador'], regla: function (u, c) { return (c.solicitanteEmail === u.email || tiene(u, 'cambios.implementar_todos')) ? null : 'Solo quien lo solicitó puede enviarlo.'; } },
+    aprobar:   { label: 'Aprobar', desde: ['pendiente_aprobacion'], regla: function (u, c) { return !tiene(u, 'cambios.aprobar') ? 'Solo el Gerente o el Director aprueban cambios.' : (c.solicitanteEmail === u.email && c.tipo !== 'emergencia') ? 'No puedes aprobar un cambio que tú solicitaste (solo las emergencias, con motivo).' : null; } },
+    rechazar:  { label: 'Rechazar', desde: ['pendiente_aprobacion'], requiere: ['motivo'], regla: function (u) { return tiene(u, 'cambios.aprobar') ? null : 'Solo el Gerente o el Director rechazan cambios.'; } },
+    devolver:  { label: 'Devolver a borrador', desde: ['pendiente_aprobacion'], requiere: ['motivo'], regla: function (u) { return tiene(u, 'cambios.aprobar') ? null : 'Solo el Gerente o el Director devuelven cambios.'; } },
+    iniciar:   { label: 'Iniciar implementación', desde: ['aprobado'], regla: function (u, c) { return esGestorCambios(u, c) ? null : 'Solo quien implementa (o el Gerente) puede iniciarla.'; } },
+    finalizar_ok:    { label: 'Marcar como implementado', desde: ['en_implementacion'], requiere: ['resultado'], regla: function (u, c) { return esGestorCambios(u, c) ? null : 'Solo quien implementa (o el Gerente) puede cerrarla.'; } },
+    finalizar_fallo: { label: 'Marcar como fallido o revertido', desde: ['en_implementacion'], requiere: ['resultado'], regla: function (u, c) { return esGestorCambios(u, c) ? null : 'Solo quien implementa (o el Gerente) puede cerrarla.'; } },
+    cerrar:    { label: 'Cerrar con revisión posterior', desde: ['implementado', 'fallido'], requiere: ['revision'], regla: function (u) { return tiene(u, 'cambios.aprobar') ? null : 'Solo el Gerente o el Director cierran el cambio tras la revisión.'; } },
+    cancelar:  { label: 'Cancelar', desde: ['borrador', 'pendiente_aprobacion', 'aprobado'], requiere: ['motivo'], regla: function (u, c) { return (c.solicitanteEmail === u.email && ['borrador', 'pendiente_aprobacion'].indexOf(c.estado) >= 0) || tiene(u, 'cambios.cancelar_todos') ? null : 'Solo quien lo solicitó (antes de aprobarse) o el Gerente pueden cancelar.'; } }
+  };
+  function accionesCambioDisponibles(ctx) {
+    var u = ctx.user, c = ctx.cambio, out = [];
+    Object.keys(ACCIONES_CAMBIO).forEach(function (id) {
+      var a = ACCIONES_CAMBIO[id]; if (a.desde.indexOf(c.estado) < 0) return;
+      if (!puedeVerCambio(u, c)) return;
+      var m = a.regla(u, c); out.push({ id: id, label: a.label, ok: !m, motivo: m || '', requiere: a.requiere || [] });
+    });
+    return out;
+  }
+  function aplicarAccionCambio(ctx, id, datos) {
+    datos = datos || {}; var u = ctx.user, c = ctx.cambio, ahora = ctx.ahora || Date.now();
+    var disp = accionesCambioDisponibles(ctx).filter(function (x) { return x.id === id; })[0];
+    if (!disp) throw new Error('La acción no es válida para el estado actual del cambio.');
+    if (!disp.ok) throw new Error(disp.motivo);
+    var a = ACCIONES_CAMBIO[id], faltan = [];
+    (a.requiere || []).forEach(function (k) { if (!texto(datos[k])) faltan.push(k); });
+    if (id === 'aprobar' && c.solicitanteEmail === u.email && !texto(datos.motivo)) faltan.push('motivo');
+    if (faltan.length) { var e = new Error('Faltan datos obligatorios: ' + faltan.join(', ') + '.'); e.faltan = faltan; throw e; }
+    var ch = {}, detalle = a.label;
+    switch (id) {
+      case 'enviar': var err = validarCambio(c, true); if (Object.keys(err).length) { var e2 = new Error('El cambio está incompleto.'); e2.detalle = err; throw e2; } ch.estado = 'pendiente_aprobacion'; ch.enviadoMs = ahora; detalle = 'Enviado a aprobación'; break;
+      case 'aprobar': ch.estado = 'aprobado'; ch.aprobacion = { por: u.email, fecha: ahora, excepcion: c.solicitanteEmail === u.email }; detalle = 'Aprobado' + (c.solicitanteEmail === u.email ? ' (emergencia, aprobación propia con motivo)' : ''); break;
+      case 'rechazar': ch.estado = 'rechazado'; ch.motivoRechazo = texto(datos.motivo); detalle = 'Rechazado'; break;
+      case 'devolver': ch.estado = 'borrador'; ch.motivoRechazo = texto(datos.motivo); detalle = 'Devuelto a borrador'; break;
+      case 'iniciar': ch.estado = 'en_implementacion'; ch.inicioRealMs = ahora; detalle = 'Implementación iniciada'; break;
+      case 'finalizar_ok': ch.estado = 'implementado'; ch.finRealMs = ahora; ch.resultado = texto(datos.resultado); ch.fallo = false; ch.finalizadoMs = ahora; detalle = 'Implementado'; break;
+      case 'finalizar_fallo': ch.estado = 'fallido'; ch.finRealMs = ahora; ch.resultado = texto(datos.resultado); ch.revertido = !!datos.revertido; ch.fallo = true; ch.finalizadoMs = ahora; detalle = 'Fallido' + (datos.revertido ? ' y revertido' : ''); break;
+      case 'cerrar': ch.estado = 'cerrado'; ch.revision = texto(datos.revision); ch.cerradoMs = ahora; detalle = 'Cerrado con revisión posterior'; break;
+      case 'cancelar': ch.estado = 'cancelado'; detalle = 'Cancelado'; break;
+      default: throw new Error('Acción desconocida.');
+    }
+    return { cambios: ch, historial: { accion: id, detalle: detalle, motivo: texto(datos.motivo) } };
+  }
+  /* Indicadores. Éxito = implementados ÷ (implementados + fallidos) en los últimos 90 días; solo con ≥5 en la muestra. */
+  function indicadoresCambios(lista, ahora) {
+    ahora = ahora || Date.now();
+    var r = { abiertos: 0, pendientesAprobacion: 0, programados7d: 0, vencidos: 0, emergencias: 0, finalizados: 0, exitosos: 0, tasaExito: null, muestraMinima: MIN_MUESTRA, ventanaDias: VENTANA_CAMBIOS_DIAS }, desde = ahora - VENTANA_CAMBIOS_DIAS * 86400000;
+    (lista || []).forEach(function (c) {
+      if (CAMBIO_ABIERTOS.indexOf(c.estado) >= 0) r.abiertos++;
+      if (c.estado === 'pendiente_aprobacion') r.pendientesAprobacion++;
+      if (c.estado === 'aprobado' && c.inicioMs >= ahora && c.inicioMs <= ahora + 7 * 86400000) r.programados7d++;
+      if (c.estado === 'aprobado' && c.finMs < ahora) r.vencidos++;
+      if (c.tipo === 'emergencia' && (c.creadoMs || 0) >= desde && c.estado !== 'cancelado') r.emergencias++;
+      if (['implementado', 'fallido', 'cerrado'].indexOf(c.estado) >= 0 && c.resultado && (c.finalizadoMs || 0) >= desde) { r.finalizados++; if (c.fallo === false) r.exitosos++; }
+    });
+    if (r.finalizados >= MIN_MUESTRA) r.tasaExito = Math.round(r.exitosos / r.finalizados * 100);
+    return r;
+  }
+  function filtroCambios(clave, ahora) {
+    ahora = ahora || Date.now();
+    var f = {
+      abiertos: function (c) { return CAMBIO_ABIERTOS.indexOf(c.estado) >= 0; },
+      pendientesAprobacion: function (c) { return c.estado === 'pendiente_aprobacion'; },
+      programados7d: function (c) { return c.estado === 'aprobado' && c.inicioMs >= ahora && c.inicioMs <= ahora + 7 * 86400000; },
+      vencidos: function (c) { return c.estado === 'aprobado' && c.finMs < ahora; },
+      emergencias: function (c) { return c.tipo === 'emergencia' && c.estado !== 'cancelado'; }
+    };
+    return f[clave] || null;
+  }
+
   /* Filtro de la tabla correspondiente a cada tarjeta, para "navegar hasta los registros que la componen". */
   function filtroIndicador(clave, hoy, ventana) {
     hoy = hoy || hoyISO(); var limite = sumarDias(hoy, ventana || VENTANA_DIAS);
@@ -521,6 +637,8 @@
     puedeVerTicket: puedeVerTicket, esTI: esTI, horarioValido: horarioValido, msLaborales: msLaborales, msEfectivos: msEfectivos, fechaObjetivoMs: fechaObjetivoMs, slaDe: slaDe, estadoSLA: estadoSLA,
     ACCIONES_TICKET: ACCIONES_TICKET, accionesTicketDisponibles: accionesTicketDisponibles, aplicarAccionTicket: aplicarAccionTicket, validarTicketNuevo: validarTicketNuevo,
     clasificarTicket: clasificarTicket, indicadoresTickets: indicadoresTickets, filtroTickets: filtroTickets, VENTANA_TICKETS_DIAS: VENTANA_TICKETS_DIAS, MIN_MUESTRA: MIN_MUESTRA, VENTANA_DIAS: VENTANA_DIAS,
+    TIPOS_CAMBIO: TIPOS_CAMBIO, ESTADOS_CAMBIO: ESTADOS_CAMBIO, CAMBIO_ESTADO_LABEL: CAMBIO_ESTADO_LABEL, CAMBIO_ABIERTOS: CAMBIO_ABIERTOS, RIESGO_LABEL: RIESGO_LABEL, PROBABILIDADES: PROBABILIDADES, VENTANA_CAMBIOS_DIAS: VENTANA_CAMBIOS_DIAS,
+    riesgoDe: riesgoDe, puedeVerCambio: puedeVerCambio, validarCambio: validarCambio, conflictosCambio: conflictosCambio, ACCIONES_CAMBIO: ACCIONES_CAMBIO, accionesCambioDisponibles: accionesCambioDisponibles, aplicarAccionCambio: aplicarAccionCambio, indicadoresCambios: indicadoresCambios, filtroCambios: filtroCambios,
     CATEGORIAS: CATEGORIAS, CATALOGO_INICIAL: CATALOGO_INICIAL
   };
 });
