@@ -15,11 +15,11 @@
     solicitante:   'Solicitante'
   };
   var PERMISOS_POR_ROL = {
-    director:      ['procesos.ver', 'procesos.aprobar', 'procesos.publicar', 'auditoria.ver', 'inventario.resumen'],
-    administrador: ['procesos.ver', 'procesos.crear', 'procesos.editar_todos', 'procesos.publicar', 'procesos.catalogo', 'usuarios.admin', 'auditoria.ver', 'inventario.resumen'],
-    resp_proceso:  ['procesos.ver', 'procesos.crear', 'procesos.editar_propios'],
-    tecnico:       ['procesos.ver_publicados'],
-    solicitante:   []
+    director:      ['procesos.ver', 'procesos.aprobar', 'procesos.publicar', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar'],
+    administrador: ['procesos.ver', 'procesos.crear', 'procesos.editar_todos', 'procesos.publicar', 'procesos.catalogo', 'usuarios.admin', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'tickets.atender', 'tickets.configurar'],
+    resp_proceso:  ['procesos.ver', 'procesos.crear', 'procesos.editar_propios', 'tickets.crear', 'tickets.ver_propios'],
+    tecnico:       ['procesos.ver_publicados', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.atender'],
+    solicitante:   ['tickets.crear', 'tickets.ver_propios']
   };
   function permisos(roles) {
     var set = {};
@@ -233,6 +233,239 @@
     return r;
   }
 
+
+  /* =====================================================================================================
+     MESA DE AYUDA (tickets). Lógica pura: prioridad, estados, acciones, SLA y indicadores.
+     Los tiempos son milisegundos (Date.now()). Los cálculos de horario laboral usan la hora local del equipo.
+     Los SLA NO vienen definidos: el administrador los configura; sin configuración, el SLA es "no configurado".
+     ===================================================================================================== */
+  var TIPOS_TICKET = { incidente: 'Incidente', solicitud: 'Solicitud de servicio' };
+  var ESTADOS_TICKET = ['nuevo', 'asignado', 'en_atencion', 'espera_usuario', 'espera_tercero', 'resuelto', 'cerrado', 'cancelado'];
+  var TICKET_ESTADO_LABEL = { nuevo: 'Nuevo', asignado: 'Asignado', en_atencion: 'En atención', espera_usuario: 'En espera del usuario', espera_tercero: 'En espera de un tercero', resuelto: 'Resuelto', cerrado: 'Cerrado', cancelado: 'Cancelado' };
+  var TICKET_ABIERTOS = ['nuevo', 'asignado', 'en_atencion', 'espera_usuario', 'espera_tercero'];
+  var PRIORIDADES = ['critica', 'alta', 'media', 'baja'];
+  var PRIORIDAD_LABEL = { critica: 'Crítica', alta: 'Alta', media: 'Media', baja: 'Baja' };
+  var IMPACTOS = { alto: 'Alto', medio: 'Medio', bajo: 'Bajo' };
+  var URGENCIAS = { alta: 'Alta', media: 'Media', baja: 'Baja' };
+  /* Matriz impacto × urgencia (convención ITIL, no un compromiso de CAFIVER). */
+  var MATRIZ_PRIORIDAD = { alto: { alta: 'critica', media: 'alta', baja: 'media' }, medio: { alta: 'alta', media: 'media', baja: 'baja' }, bajo: { alta: 'media', media: 'baja', baja: 'baja' } };
+  function prioridadDe(impacto, urgencia) { return (MATRIZ_PRIORIDAD[impacto] || {})[urgencia] || null; }
+  var CATEGORIAS_TICKET_INICIALES = [['sap', 'SAP'], ['computadoras', 'Computadoras'], ['impresoras', 'Impresoras'], ['redes', 'Redes'], ['google-cloud', 'Google Cloud'], ['aplicaciones', 'Aplicaciones'], ['accesos', 'Accesos'], ['correo', 'Correo y colaboración'], ['seguridad', 'Seguridad'], ['general', 'Solicitudes generales']];
+  /* Configuración inicial: categorías sugeridas (editables), SIN SLA y SIN horario. Parámetros editables, no plazos oficiales. */
+  function configTicketsPorDefecto() {
+    return { categorias: CATEGORIAS_TICKET_INICIALES.map(function (c) { return { id: c[0], nombre: c[1], activa: true }; }), sla: {}, horario: null, ventanaReaperturaDias: 5, alertaPct: 25 };
+  }
+  function normalizarConfigTickets(c) {
+    var d = configTicketsPorDefecto(); c = c || {};
+    return { categorias: Array.isArray(c.categorias) && c.categorias.length ? c.categorias : d.categorias, sla: c.sla || {}, horario: c.horario && Array.isArray(c.horario.dias) ? c.horario : null,
+      ventanaReaperturaDias: typeof c.ventanaReaperturaDias === 'number' ? c.ventanaReaperturaDias : d.ventanaReaperturaDias, alertaPct: typeof c.alertaPct === 'number' ? c.alertaPct : d.alertaPct };
+  }
+  function slugCategoria(nombre) { return String(nombre || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40); }
+  function nombreCategoria(cfg, id) { var c = (cfg.categorias || []).filter(function (x) { return x.id === id; })[0]; return c ? c.nombre : (id || '—'); }
+  function puedeVerTicket(user, t) { return tiene(user, 'tickets.ver_todos') || (tiene(user, 'tickets.ver_propios') && t.solicitanteEmail === user.email); }
+  function esTI(user) { return tiene(user, 'tickets.ver_todos') || tiene(user, 'tickets.atender') || tiene(user, 'tickets.asignar'); }
+
+  /* ----- Tiempo laboral ----- */
+  function hmAMin(s) { var p = String(s || '').split(':'); return (+p[0]) * 60 + (+p[1] || 0); }
+  function horarioValido(h) { return !!(h && Array.isArray(h.dias) && h.dias.length && hmAMin(h.fin) > hmAMin(h.inicio)); }
+  /* Milisegundos de servicio entre dos instantes. Sin horario (null): tiempo natural 24×7. */
+  function msLaborales(desde, hasta, horario) {
+    if (!(hasta > desde)) return 0;
+    if (!horario) return hasta - desde;
+    if (!horarioValido(horario)) return 0;
+    var ini = hmAMin(horario.inicio), fin = hmAMin(horario.fin), total = 0, d = new Date(desde);
+    d.setHours(0, 0, 0, 0);
+    for (var n = 0; d.getTime() < hasta && n < 4000; n++) {
+      if (horario.dias.indexOf(d.getDay()) >= 0) {
+        var a = new Date(d); a.setHours(Math.floor(ini / 60), ini % 60, 0, 0);
+        var b = new Date(d); b.setHours(Math.floor(fin / 60), fin % 60, 0, 0);
+        var x = Math.max(a.getTime(), desde), y = Math.min(b.getTime(), hasta);
+        if (y > x) total += y - x;
+      }
+      d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0);
+    }
+    return total;
+  }
+  /* Tiempo de servicio transcurrido descontando los periodos "en espera" (del usuario o de un tercero). */
+  function msEfectivos(creadoMs, finMs, esperas, horario, ahoraMs) {
+    var total = msLaborales(creadoMs, finMs, horario);
+    (esperas || []).forEach(function (e) {
+      var d = Math.max(e.desde, creadoMs), h = Math.min(e.hasta == null ? ahoraMs : e.hasta, finMs);
+      if (h > d) total -= msLaborales(d, h, horario);
+    });
+    return Math.max(0, total);
+  }
+  /* Instante en que se cumple el objetivo (horas de servicio efectivas), descontando las esperas. */
+  function fechaObjetivoMs(t, horas, horario, ahoraMs) {
+    var meta = horas * 3600000, lo = t.creadoMs, hi = t.creadoMs + meta * 25 + 120 * 86400000;
+    for (var i = 0; i < 64 && lo < hi; i++) {
+      var mid = Math.floor((lo + hi) / 2);
+      if (msEfectivos(t.creadoMs, mid, t.esperas, horario, ahoraMs) >= meta) hi = mid; else lo = mid + 1;
+    }
+    return hi;
+  }
+  function slaDe(cfg, t) {
+    var s = ((cfg && cfg.sla) || {})[t.categoria + '|' + t.prioridad];
+    if (!s) return null;
+    var r = +s.respuestaH > 0 ? +s.respuestaH : 0, x = +s.resolucionH > 0 ? +s.resolucionH : 0;
+    return (r || x) ? { respuestaH: r, resolucionH: x } : null;
+  }
+  /* Estado del SLA de un ticket. Estados: cumplido, incumplido, en_curso, por_vencer, vencido, na (sin SLA). */
+  function estadoSLA(t, cfg, ahoraMs) {
+    var sla = slaDe(cfg, t), out = { configurado: !!sla, respuesta: { estado: 'na' }, resolucion: { estado: 'na' }, pausado: false };
+    if (!sla || t.estado === 'cancelado' || !t.creadoMs) return out;
+    var horario = horarioValido(cfg.horario) ? cfg.horario : null, alerta = (typeof cfg.alertaPct === 'number' ? cfg.alertaPct : 25) / 100;
+    var abierto = TICKET_ABIERTOS.indexOf(t.estado) >= 0;
+    out.pausado = abierto && (t.esperas || []).some(function (e) { return e.hasta == null; });
+    function clasificar(restante, meta) { return restante < 0 ? 'vencido' : (restante <= meta * alerta ? 'por_vencer' : 'en_curso'); }
+    if (sla.respuestaH) {
+      var m1 = sla.respuestaH * 3600000;
+      if (t.primeraRespuestaMs) { var e1 = msLaborales(t.creadoMs, t.primeraRespuestaMs, horario); out.respuesta = { estado: e1 <= m1 ? 'cumplido' : 'incumplido', transcurridoMs: e1, metaMs: m1 }; }
+      else if (abierto) { var r1 = m1 - msLaborales(t.creadoMs, ahoraMs, horario); out.respuesta = { estado: clasificar(r1, m1), restanteMs: r1, metaMs: m1, objetivoMs: fechaObjetivoMs({ creadoMs: t.creadoMs, esperas: [] }, sla.respuestaH, horario, ahoraMs) }; }
+    }
+    if (sla.resolucionH) {
+      var m2 = sla.resolucionH * 3600000;
+      if (t.resueltoMs && (t.estado === 'resuelto' || t.estado === 'cerrado')) { var e2 = msEfectivos(t.creadoMs, t.resueltoMs, t.esperas, horario, t.resueltoMs); out.resolucion = { estado: e2 <= m2 ? 'cumplido' : 'incumplido', transcurridoMs: e2, metaMs: m2 }; }
+      else if (abierto) {
+        var r2 = m2 - msEfectivos(t.creadoMs, ahoraMs, t.esperas, horario, ahoraMs);
+        out.resolucion = { estado: clasificar(r2, m2), restanteMs: r2, metaMs: m2 };
+        if (!out.pausado) out.resolucion.objetivoMs = fechaObjetivoMs(t, sla.resolucionH, horario, ahoraMs);
+      }
+    }
+    return out;
+  }
+
+  /* ----- Acciones sobre un ticket (máquina de estados) ----- */
+  function esSolicitante(u, t) { return !!u && t.solicitanteEmail === u.email; }
+  function atiende(u, t) { return tiene(u, 'tickets.atender') && (tiene(u, 'tickets.configurar') || t.responsable === u.email); }
+  var NEGAR_ATENDER = 'Solo quien tiene asignado el ticket (o el administrador) puede hacerlo.';
+  /* audiencia: 'ti' (equipo de TI) o 'solicitante'. regla(u,t,cfg,ahora) devuelve null si se puede, o el motivo. */
+  var ACCIONES_TICKET = {
+    tomar:             { label: 'Tomar el ticket', audiencia: 'ti', desde: ['nuevo'], regla: function (u, t) { return !tiene(u, 'tickets.atender') ? 'Solo el equipo técnico puede atender tickets.' : (t.responsable ? 'El ticket ya tiene responsable.' : null); } },
+    asignar:           { label: 'Asignar / reasignar', audiencia: 'ti', desde: ['nuevo', 'asignado', 'en_atencion', 'espera_usuario', 'espera_tercero'], requiere: ['responsable'], regla: function (u) { return tiene(u, 'tickets.asignar') ? null : 'Solo el Director o el Administrador asignan tickets.'; } },
+    iniciar_atencion:  { label: 'Iniciar atención', audiencia: 'ti', desde: ['asignado'], regla: function (u, t) { return atiende(u, t) ? null : NEGAR_ATENDER; } },
+    esperar_usuario:   { label: 'En espera del usuario', audiencia: 'ti', desde: ['en_atencion'], requiere: ['motivo'], regla: function (u, t) { return atiende(u, t) ? null : NEGAR_ATENDER; } },
+    esperar_tercero:   { label: 'En espera de un tercero', audiencia: 'ti', desde: ['en_atencion'], requiere: ['motivo'], regla: function (u, t) { return atiende(u, t) ? null : NEGAR_ATENDER; } },
+    reanudar:          { label: 'Reanudar atención', audiencia: 'ti', desde: ['espera_usuario', 'espera_tercero'], regla: function (u, t) { return atiende(u, t) ? null : NEGAR_ATENDER; } },
+    resolver:          { label: 'Marcar como resuelto', audiencia: 'ti', desde: ['en_atencion'], requiere: ['diagnostico', 'solucion'], regla: function (u, t) { return atiende(u, t) ? null : NEGAR_ATENDER; } },
+    cerrar:            { label: 'Cerrar sin confirmación', audiencia: 'ti', desde: ['resuelto'], requiere: ['motivo'], regla: function (u, t) { return atiende(u, t) ? null : NEGAR_ATENDER; } },
+    escalar:           { label: 'Escalar', audiencia: 'ti', desde: ['asignado', 'en_atencion', 'espera_usuario', 'espera_tercero'], requiere: ['responsable', 'motivo'], regla: function (u, t) { return atiende(u, t) ? null : NEGAR_ATENDER; } },
+    cambiar_prioridad: { label: 'Cambiar prioridad', audiencia: 'ti', desde: ['nuevo', 'asignado', 'en_atencion', 'espera_usuario', 'espera_tercero'], requiere: ['impacto', 'urgencia', 'motivo'], regla: function (u, t) { return (atiende(u, t) || tiene(u, 'tickets.asignar')) ? null : NEGAR_ATENDER; } },
+    cancelar_ti:       { label: 'Cancelar ticket', audiencia: 'ti', desde: ['nuevo', 'asignado', 'en_atencion', 'espera_usuario', 'espera_tercero'], requiere: ['motivo'], regla: function (u) { return tiene(u, 'tickets.configurar') ? null : 'Solo el Administrador puede cancelar tickets ajenos.'; } },
+    reabrir_ti:        { label: 'Reabrir', audiencia: 'ti', desde: ['resuelto', 'cerrado'], requiere: ['motivo'], regla: function (u, t, cfg, ahora) { return !atiende(u, t) ? NEGAR_ATENDER : ventanaReapertura(t, cfg, ahora); } },
+    responder:         { label: 'Responder y reanudar', audiencia: 'solicitante', desde: ['espera_usuario'], requiere: ['motivo'], regla: function (u, t) { return esSolicitante(u, t) ? null : 'Solo quien creó el ticket puede responder.'; } },
+    confirmar:         { label: 'Confirmar solución y cerrar', audiencia: 'solicitante', desde: ['resuelto'], regla: function (u, t) { return esSolicitante(u, t) ? null : 'Solo quien creó el ticket puede confirmar.'; } },
+    reabrir:           { label: 'No quedó resuelto: reabrir', audiencia: 'solicitante', desde: ['resuelto', 'cerrado'], requiere: ['motivo'], regla: function (u, t, cfg, ahora) { return !esSolicitante(u, t) ? 'Solo quien creó el ticket puede reabrirlo.' : ventanaReapertura(t, cfg, ahora); } },
+    cancelar:          { label: 'Cancelar mi solicitud', audiencia: 'solicitante', desde: ['nuevo'], requiere: ['motivo'], regla: function (u, t) { return esSolicitante(u, t) ? null : 'Solo quien creó el ticket puede cancelarlo.'; } }
+  };
+  function ventanaReapertura(t, cfg, ahora) {
+    var dias = (cfg && typeof cfg.ventanaReaperturaDias === 'number') ? cfg.ventanaReaperturaDias : 5, ref = t.cerradoMs || t.resueltoMs;
+    if (!ref) return null;
+    return (ahora - ref) <= dias * 86400000 ? null : 'Ya pasaron más de ' + dias + ' días desde la resolución: crea un ticket nuevo.';
+  }
+  function accionesTicketDisponibles(ctx) {
+    var u = ctx.user, t = ctx.ticket, cfg = normalizarConfigTickets(ctx.config), ahora = ctx.ahora || Date.now(), out = [];
+    var ti = esTI(u), sol = esSolicitante(u, t);
+    Object.keys(ACCIONES_TICKET).forEach(function (id) {
+      var a = ACCIONES_TICKET[id];
+      if (a.desde.indexOf(t.estado) < 0) return;
+      if (a.audiencia === 'ti' && !ti) return;
+      if (a.audiencia === 'solicitante' && !sol) return;
+      var motivo = a.regla(u, t, cfg, ahora);
+      out.push({ id: id, label: a.label, ok: !motivo, motivo: motivo || '', requiere: a.requiere || [] });
+    });
+    return out;
+  }
+  function texto(x) { return String(x == null ? '' : x).trim(); }
+  /* Devuelve qué cambia (campos del ticket, entrada de historial y comentario opcional). Lanza Error si no es válida. */
+  function aplicarAccionTicket(ctx, id, datos) {
+    datos = datos || {};
+    var u = ctx.user, t = ctx.ticket, cfg = normalizarConfigTickets(ctx.config), ahora = ctx.ahora || Date.now();
+    var disp = accionesTicketDisponibles(ctx).filter(function (x) { return x.id === id; })[0];
+    if (!disp) throw new Error('La acción no es válida para el estado actual del ticket.');
+    if (!disp.ok) throw new Error(disp.motivo);
+    var a = ACCIONES_TICKET[id], faltan = [];
+    (a.requiere || []).forEach(function (k) { if (!texto(datos[k])) faltan.push(k); });
+    if (faltan.length) { var e = new Error('Faltan datos obligatorios: ' + faltan.join(', ') + '.'); e.faltan = faltan; throw e; }
+    var c = {}, detalle = a.label, esperas = (t.esperas || []).map(function (x) { return { desde: x.desde, hasta: x.hasta, tipo: x.tipo }; }), comentario = null;
+    function cerrarEspera() { esperas.forEach(function (x) { if (x.hasta == null) x.hasta = ahora; }); }
+    function marcarRespuesta() { if (!t.primeraRespuestaMs) c.primeraRespuestaMs = ahora; }
+    switch (id) {
+      case 'tomar': c.responsable = u.email; c.estado = 'asignado'; detalle = 'Tomado por ' + u.email; break;
+      case 'asignar': c.responsable = texto(datos.responsable); if (t.estado === 'nuevo') c.estado = 'asignado'; detalle = (t.responsable ? 'Reasignado' : 'Asignado') + ' a ' + c.responsable; break;
+      case 'iniciar_atencion': c.estado = 'en_atencion'; marcarRespuesta(); detalle = 'Atención iniciada'; break;
+      case 'esperar_usuario': c.estado = 'espera_usuario'; esperas.push({ desde: ahora, hasta: null, tipo: 'usuario' }); c.esperas = esperas; marcarRespuesta(); detalle = 'En espera del usuario'; break;
+      case 'esperar_tercero': c.estado = 'espera_tercero'; esperas.push({ desde: ahora, hasta: null, tipo: 'tercero' }); c.esperas = esperas; marcarRespuesta(); detalle = 'En espera de un tercero'; break;
+      case 'reanudar': c.estado = 'en_atencion'; cerrarEspera(); c.esperas = esperas; detalle = 'Atención reanudada'; break;
+      case 'resolver': c.estado = 'resuelto'; c.resueltoMs = ahora; c.diagnostico = texto(datos.diagnostico); c.solucion = texto(datos.solucion); marcarRespuesta(); detalle = 'Marcado como resuelto'; break;
+      case 'cerrar': c.estado = 'cerrado'; c.cerradoMs = ahora; detalle = 'Cerrado por TI sin confirmación del solicitante'; break;
+      case 'escalar': c.responsable = texto(datos.responsable); c.escaladoNivel = (t.escaladoNivel || 0) + 1; c.escaladoA = c.responsable; c.escaladoMotivo = texto(datos.motivo); detalle = 'Escalado (nivel ' + c.escaladoNivel + ') a ' + c.responsable; break;
+      case 'cambiar_prioridad': {
+        var pr = prioridadDe(texto(datos.impacto), texto(datos.urgencia));
+        if (!pr) throw new Error('Impacto o urgencia no válidos.');
+        c.impacto = texto(datos.impacto); c.urgencia = texto(datos.urgencia); c.prioridad = pr; detalle = 'Prioridad ' + PRIORIDAD_LABEL[t.prioridad] + ' → ' + PRIORIDAD_LABEL[pr]; break;
+      }
+      case 'cancelar': case 'cancelar_ti': c.estado = 'cancelado'; cerrarEspera(); c.esperas = esperas; detalle = 'Ticket cancelado'; break;
+      case 'responder': c.estado = 'en_atencion'; cerrarEspera(); c.esperas = esperas; comentario = { texto: texto(datos.motivo), interno: false }; detalle = 'El solicitante respondió'; break;
+      case 'confirmar': c.estado = 'cerrado'; c.cerradoMs = ahora; c.confirmacion = { por: u.email, fecha: ahora, ok: true }; detalle = 'Solución confirmada por el solicitante'; break;
+      case 'reabrir': case 'reabrir_ti': c.estado = 'en_atencion'; c.resueltoMs = null; c.cerradoMs = null; c.confirmacion = null; c.reaperturas = (t.reaperturas || 0) + 1; detalle = 'Ticket reabierto (' + c.reaperturas + ')'; break;
+      default: throw new Error('Acción desconocida.');
+    }
+    return { cambios: c, historial: { accion: id, detalle: detalle, motivo: texto(datos.motivo) }, comentario: comentario };
+  }
+  function validarTicketNuevo(d, cfg) {
+    var e = {};
+    if (!texto(d.titulo)) e.titulo = 'Escribe un título breve.'; else if (texto(d.titulo).length > 200) e.titulo = 'Máximo 200 caracteres.';
+    if (!texto(d.descripcion)) e.descripcion = 'Describe qué ocurre o qué necesitas.'; else if (texto(d.descripcion).length > 5000) e.descripcion = 'Máximo 5,000 caracteres.';
+    if (!TIPOS_TICKET[d.tipo]) e.tipo = 'Elige el tipo.';
+    var cat = ((cfg && cfg.categorias) || []).filter(function (x) { return x.id === d.categoria && x.activa !== false; })[0];
+    if (!cat) e.categoria = 'Elige una categoría.';
+    if (!IMPACTOS[d.impacto]) e.impacto = 'Elige el impacto.';
+    if (!URGENCIAS[d.urgencia]) e.urgencia = 'Elige la urgencia.';
+    (d.evidencias || []).forEach(function (x, i) { if (!texto(x.titulo)) e['ev' + i + '.titulo'] = 'Escribe un título.'; if (!urlSegura(x.url)) e['ev' + i + '.url'] = 'Usa un enlace https:// válido.'; });
+    if (texto(d.activoId) && !/^[A-Za-z0-9_-]{3,40}$/.test(texto(d.activoId))) e.activoId = 'El ID del equipo solo lleva letras, números y guiones.';
+    return e;
+  }
+
+  /* ----- Indicadores de la mesa de ayuda ----- */
+  var VENTANA_TICKETS_DIAS = 90;
+  function clasificarTicket(t, cfg, ahora) {
+    var abierto = TICKET_ABIERTOS.indexOf(t.estado) >= 0, s = estadoSLA(t, cfg, ahora);
+    return { abierto: abierto, critico: abierto && t.prioridad === 'critica', sinAsignar: abierto && !t.responsable,
+      vencido: abierto && (s.respuesta.estado === 'vencido' || s.resolucion.estado === 'vencido'),
+      porVencer: abierto && !(s.respuesta.estado === 'vencido' || s.resolucion.estado === 'vencido') && (s.respuesta.estado === 'por_vencer' || s.resolucion.estado === 'por_vencer'), sla: s };
+  }
+  function indicadoresTickets(tickets, config, ahora) {
+    var cfg = normalizarConfigTickets(config); ahora = ahora || Date.now();
+    var r = { abiertos: 0, criticos: 0, sinAsignar: 0, vencidos: 0, porVencer: 0, porResponsable: {}, resueltosEnPeriodo: 0, tiempoMedioResolucionHoras: null, cumplimientoSLA: null, evaluablesSLA: 0, cumplidosSLA: 0, muestraMinima: MIN_MUESTRA, ventanaDias: VENTANA_TICKETS_DIAS, slaConfigurado: Object.keys(cfg.sla || {}).length > 0 };
+    var desde = ahora - VENTANA_TICKETS_DIAS * 86400000, tiempos = [];
+    (tickets || []).forEach(function (t) {
+      var k = clasificarTicket(t, cfg, ahora);
+      if (k.abierto) { r.abiertos++; var quien = t.responsable || '(sin asignar)'; r.porResponsable[quien] = (r.porResponsable[quien] || 0) + 1; }
+      if (k.critico) r.criticos++; if (k.sinAsignar) r.sinAsignar++; if (k.vencido) r.vencidos++; if (k.porVencer) r.porVencer++;
+      if ((t.estado === 'resuelto' || t.estado === 'cerrado') && t.resueltoMs && t.creadoMs && t.resueltoMs >= desde) {
+        r.resueltosEnPeriodo++;
+        var espera = 0; (t.esperas || []).forEach(function (e) { var h = e.hasta == null ? t.resueltoMs : Math.min(e.hasta, t.resueltoMs); if (h > e.desde) espera += h - e.desde; });
+        tiempos.push(Math.max(0, t.resueltoMs - t.creadoMs - espera));
+        if (k.sla.configurado && k.sla.resolucion.estado !== 'na') { r.evaluablesSLA++; if (k.sla.resolucion.estado === 'cumplido') r.cumplidosSLA++; }
+      }
+    });
+    if (tiempos.length >= MIN_MUESTRA) r.tiempoMedioResolucionHoras = Math.round(tiempos.reduce(function (a, b) { return a + b; }, 0) / tiempos.length / 3600000 * 10) / 10;
+    if (r.evaluablesSLA >= MIN_MUESTRA) r.cumplimientoSLA = Math.round(r.cumplidosSLA / r.evaluablesSLA * 100);
+    return r;
+  }
+  function filtroTickets(clave, config, ahora) {
+    var cfg = normalizarConfigTickets(config); ahora = ahora || Date.now();
+    var f = {
+      abiertos: function (t) { return TICKET_ABIERTOS.indexOf(t.estado) >= 0; },
+      criticos: function (t) { return clasificarTicket(t, cfg, ahora).critico; },
+      sinAsignar: function (t) { return clasificarTicket(t, cfg, ahora).sinAsignar; },
+      vencidos: function (t) { return clasificarTicket(t, cfg, ahora).vencido; },
+      porVencer: function (t) { return clasificarTicket(t, cfg, ahora).porVencer; }
+    };
+    return f[clave] || null;
+  }
+
   /* Filtro de la tabla correspondiente a cada tarjeta, para "navegar hasta los registros que la componen". */
   function filtroIndicador(clave, hoy, ventana) {
     hoy = hoy || hoyISO(); var limite = sumarDias(hoy, ventana || VENTANA_DIAS);
@@ -270,7 +503,13 @@
     validarContenido: validarContenido, esDocumentado: esDocumentado,
     hoyISO: hoyISO, sumarMeses: sumarMeses, sumarDias: sumarDias,
     ACCIONES: ACCIONES, accionesDisponibles: accionesDisponibles, aplicarAccion: aplicarAccion,
-    indicadores: indicadores, indicadoresInventario: indicadoresInventario, filtroIndicador: filtroIndicador, MIN_MUESTRA: MIN_MUESTRA, VENTANA_DIAS: VENTANA_DIAS,
+    indicadores: indicadores, indicadoresInventario: indicadoresInventario, filtroIndicador: filtroIndicador,
+    TIPOS_TICKET: TIPOS_TICKET, ESTADOS_TICKET: ESTADOS_TICKET, TICKET_ESTADO_LABEL: TICKET_ESTADO_LABEL, TICKET_ABIERTOS: TICKET_ABIERTOS, PRIORIDADES: PRIORIDADES, PRIORIDAD_LABEL: PRIORIDAD_LABEL,
+    IMPACTOS: IMPACTOS, URGENCIAS: URGENCIAS, MATRIZ_PRIORIDAD: MATRIZ_PRIORIDAD, prioridadDe: prioridadDe, CATEGORIAS_TICKET_INICIALES: CATEGORIAS_TICKET_INICIALES,
+    configTicketsPorDefecto: configTicketsPorDefecto, normalizarConfigTickets: normalizarConfigTickets, slugCategoria: slugCategoria, nombreCategoria: nombreCategoria,
+    puedeVerTicket: puedeVerTicket, esTI: esTI, horarioValido: horarioValido, msLaborales: msLaborales, msEfectivos: msEfectivos, fechaObjetivoMs: fechaObjetivoMs, slaDe: slaDe, estadoSLA: estadoSLA,
+    ACCIONES_TICKET: ACCIONES_TICKET, accionesTicketDisponibles: accionesTicketDisponibles, aplicarAccionTicket: aplicarAccionTicket, validarTicketNuevo: validarTicketNuevo,
+    clasificarTicket: clasificarTicket, indicadoresTickets: indicadoresTickets, filtroTickets: filtroTickets, VENTANA_TICKETS_DIAS: VENTANA_TICKETS_DIAS, MIN_MUESTRA: MIN_MUESTRA, VENTANA_DIAS: VENTANA_DIAS,
     CATEGORIAS: CATEGORIAS, CATALOGO_INICIAL: CATALOGO_INICIAL
   };
 });

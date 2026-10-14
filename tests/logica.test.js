@@ -272,3 +272,206 @@ test('lineas: una por renglón, sin vacías', () => {
   assert.deepEqual(L.lineas(' a \n\n b\r\n'), ['a', 'b']);
   assert.deepEqual(L.lineas(''), []);
 });
+
+/* ===================== MESA DE AYUDA ===================== */
+const H = 3600000;
+const D = (d, h, m) => new Date(2026, 9, d, h || 0, m || 0).getTime();   // octubre 2026, hora local (12 = lunes)
+const HORARIO = { dias: [1, 2, 3, 4, 5], inicio: '09:00', fin: '18:00' };
+const cfgT = (extra) => Object.assign(L.configTicketsPorDefecto(), extra || {});
+function tk(extra) {
+  return Object.assign({ estado: 'nuevo', solicitanteEmail: 'sol@x.mx', responsable: null, categoria: 'sap', prioridad: 'alta', impacto: 'medio', urgencia: 'alta',
+    creadoMs: D(12, 9), esperas: [] }, extra);
+}
+const ticketIds = (u, t, cfg, ahora) => L.accionesTicketDisponibles({ user: u, ticket: t, config: cfg, ahora }).filter((a) => a.ok).map((a) => a.id);
+
+test('tickets: matriz de prioridad impacto × urgencia (9 combinaciones)', () => {
+  const esperado = { 'alto|alta': 'critica', 'alto|media': 'alta', 'alto|baja': 'media', 'medio|alta': 'alta', 'medio|media': 'media', 'medio|baja': 'baja', 'bajo|alta': 'media', 'bajo|media': 'baja', 'bajo|baja': 'baja' };
+  Object.keys(esperado).forEach((k) => { const [i, u] = k.split('|'); assert.equal(L.prioridadDe(i, u), esperado[k], k); });
+  assert.equal(L.prioridadDe('x', 'alta'), null);
+});
+test('tickets: la configuración inicial no inventa SLA ni horario', () => {
+  const c = L.configTicketsPorDefecto();
+  assert.deepEqual(c.sla, {}); assert.equal(c.horario, null); assert.equal(c.categorias.length, 10);
+  assert.equal(L.slaDe(c, tk()), null);
+  const e = L.estadoSLA(tk(), c, D(13, 9));
+  assert.equal(e.configurado, false); assert.equal(e.resolucion.estado, 'na'); assert.equal(e.respuesta.estado, 'na');
+});
+test('tickets: normalizarConfigTickets completa lo que falta y rechaza horario malformado', () => {
+  const c = L.normalizarConfigTickets({ horario: { x: 1 }, ventanaReaperturaDias: 'a' });
+  assert.equal(c.horario, null); assert.equal(c.ventanaReaperturaDias, 5); assert.equal(c.alertaPct, 25); assert.ok(c.categorias.length);
+  assert.equal(L.normalizarConfigTickets(null).ventanaReaperturaDias, 5);
+});
+test('tickets: slug y nombre de categoría', () => {
+  assert.equal(L.slugCategoria('Correo y colaboración'), 'correo-y-colaboracion');
+  assert.equal(L.slugCategoria('  ¡Árbol & Ñandú! '), 'arbol-nandu');
+  assert.equal(L.nombreCategoria(cfgT(), 'sap'), 'SAP'); assert.equal(L.nombreCategoria(cfgT(), 'zzz'), 'zzz');
+});
+
+test('horario: sin horario cuenta tiempo natural 24×7', () => {
+  assert.equal(L.msLaborales(D(12, 9), D(13, 9), null), 24 * H);
+  assert.equal(L.msLaborales(D(13, 9), D(12, 9), null), 0);
+});
+test('horario: solo horas de servicio, sin fines de semana', () => {
+  assert.equal(L.msLaborales(D(12, 9), D(12, 18), HORARIO), 9 * H, 'un día completo');
+  assert.equal(L.msLaborales(D(12, 17), D(13, 10), HORARIO), 2 * H, 'lunes 17-18 y martes 9-10');
+  assert.equal(L.msLaborales(D(17, 9), D(19, 8), HORARIO), 0, 'sábado a lunes de madrugada: nada');
+  assert.equal(L.msLaborales(D(17, 0), D(19, 0), HORARIO), 0, 'sábado y domingo');
+  assert.equal(L.msLaborales(D(12, 0), D(19, 0), HORARIO), 5 * 9 * H, 'una semana laboral');
+  assert.equal(L.msLaborales(D(12, 8), D(12, 8, 30), HORARIO), 0, 'antes de abrir');
+});
+test('horario: inválido o vacío no cuenta nada y horarioValido lo detecta', () => {
+  assert.equal(L.horarioValido(HORARIO), true);
+  assert.equal(L.horarioValido({ dias: [], inicio: '09:00', fin: '18:00' }), false);
+  assert.equal(L.horarioValido({ dias: [1], inicio: '18:00', fin: '09:00' }), false);
+  assert.equal(L.horarioValido(null), false);
+  assert.equal(L.msLaborales(D(12, 9), D(13, 9), { dias: [], inicio: '09:00', fin: '18:00' }), 0);
+});
+test('SLA: las esperas se descuentan del tiempo efectivo', () => {
+  const esperas = [{ desde: D(12, 10), hasta: D(12, 12), tipo: 'usuario' }];
+  assert.equal(L.msEfectivos(D(12, 9), D(12, 15), esperas, HORARIO, D(12, 15)), 4 * H);
+  const abierta = [{ desde: D(12, 13), hasta: null, tipo: 'tercero' }];
+  assert.equal(L.msEfectivos(D(12, 9), D(12, 17), abierta, HORARIO, D(12, 17)), 4 * H, 'la espera abierta corre hasta ahora');
+  const fuera = [{ desde: D(14, 9), hasta: D(14, 12) }];
+  assert.equal(L.msEfectivos(D(12, 9), D(12, 15), fuera, HORARIO, D(12, 15)), 6 * H, 'una espera posterior al corte no resta');
+});
+test('SLA: fecha objetivo cruza la noche y el fin de semana', () => {
+  const t = tk({ creadoMs: D(16, 12) });                   // viernes 16 oct 12:00
+  assert.equal(new Date(D(16, 12)).getDay(), 5);
+  assert.equal(L.fechaObjetivoMs(t, 8, HORARIO, D(16, 12)), D(19, 11), '6h el viernes + 2h el lunes');
+  assert.equal(L.fechaObjetivoMs(tk({ creadoMs: D(12, 9) }), 4, null, D(12, 9)), D(12, 13), 'sin horario: tiempo natural');
+});
+test('SLA: la fecha objetivo se recorre por las esperas', () => {
+  const t = tk({ creadoMs: D(12, 9), esperas: [{ desde: D(12, 10), hasta: D(12, 12), tipo: 'usuario' }] });
+  assert.equal(L.fechaObjetivoMs(t, 4, HORARIO, D(12, 12)), D(12, 15));
+});
+const SLA = { 'sap|alta': { respuestaH: 2, resolucionH: 8 } };
+test('SLA: estados en_curso, por_vencer, vencido, pausado', () => {
+  const cfg = cfgT({ sla: SLA, horario: HORARIO, alertaPct: 25 });
+  const t = tk();
+  assert.equal(L.estadoSLA(t, cfg, D(12, 10)).resolucion.estado, 'en_curso');
+  assert.equal(L.estadoSLA(t, cfg, D(12, 10)).respuesta.estado, 'en_curso');
+  assert.equal(L.estadoSLA(t, cfg, D(12, 16, 30)).resolucion.estado, 'por_vencer', '1.5 h restantes de 8 h (≤25 %)');
+  assert.equal(L.estadoSLA(t, cfg, D(12, 11, 30)).respuesta.estado, 'vencido');
+  assert.equal(L.estadoSLA(t, cfg, D(13, 10)).resolucion.estado, 'vencido');
+  const p = tk({ estado: 'espera_usuario', primeraRespuestaMs: D(12, 9, 30), esperas: [{ desde: D(12, 10), hasta: null, tipo: 'usuario' }] });
+  const s = L.estadoSLA(p, cfg, D(14, 9));
+  assert.equal(s.pausado, true); assert.equal(s.resolucion.estado, 'en_curso', 'en pausa no vence'); assert.equal(s.resolucion.objetivoMs, undefined);
+});
+test('SLA: respuesta y resolución cumplidas o incumplidas', () => {
+  const cfg = cfgT({ sla: SLA, horario: HORARIO });
+  const ok = tk({ estado: 'cerrado', primeraRespuestaMs: D(12, 10), resueltoMs: D(12, 16) });
+  const s1 = L.estadoSLA(ok, cfg, D(20, 9)); assert.equal(s1.respuesta.estado, 'cumplido'); assert.equal(s1.resolucion.estado, 'cumplido');
+  const mal = tk({ estado: 'resuelto', primeraRespuestaMs: D(12, 13), resueltoMs: D(14, 12) });
+  const s2 = L.estadoSLA(mal, cfg, D(20, 9)); assert.equal(s2.respuesta.estado, 'incumplido'); assert.equal(s2.resolucion.estado, 'incumplido');
+  assert.equal(L.estadoSLA(tk({ estado: 'cancelado' }), cfg, D(13, 9)).resolucion.estado, 'na');
+});
+
+test('tickets: permisos por rol', () => {
+  assert.equal(L.tiene(sol, 'tickets.crear'), true); assert.equal(L.tiene(sol, 'tickets.ver_todos'), false);
+  assert.equal(L.tiene(tec, 'tickets.atender'), true); assert.equal(L.tiene(tec, 'tickets.asignar'), false);
+  assert.equal(L.tiene(dir, 'tickets.asignar'), true); assert.equal(L.tiene(dir, 'tickets.atender'), false, 'el director asigna pero no atiende');
+  assert.equal(L.tiene(adm, 'tickets.configurar'), true); assert.equal(L.tiene(dir, 'tickets.configurar'), false);
+  assert.equal(L.tiene(resp, 'tickets.ver_todos'), false);
+});
+test('tickets: visibilidad (solicitante solo ve los suyos)', () => {
+  assert.equal(L.puedeVerTicket(sol, tk()), true);
+  assert.equal(L.puedeVerTicket({ email: 'otro@x.mx', roles: ['solicitante'] }, tk()), false);
+  assert.equal(L.puedeVerTicket(tec, tk()), true); assert.equal(L.puedeVerTicket(dir, tk()), true);
+  assert.equal(L.esTI(sol), false); assert.equal(L.esTI(tec), true); assert.equal(L.esTI(dir), true);
+});
+test('tickets: flujo completo nuevo → asignado → en atención → espera → resuelto → cerrado', () => {
+  let t = tk(); const cfg = cfgT();
+  const paso = (u, id, datos, ahora) => { const r = L.aplicarAccionTicket({ user: u, ticket: t, config: cfg, ahora }, id, datos); t = Object.assign({}, t, r.cambios); return r; };
+  assert.deepEqual(ticketIds(tec, t, cfg, D(12, 9)).sort(), ['tomar'], 'sin responsable el técnico solo puede tomarlo');
+  paso(tec, 'tomar', {}, D(12, 9, 10));
+  assert.equal(t.estado, 'asignado'); assert.equal(t.responsable, 'tec@x.mx');
+  paso(tec, 'iniciar_atencion', {}, D(12, 9, 20));
+  assert.equal(t.estado, 'en_atencion'); assert.equal(t.primeraRespuestaMs, D(12, 9, 20));
+  paso(tec, 'esperar_usuario', { motivo: 'Falta captura de pantalla' }, D(12, 10));
+  assert.equal(t.estado, 'espera_usuario'); assert.equal(t.esperas.length, 1); assert.equal(t.esperas[0].hasta, null);
+  paso(sol, 'responder', { motivo: 'Aquí está' }, D(12, 11));
+  assert.equal(t.estado, 'en_atencion'); assert.equal(t.esperas[0].hasta, D(12, 11));
+  const r = paso(tec, 'resolver', { diagnostico: 'Permiso faltante', solucion: 'Se asignó el rol' }, D(12, 12));
+  assert.equal(t.estado, 'resuelto'); assert.equal(t.resueltoMs, D(12, 12)); assert.equal(r.historial.accion, 'resolver');
+  paso(sol, 'confirmar', {}, D(12, 13));
+  assert.equal(t.estado, 'cerrado'); assert.equal(t.confirmacion.por, 'sol@x.mx');
+  assert.equal(t.primeraRespuestaMs, D(12, 9, 20), 'la primera respuesta no se pisa');
+});
+test('tickets: acciones exigen datos obligatorios', () => {
+  const cfg = cfgT();
+  const en = tk({ estado: 'en_atencion', responsable: 'tec@x.mx' });
+  assert.throws(() => L.aplicarAccionTicket({ user: tec, ticket: en, config: cfg }, 'resolver', { diagnostico: 'x' }), (e) => e.faltan && e.faltan.includes('solucion'));
+  assert.throws(() => L.aplicarAccionTicket({ user: tec, ticket: en, config: cfg }, 'esperar_usuario', {}), /obligatorios/);
+  assert.throws(() => L.aplicarAccionTicket({ user: adm, ticket: tk(), config: cfg }, 'asignar', {}), /obligatorios/);
+  assert.throws(() => L.aplicarAccionTicket({ user: tec, ticket: en, config: cfg }, 'cambiar_prioridad', { impacto: 'x', urgencia: 'alta', motivo: 'm' }), /no válidos/);
+});
+test('tickets: solo quien tiene asignado el ticket lo atiende; el administrador siempre', () => {
+  const cfg = cfgT(), otroTec = { email: 'tec2@x.mx', roles: ['tecnico'] };
+  const t = tk({ estado: 'asignado', responsable: 'tec@x.mx' });
+  assert.ok(ticketIds(tec, t, cfg).includes('iniciar_atencion'));
+  assert.ok(!ticketIds(otroTec, t, cfg).includes('iniciar_atencion'));
+  assert.ok(ticketIds(adm, t, cfg).includes('iniciar_atencion'));
+  assert.throws(() => L.aplicarAccionTicket({ user: otroTec, ticket: t, config: cfg }, 'iniciar_atencion', {}), /asignado/);
+});
+test('tickets: asignar solo Director/Administrador; técnico no; cancelar ajeno solo Administrador', () => {
+  const cfg = cfgT(), t = tk();
+  assert.ok(ticketIds(dir, t, cfg).includes('asignar')); assert.ok(ticketIds(adm, t, cfg).includes('asignar'));
+  assert.ok(!ticketIds(tec, t, cfg).includes('asignar'));
+  assert.ok(!ticketIds(dir, t, cfg).includes('cancelar_ti')); assert.ok(ticketIds(adm, t, cfg).includes('cancelar_ti'));
+  assert.ok(!ticketIds(dir, t, cfg).includes('tomar'), 'el director no atiende');
+  const r = L.aplicarAccionTicket({ user: dir, ticket: t, config: cfg }, 'asignar', { responsable: 'tec@x.mx' });
+  assert.equal(r.cambios.estado, 'asignado'); assert.equal(r.cambios.responsable, 'tec@x.mx');
+});
+test('tickets: el solicitante no ve acciones de TI ni actúa sobre tickets ajenos', () => {
+  const cfg = cfgT(), t = tk({ estado: 'resuelto', resueltoMs: D(12, 12) });
+  assert.deepEqual(ticketIds(sol, t, cfg, D(13, 9)).sort(), ['confirmar', 'reabrir']);
+  assert.deepEqual(ticketIds({ email: 'otro@x.mx', roles: ['solicitante'] }, t, cfg, D(13, 9)), []);
+  assert.deepEqual(ticketIds(sol, tk(), cfg).sort(), ['cancelar']);
+});
+test('tickets: reapertura dentro y fuera de la ventana configurada', () => {
+  const t = tk({ estado: 'cerrado', resueltoMs: D(12, 12), cerradoMs: D(12, 13) });
+  assert.ok(ticketIds(sol, t, cfgT(), D(16, 12)).includes('reabrir'), '4 días: dentro de 5');
+  assert.ok(!ticketIds(sol, t, cfgT(), D(19, 12)).includes('reabrir'), '7 días: fuera');
+  assert.ok(ticketIds(sol, t, cfgT({ ventanaReaperturaDias: 10 }), D(19, 12)).includes('reabrir'), 'la ventana es editable');
+  const r = L.aplicarAccionTicket({ user: sol, ticket: t, config: cfgT(), ahora: D(14, 9) }, 'reabrir', { motivo: 'Sigue fallando' });
+  assert.equal(r.cambios.estado, 'en_atencion'); assert.equal(r.cambios.reaperturas, 1); assert.equal(r.cambios.resueltoMs, null);
+});
+test('tickets: escalar suma nivel; cambiar prioridad recalcula con la matriz', () => {
+  const cfg = cfgT(), t = tk({ estado: 'en_atencion', responsable: 'tec@x.mx' });
+  const e = L.aplicarAccionTicket({ user: tec, ticket: t, config: cfg }, 'escalar', { responsable: 'adm@x.mx', motivo: 'Requiere SAP Basis' });
+  assert.equal(e.cambios.escaladoNivel, 1); assert.equal(e.cambios.responsable, 'adm@x.mx');
+  const p = L.aplicarAccionTicket({ user: tec, ticket: t, config: cfg }, 'cambiar_prioridad', { impacto: 'alto', urgencia: 'alta', motivo: 'Para toda la planta' });
+  assert.equal(p.cambios.prioridad, 'critica');
+});
+test('tickets: validar ticket nuevo', () => {
+  const cfg = cfgT();
+  const ok = { titulo: 'No imprime', descripcion: 'x', tipo: 'incidente', categoria: 'impresoras', impacto: 'bajo', urgencia: 'media', evidencias: [], activoId: '' };
+  assert.deepEqual(L.validarTicketNuevo(ok, cfg), {});
+  const mal = L.validarTicketNuevo({ titulo: ' ', descripcion: '', tipo: 'x', categoria: 'zzz', impacto: '', urgencia: '', evidencias: [{ titulo: '', url: 'http://a' }], activoId: 'a b' }, cfg);
+  ['titulo', 'descripcion', 'tipo', 'categoria', 'impacto', 'urgencia', 'ev0.titulo', 'ev0.url', 'activoId'].forEach((k) => assert.ok(mal[k], k));
+  const inactiva = cfgT({ categorias: [{ id: 'sap', nombre: 'SAP', activa: false }] });
+  assert.ok(L.validarTicketNuevo(Object.assign({}, ok, { categoria: 'sap' }), inactiva).categoria, 'categoría desactivada no se puede elegir');
+});
+test('indicadores de tickets: conteos y muestra mínima', () => {
+  const cfg = cfgT({ sla: SLA, horario: null }), ahora = D(20, 9);
+  const cerr = (n, horas) => tk({ estado: 'cerrado', creadoMs: D(12, 9) + n * 1000, resueltoMs: D(12, 9) + n * 1000 + horas * H });
+  const pocos = L.indicadoresTickets([cerr(1, 2), cerr(2, 4), tk({ responsable: 'tec@x.mx', estado: 'asignado' })], cfg, ahora);
+  assert.equal(pocos.abiertos, 1); assert.equal(pocos.resueltosEnPeriodo, 2);
+  assert.equal(pocos.tiempoMedioResolucionHoras, null, 'menos de 5 resueltos: sin promedio');
+  assert.equal(pocos.cumplimientoSLA, null);
+  const cinco = L.indicadoresTickets([cerr(1, 2), cerr(2, 4), cerr(3, 6), cerr(4, 8), cerr(5, 10)], cfg, ahora);
+  assert.equal(cinco.tiempoMedioResolucionHoras, 6);
+  assert.equal(cinco.evaluablesSLA, 5); assert.equal(cinco.cumplidosSLA, 4); assert.equal(cinco.cumplimientoSLA, 80, '8 h de 8 cumple; 10 h no');
+});
+test('indicadores de tickets: críticos, sin asignar, vencidos, por responsable y ventana de 90 días', () => {
+  const cfg = cfgT({ sla: { 'sap|critica': { resolucionH: 4 } } }), ahora = D(14, 9);
+  const l = [tk({ prioridad: 'critica', creadoMs: D(12, 9) }), tk({ prioridad: 'media', responsable: 'tec@x.mx', estado: 'en_atencion', categoria: 'redes' }),
+    tk({ estado: 'cancelado' }), tk({ estado: 'cerrado', resueltoMs: ahora - 100 * 86400000, creadoMs: ahora - 101 * 86400000 })];
+  const i = L.indicadoresTickets(l, cfg, ahora);
+  assert.equal(i.abiertos, 2); assert.equal(i.criticos, 1); assert.equal(i.sinAsignar, 1); assert.equal(i.vencidos, 1);
+  assert.equal(i.porResponsable['(sin asignar)'], 1); assert.equal(i.porResponsable['tec@x.mx'], 1);
+  assert.equal(i.resueltosEnPeriodo, 0, 'uno resuelto hace 100 días queda fuera de la ventana');
+  assert.equal(i.slaConfigurado, true); assert.equal(L.indicadoresTickets(l, cfgT(), ahora).slaConfigurado, false);
+  assert.equal(L.filtroTickets('vencidos', cfg, ahora)(l[0]), true); assert.equal(L.filtroTickets('vencidos', cfg, ahora)(l[1]), false);
+  assert.equal(L.filtroTickets('nada'), null);
+});
