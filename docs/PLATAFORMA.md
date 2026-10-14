@@ -50,7 +50,7 @@ Un usuario puede tener varios roles; los permisos se suman. Se validan en `fires
 | Técnico de TI | Solo leer procedimientos publicados vigentes. |
 | Solicitante | Sin acceso a procesos (reservado para tickets). |
 
-El inventario existente **no** cambió: sigue abierto a los cinco usuarios actuales (modo transitorio, ver reglas).
+El inventario existente **no** cambió: sigue abierto a cualquier usuario autenticado, igual que con las reglas actuales (modo transitorio).
 
 ## Flujo de estados de una versión
 Borrador → En revisión → Pendiente de aprobación → Aprobado → Publicado → En revisión periódica → Obsoleto (además "Reemplazada" para versiones que una nueva sustituye).
@@ -84,7 +84,7 @@ El botón "Cargar catálogo inicial" crea los 21 nombres solicitados como **borr
 
 ## Instalación y primer arranque
 1. **No requiere compilar.** Los archivos se publican junto con `index.html` donde ya está alojada la app. Nada se desplegó.
-2. **Reglas (acción de la persona administradora):** compara `firestore.rules` con las reglas actuales (consola de Firebase → Firestore → Reglas). Si coinciden en el inventario, publícalas primero en un proyecto de pruebas. Cambia el correo de arranque si corresponde (en `firestore.rules` y en `TI.BOOTSTRAP_ADMINS` de `js/ti-core.js`).
+2. **Reglas (acción de la persona administradora):** sigue `docs/PUBLICAR-REGLAS.md`. Las reglas actuales (cualquier usuario autenticado lee y escribe todo) están guardadas en `docs/reglas-anteriores.txt` para revertir. La propuesta las conserva para el inventario y protege solo `ti_*` y `usuarios_ti`. Cambia el correo de arranque si corresponde (en `firestore.rules` y en `TI.BOOTSTRAP_ADMINS` de `js/ti-core.js`).
 3. **Primer ingreso:** el correo de arranque entra, abre "Usuarios, roles y auditoría" y pulsa "Crear mi registro de administrador". Después asigna roles a los demás (y el de Director de TI a quien corresponda: sin Director nadie puede aprobar).
 4. Los usuarios deben existir en Firebase Authentication; la plataforma solo asigna roles.
 
@@ -104,7 +104,7 @@ La simulación **no aplica reglas de seguridad**, así que las pruebas de integr
 - **Auditoría escrita por el navegador:** las reglas impiden editarla o borrarla, pero un cliente modificado podría omitir crear un evento. La versión a prueba de omisiones requiere Cloud Functions (plan Blaze, facturable; no autorizado).
 - **`documentado` y el contenido de los campos** no se pueden verificar a fondo en las reglas.
 - **Documentos como enlaces** (https). Subir archivos requiere Firebase Storage (plan Blaze).
-- **Inventario sin endurecer:** sigue abierto a los usuarios autenticados.
+- **Inventario sin endurecer:** sigue abierto a cualquier usuario autenticado (regla actual conservada). Hasta publicar `firestore.rules`, las colecciones nuevas tampoco están protegidas: los roles son solo de pantalla.
 - **Sin histórico de indicadores:** no hay tendencias hasta guardar un resumen mensual (decisión pendiente).
 - **Error existente `confirmAction`** (ver diagnóstico).
 - Si el Director de TI aún no existe, el administrador debe asignarse también ese rol o designar a alguien; la separación de funciones se mantiene.
@@ -112,3 +112,4 @@ La simulación **no aplica reglas de seguridad**, así que las pruebas de integr
 
 ## Seguimiento de cambios
 - 2026-10-14 — Fase 1 y primera versión de las Fases 2 y 3: `js/`, `css/`, `firestore.rules`, `tests/`, `docs/`; tres cambios en `index.html`.
+- 2026-10-14 — Reglas: se conoce la regla vigente (`docs/reglas-anteriores.txt`); `firestore.rules` pasa a conservarla para todo lo que no sea `ti_*`/`usuarios_ti`; guía `docs/PUBLICAR-REGLAS.md`.

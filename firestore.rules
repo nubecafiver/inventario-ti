@@ -3,9 +3,9 @@ rules_version = '2';
 // CAFIVER TI — Reglas de seguridad de Cloud Firestore (PROPUESTA, no desplegada).
 //
 // ANTES DE PUBLICAR:
-//  1. Compara con las reglas actuales en la consola de Firebase (Firestore > Reglas). No se conocen; no están en el repositorio.
-//  2. El bloque "INVENTARIO (transitorio)" replica el comportamiento de la app actual (cualquier usuario autenticado
-//     lee y escribe). Se endurecerá en una etapa posterior, con autorización, para no romper el inventario.
+//  1. Las reglas anteriores están guardadas en docs/reglas-anteriores.txt para poder revertir. Compáralas con la consola.
+//  2. El bloque final replica tus reglas actuales para todo lo que NO sea nuevo (docs/reglas-anteriores.txt). Se endurecerá
+//     en una etapa posterior, con autorización, para no romper el inventario.
 //  3. Publica primero en un proyecto de pruebas o con el emulador (ver docs/PLATAFORMA.md).
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -122,11 +122,13 @@ service cloud.firestore {
       }
     }
 
-    /* ---------- INVENTARIO (transitorio) ----------
-       Replica el comportamiento actual de la app: cualquier usuario autenticado lee y escribe.
-       Se endurecerá en una etapa posterior para no romper el inventario sin autorización. */
+    /* ---------- INVENTARIO y todo lo que no es nuevo (transitorio) ----------
+       Idéntico a las reglas anteriores (docs/reglas-anteriores.txt): cualquier usuario autenticado lee y escribe,
+       EXCEPTO en las colecciones nuevas de la plataforma (ti_* y usuarios_ti), que quedan protegidas por rol.
+       Así el inventario no cambia aunque existiera alguna colección no detectada. Se endurecerá en una etapa
+       posterior, con autorización. */
     match /{col}/{doc=**} {
-      allow read, write: if firmado() && col in ['equipos', 'transferencias', 'reparaciones', 'celulares', 'licencias', 'software_equipos', 'personal', 'escaneos', 'catalogo'];
+      allow read, write: if request.auth != null && !col.matches('ti_.*|usuarios_ti');
     }
   }
 }
