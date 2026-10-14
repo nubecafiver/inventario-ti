@@ -46,7 +46,7 @@
     ['registrados', 'Procesos registrados', 'Todos los no obsoletos.'],
     ['documentados', 'Procesos documentados', 'Versión vigente con objetivo, alcance, responsable y ≥1 actividad.'],
     ['enRevision', 'En revisión', 'Versión de trabajo en revisión.'],
-    ['pendientesAprobacion', 'Pendientes de aprobación', 'Esperan decisión del Director de TI.'],
+    ['pendientesAprobacion', 'Pendientes de aprobación', 'Esperan decisión del Gerente o el Director de TI.'],
     ['publicados', 'Publicados vigentes', 'Con una versión publicada en uso.'],
     ['proximosRevision', 'Revisión en ' + L.VENTANA_DIAS + ' días', 'Vigentes cuya próxima revisión cae en la ventana.'],
     ['revisionVencida', 'Revisión vencida', 'Vigentes con fecha de revisión anterior a hoy.'],
