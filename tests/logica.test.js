@@ -199,6 +199,60 @@ test('filtros de tarjeta devuelven exactamente los registros que componen el ind
   });
 });
 
+test('permiso del resumen del inventario: solo Director y Administrador', () => {
+  assert.equal(L.tiene(dir, 'inventario.resumen'), true);
+  assert.equal(L.tiene(adm, 'inventario.resumen'), true);
+  ['resp', 'tec', 'sol'].forEach((k) => assert.equal(L.tiene({ resp, tec, sol }[k], 'inventario.resumen'), false, k));
+});
+
+const HOY = '2026-10-14';
+const eq = (e) => Object.assign({ estado: 'Bueno', responsable: 'Ana', fecha: '2025-10-14' }, e);
+
+test('inventario: sin equipos devuelve ceros y sin porcentajes', () => {
+  const i = L.indicadoresInventario([], HOY);
+  assert.equal(i.total, 0); assert.equal(i.activos, 0); assert.equal(i.pctBueno, null); assert.equal(i.pctConResponsable, null);
+  assert.deepEqual(L.indicadoresInventario(undefined, HOY).total, 0);
+});
+test('inventario: Baja no cuenta como activo ni en responsables, estado ni vida útil', () => {
+  const i = L.indicadoresInventario([eq({ estado: 'Baja', responsable: '', fecha: '' }), eq({}), eq({ estado: ' baja ' })], HOY);
+  assert.equal(i.total, 3); assert.equal(i.dadosDeBaja, 1); assert.equal(i.activos, 2, '" baja " en minúsculas no es la palabra exacta: cuenta como sin estado');
+  assert.equal(i.sinEstado, 1);
+});
+test('inventario: responsable vacío o solo espacios cuenta como sin responsable', () => {
+  const i = L.indicadoresInventario([eq({ responsable: '' }), eq({ responsable: '   ' }), eq({ responsable: null }), eq({ responsable: undefined }), eq({})], HOY);
+  assert.equal(i.sinResponsable, 4); assert.equal(i.conResponsable, 1);
+});
+test('inventario: estado físico y estado desconocido', () => {
+  const i = L.indicadoresInventario([eq({ estado: 'Bueno' }), eq({ estado: 'Regular' }), eq({ estado: 'Malo' }), eq({ estado: '' }), eq({ estado: 'Raro' }), eq({ estado: undefined })], HOY);
+  assert.deepEqual([i.bueno, i.regular, i.malo, i.sinEstado], [1, 1, 1, 3]);
+});
+test('inventario: vida útil con la regla de la app (4 años) y fechas en el límite', () => {
+  const f = (fecha) => L.indicadoresInventario([eq({ fecha })], HOY);
+  assert.equal(f('2022-10-14').vidaVencida, 1, 'exactamente 4 años (con un día bisiesto en medio) ya es vencida');
+  assert.equal(f('2022-10-20').vidaProxima, 1, 'un poco menos de 4 años: próxima');
+  assert.equal(f('2023-10-14').vidaProxima, 1, '3 años y un día bisiesto: próxima');
+  assert.equal(f('2023-10-15').vidaVigente, 1, 'un día menos de 3 años: vigente');
+  assert.equal(f('2026-12-31').vidaVigente, 1, 'fecha futura: vigente');
+  assert.equal(f('2010-01-01').vidaVencida, 1);
+});
+test('inventario: fechas vacías o inválidas van a "sin fecha" y no se mezclan', () => {
+  const i = L.indicadoresInventario([eq({ fecha: '' }), eq({ fecha: null }), eq({ fecha: undefined }), eq({ fecha: 'ayer' }), eq({ fecha: '0000-00-00' }), eq({ fecha: '2026-13-40' }), eq({ fecha: '2025-10-14' })], HOY);
+  assert.equal(i.sinFecha, 6); assert.equal(i.vidaVigente, 1);
+  assert.equal(i.vidaVencida + i.vidaProxima + i.vidaVigente + i.sinFecha, i.activos, 'las cuatro categorías suman exactamente los activos');
+});
+test('inventario: porcentajes solo con ≥5 equipos activos', () => {
+  const cuatro = L.indicadoresInventario([eq({}), eq({}), eq({}), eq({})], HOY);
+  assert.equal(cuatro.pctBueno, null); assert.equal(cuatro.pctConResponsable, null);
+  const cinco = L.indicadoresInventario([eq({}), eq({}), eq({}), eq({ estado: 'Malo' }), eq({ responsable: '' })], HOY);
+  assert.equal(cinco.pctBueno, 80); assert.equal(cinco.pctConResponsable, 80);
+  const conBajas = L.indicadoresInventario([eq({}), eq({}), eq({}), eq({}), eq({ estado: 'Baja' }), eq({ estado: 'Baja' })], HOY);
+  assert.equal(conBajas.pctBueno, null, 'las bajas no suman a la muestra: solo hay 4 activos');
+});
+test('inventario: valores raros (null, objetos incompletos) no rompen el cálculo', () => {
+  assert.doesNotThrow(() => L.indicadoresInventario([null, undefined, {}, { estado: 5 }, { fecha: 20200101 }], HOY));
+  assert.equal(L.indicadoresInventario([null, {}], HOY).total, 2);
+});
+
 test('catálogo inicial: 21 procesos únicos, solo nombre y categoría válida', () => {
   assert.equal(L.CATALOGO_INICIAL.length, 21);
   assert.equal(new Set(L.CATALOGO_INICIAL.map((x) => x[0])).size, 21);

@@ -8,8 +8,8 @@
 
   TI.registrarVista('ti-procesos', {
     permitido: function (u) { return L.tiene(u, 'procesos.ver') || L.tiene(u, 'procesos.ver_publicados'); },
-    render: render,
-    destruir: function () { S.lista = []; S.cargado = false; S.error = ''; S.el = null; S.filtro = { q: '', estado: '', categoria: '', resp: '', kpi: '' }; }
+    render: function (el, params) { render(el, params); },
+    destruir: function () { S.lista = []; S.cargado = false; oyentes = []; S.error = ''; S.el = null; S.filtro = { q: '', estado: '', categoria: '', resp: '', kpi: '' }; }
   });
 
   /* ===== Datos ===== */
@@ -22,7 +22,8 @@
       S.lista.sort(function (a, b) { return String(a.codigo || a.id).localeCompare(String(b.codigo || b.id)); });
       S.error = ''; pintar();
       if (S.detalle && S.detalle.modal && document.body.contains(S.detalle.modal.el)) pintarDetalle(S.detalle);
-    }, function (err) { S.error = err.code === 'permission-denied' ? 'permiso' : err.message; pintar(); });
+      oyentes.forEach(function (f) { try { f(); } catch (e) {} });
+    }, function (err) { S.error = err.code === 'permission-denied' ? 'permiso' : err.message; pintar(); oyentes.forEach(function (f) { try { f(); } catch (e) {} }); });
     TI.unsubs.push(unsub);
   }
   function porId(id) { return S.lista.filter(function (p) { return p.id === id; })[0]; }
@@ -31,7 +32,16 @@
   function nombreResp(p) { return p.responsable ? TI.nombreDe(p.responsable) : '<span class="ti-mut">Sin asignar</span>'; }
 
   /* ===== Lista + indicadores ===== */
-  function render(el) { S.el = el; suscribir(); pintar(); }
+  function render(el, params) {
+    S.el = el; suscribir();
+    /* Parámetros desde el Inicio: abrir filtrado por una tarjeta o abrir un proceso concreto. */
+    if (params && params.kpi) S.filtro = { q: '', estado: '', categoria: '', resp: '', kpi: params.kpi };
+    pintar();
+    if (params && params.abrir) abrirDetalle(params.abrir);
+  }
+  /* Datos compartidos con el Inicio (la suscripción es una sola; no se duplican lecturas). */
+  var oyentes = [];
+  TI.datosProcesos = { lista: function () { return S.lista; }, asegurar: suscribir, error: function () { return S.error; }, alCambiar: function (f) { if (oyentes.indexOf(f) < 0) oyentes.push(f); } };
   var KPIS = [
     ['registrados', 'Procesos registrados', 'Todos los no obsoletos.'],
     ['documentados', 'Procesos documentados', 'Versión vigente con objetivo, alcance, responsable y ≥1 actividad.'],

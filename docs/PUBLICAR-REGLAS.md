@@ -35,6 +35,9 @@ Pega `docs/reglas-anteriores.txt` en la consola de Firebase y publica. Las colec
 ## Orden con respecto al código
 El código de la plataforma está en la carpeta `ti/` de la rama `claude/wonderful-newton-rr6o79` y **no está fusionado ni publicado**. La app de inventario (`index.html`) **no se modificó**: fusionar la rama solo agrega la carpeta `ti/` y archivos de documentación y pruebas. Publicar las reglas antes o después de fusionar no rompe el inventario: no usa las colecciones nuevas. Lo seguro es: probar reglas → publicar reglas → fusionar la rama → primer ingreso del administrador en `…/inventario-ti/ti/`.
 
+## Dashboard de Inicio y el inventario
+El dashboard **lee** la colección `equipos` (una lectura puntual por carga). Con la regla actual, cualquier usuario autenticado puede leerla, así que funciona. **Si más adelante se endurecen las reglas del inventario, hay que permitir que el Director y el Administrador lean `equipos`**; de lo contrario el dashboard mostrará "sin permiso" en esa sección (el resto sigue funcionando).
+
 ## Límites que debes conocer
 - Un Administrador puede asignarse a sí mismo cualquier rol (incluido Director). La separación de funciones impide que apruebe lo que él editó, pero no impide que tenga ambos roles.
 - Las reglas no pueden verificar el contenido de campos calculados por la app (por ejemplo `documentado` o `proximaRevision`): un usuario con permiso de edición sobre un proceso podría alterarlos. Quedan registrados en el historial y la auditoría.

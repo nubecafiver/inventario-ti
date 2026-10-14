@@ -15,10 +15,10 @@ const URL_APP = 'file://' + path.join(RAIZ, 'ti', 'index.html');
 const resultados = [];
 function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond }); console.log((cond ? 'OK   ' : 'FALLA') + ' ' + nombre + (cond ? '' : '  → ' + JSON.stringify(extra))); }
 
-async function abrir(browser, errores) {
+async function abrir(browser, errores, semilla) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   page.on('pageerror', (e) => errores.push(e.message)); page.on('dialog', (d) => d.dismiss());
-  await page.addInitScript((u) => { window.__SEED_USERS = u; window.__SEED_STORE = {}; window.__xss = undefined; }, USERS);
+  await page.addInitScript((a) => { window.__SEED_USERS = a.u; window.__SEED_STORE = a.s || {}; window.__xss = undefined; }, { u: USERS, s: semilla || {} });
   await page.route('**/*', (route) => {
     const u = route.request().url();
     if (u.startsWith('file:')) return route.continue();
@@ -218,6 +218,97 @@ async function abrir(browser, errores) {
   await p3.click('#burger');
   ok('T13 el botón de menú lo abre (aria-expanded)', (await p3.getAttribute('#burger', 'aria-expanded')) === 'true' && await p3.evaluate(() => document.body.classList.contains('menu-abierto')));
   await p3.close();
+
+  /* ---------- T14: dashboard de Inicio con datos sembrados de cifras conocidas ---------- */
+  const hoy = new Date(); const iso = (anios, dias) => { const d = new Date(Date.UTC(hoy.getUTCFullYear() - anios, hoy.getUTCMonth(), hoy.getUTCDate())); d.setUTCDate(d.getUTCDate() + (dias || 0)); return d.toISOString().slice(0, 10); };
+  const sumarDias = (n) => { const d = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate())); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const semilla = {};
+  const usr = (e, roles) => { semilla['usuarios_ti/' + e] = { email: e, nombre: e.split('@')[0], roles, activo: true }; };
+  usr(ADMIN, ['administrador', 'director']); usr(DIR, ['director']); usr(RESP, ['resp_proceso']); usr(TEC, ['tecnico']); usr(SOL, ['solicitante']);
+  const contenido = { objetivo: 'o', alcance: 'a', descripcion: '', entradas: [], resultadosEsperados: [], sistemas: [], riesgos: [], controles: [], evidencias: [], indicadores: [], tiempoObjetivo: '', documentosRelacionados: [], pasos: [{ descripcion: 'd', responsable: 'r' }] };
+  const proc = (n, o) => { const id = 'PRO-00' + n; semilla['ti_procesos/' + id] = Object.assign({ codigo: id, nombre: 'Proceso ' + n, categoria: 'Servicio', responsable: RESP, creadoPor: RESP, participantes: [], periodoRevisionMeses: 12, estado: 'borrador', versionTrabajo: 1, versionPublicada: null, proximaRevision: null, documentado: false, esPlantilla: false }, o);
+    semilla['ti_procesos/' + id + '/versiones/1'] = { numero: 1, estado: o.estado || 'borrador', contenido, editores: [RESP], creadoPor: RESP, aprobacion: null }; };
+  proc(1, { estado: 'publicado', versionPublicada: 1, proximaRevision: sumarDias(-20), documentado: true });
+  proc(2, { estado: 'pendiente_aprobacion' }); proc(3, { estado: 'borrador' }); proc(4, { estado: 'en_revision' });
+  proc(5, { estado: 'publicado', versionPublicada: 1, proximaRevision: sumarDias(10), participantes: ['x@x.mx'] });
+  proc(6, { estado: 'borrador', responsable: 'otro@x.mx', creadoPor: 'otro@x.mx' });
+  proc(7, { estado: 'publicado', versionPublicada: 1, proximaRevision: sumarDias(200), participantes: ['x@x.mx'], documentado: true });
+  const equipo = (n, e) => { semilla['equipos/EQ' + n] = Object.assign({ id: 'EQ' + n, area: 'TI', marca: 'M', modelo: 'X' }, e); };
+  [1, 2, 3].forEach((n) => equipo(n, { estado: 'Baja', responsable: '', fecha: '' }));
+  equipo(4, { estado: 'Bueno', responsable: 'Ana', fecha: iso(5) });        // vida vencida
+  equipo(5, { estado: 'Bueno', responsable: 'Ben', fecha: iso(4, -2) });    // vida vencida
+  equipo(6, { estado: 'Bueno', responsable: 'Cai', fecha: iso(3, -30) });   // próxima
+  equipo(7, { estado: 'Bueno', responsable: '', fecha: iso(3, -10) });      // próxima, sin responsable
+  equipo(8, { estado: 'Bueno', responsable: 'Eli', fecha: iso(1) });        // vigente
+  equipo(9, { estado: 'Regular', responsable: 'Fer', fecha: iso(0, -180) });// vigente
+  equipo(10, { estado: 'Regular', responsable: '', fecha: '' });            // sin fecha, sin responsable
+  equipo(11, { estado: 'Malo', responsable: 'Hal', fecha: 'no-es-fecha' }); // sin fecha
+  equipo(12, { estado: '', responsable: '   ', fecha: iso(2) });            // sin estado, sin responsable, vigente
+  const D = await abrir(browser, errores, semilla), pd = D.page;
+  const val = async (t) => (await pd.locator('.ti-kpi:has(.ti-kl:text-is("' + t + '")) .ti-kv').first().textContent()).trim();
+  await D.login(ADMIN); await pd.waitForSelector('.ti-kpi', { timeout: 5000 }); await D.espera(300);
+  await D.shot('9-dashboard-admin');
+  const v = { reg: await val('Equipos registrados'), act: await val('Equipos activos'), resp: await val('Con responsable'), bueno: await val('En buen estado'), venc: await val('Vida útil vencida (≥ 4 años)'), prox: await val('Vida útil próxima (3–4 años)'), sinf: await val('Sin fecha de compra') };
+  ok('T14 inventario: 12 registrados, 9 activos (3 bajas)', v.reg === '12' && v.act === '9', v);
+  ok('T14 inventario: 67% con responsable (6 de 9) y 56% en buen estado (5 de 9)', v.resp === '67%' && v.bueno === '56%', v);
+  ok('T14 inventario: vida útil 2 vencidas, 2 próximas y 2 sin fecha', v.venc === '2' && v.prox === '2' && v.sinf === '2', v);
+  ok('T14 inventario: muestra de cuántos sin responsable y estado físico', (await pd.locator('.ti-kpi:has-text("Con responsable")').textContent()).includes('3 sin responsable') && (await pd.locator('.ti-kpi:has-text("En buen estado")').textContent()).includes('Regular 2 · Malo 1 · Sin estado 1'));
+  ok('T14 garantías y reparaciones aparecen como "No disponible" con explicación', (await pd.locator('.ti-nd').count()) === 2 && (await pd.locator('.ti-nd:has-text("Garantías") .ti-kd').textContent()).includes('texto libre') && (await pd.locator('.ti-nd:has-text("reparación") .ti-kd').textContent()).includes('terminadas'));
+  const proc7 = { reg: await val('Procesos registrados'), doc: await val('Documentados'), pen: await val('Pendientes de aprobación'), ven: await val('Revisión vencida'), prox: await val('Revisión en 30 días'), pub: await val('Publicados vigentes'), rev: await val('En revisión'), sin: await val('Dependen de una persona') };
+  ok('T14 procesos: 7 registrados y 29% documentados (2 de 7)', proc7.reg === '7' && proc7.doc === '29%', proc7);
+  ok('T14 procesos: 1 pendiente, 1 vencida, 1 próxima, 3 publicados, 1 en revisión y 5 dependen de una persona', proc7.pen === '1' && proc7.ven === '1' && proc7.prox === '1' && proc7.pub === '3' && proc7.rev === '1' && proc7.sin === '5', proc7);
+  const atn = await pd.locator('.ti-atn-b').allTextContents();
+  ok('T14 requiere atención (Administrador+Director): PRO-002 pendiente y PRO-001 vencida', atn.length === 2 && atn.some((t) => t.includes('PRO-002') && t.includes('Espera tu decisión')) && atn.some((t) => t.includes('PRO-001') && t.includes('Revisión vencida')), atn);
+  ok('T14 los semáforos siempre llevan texto (no solo color)', (await pd.evaluate(() => [...document.querySelectorAll('.ti-sem')].every((e) => e.textContent.trim().length > 2))));
+  const lec1 = await pd.evaluate(() => window.__MOCK.lecturas['equipos']);
+  ok('T14 costo: una sola lectura del inventario (12 documentos) al abrir Inicio', lec1 === 12, lec1);
+  ok('T14 muestra la antigüedad de los datos', (await pd.locator('#inv-edad').textContent()).includes('Datos de hace') && (await pd.locator('#inv-edad').textContent()).includes('12 equipos'));
+  await D.ir('ti-procesos'); await D.ir('ti-inicio'); await D.espera(250);
+  ok('T14 caché: volver a Inicio no vuelve a leer el inventario', (await pd.evaluate(() => window.__MOCK.lecturas['equipos'])) === 12);
+  await pd.click('#inv-act'); await D.espera(300);
+  ok('T14 "Actualizar" vuelve a leer (24 lecturas acumuladas)', (await pd.evaluate(() => window.__MOCK.lecturas['equipos'])) === 24);
+  await pd.evaluate(() => { const r = Date.now; Date.now = () => r() + 11 * 60 * 1000; }); await D.ir('ti-procesos'); await D.ir('ti-inicio'); await D.espera(300);
+  ok('T14 caché: pasados 10 minutos se vuelve a leer solo (36 lecturas)', (await pd.evaluate(() => window.__MOCK.lecturas['equipos'])) === 36, await pd.evaluate(() => window.__MOCK.lecturas['equipos']));
+  // error de permisos del inventario no rompe lo demás
+  await pd.evaluate(() => { window.__MOCK.failRead = (p) => (p === 'equipos' ? Object.assign(new Error('x'), { code: 'permission-denied' }) : null); });
+  await pd.click('#inv-act'); await D.espera(300);
+  ok('T14 error de permisos en el inventario: mensaje claro y los indicadores de procesos siguen', (await pd.locator('#view-ti-inicio').textContent()).includes('sin permiso') && (await val('Procesos registrados')) === '7');
+  await pd.evaluate(() => { window.__MOCK.failRead = null; }); await pd.click('#inv-act'); await D.espera(300);
+  ok('T14 se recupera al volver el permiso', (await val('Equipos registrados')) === '12');
+  // navegación desde las tarjetas
+  await pd.click('.ti-kpi[data-nav=revisionVencida]'); await D.espera(250);
+  ok('T14 clic en "Revisión vencida" abre Procesos filtrado con exactamente ese registro', (await pd.locator('.ti-kpi.on[data-kpi=revisionVencida]').count()) === 1 && (await D.filas()) === 1 && (await pd.locator('.ti-row').textContent()).includes('PRO-001'));
+  await D.ir('ti-inicio'); await D.espera(250); await pd.click('.ti-atn-b:has-text("PRO-002")'); await pd.waitForSelector('.ti-ov .modal-footer', { timeout: 4000 }).catch(() => {});
+  ok('T14 clic en un elemento de "Requiere atención" abre ese proceso', (await pd.locator('.ti-ov .modal-hd h3').first().textContent()).includes('PRO-002'));
+  await D.cerrarModal();
+  const contraste = await pd.evaluate(() => { function lum(c) { const a = c.map((v) => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * a[0] + .7152 * a[1] + .0722 * a[2]; } function pc(c) { const m = c.match(/[\d.]+/g).map(Number); return { rgb: m.slice(0, 3), a: m[3] === undefined ? 1 : m[3] }; } function bg(el) { while (el) { const c = pc(getComputedStyle(el).backgroundColor); if (c.a > .9) return c.rgb; el = el.parentElement; } return [255, 255, 255]; } const out = {}; document.querySelectorAll('#view-ti-inicio *').forEach((el) => { if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) return; const r = el.getBoundingClientRect(); if (!r.width) return; const cs = getComputedStyle(el); const L1 = lum(pc(cs.color).rgb), L2 = lum(bg(el)); const cr = (Math.max(L1, L2) + .05) / (Math.min(L1, L2) + .05); if (cr < 4.5) out[el.textContent.trim().slice(0, 30) + ' (' + cr.toFixed(2) + ')'] = 1; }); return Object.keys(out); });
+  await D.ir('ti-inicio'); await D.espera(250);
+  ok('T14 contraste de texto ≥ 4.5:1 en el dashboard', contraste.length === 0, contraste);
+  await pd.focus('.ti-kpi[data-nav=publicados]'); await pd.keyboard.press('Enter'); await D.espera(250);
+  ok('T14 teclado: Enter en una tarjeta abre Procesos filtrado', (await pd.locator('.ti-kpi.on[data-kpi=publicados]').count()) === 1);
+  await D.logout();
+  // Director: ve inventario y atención; Responsable: solo lo suyo y sin inventario; Técnico y solicitante: solo accesos
+  await D.login(DIR); await D.espera(300);
+  ok('T14 Director: ve inventario y 2 elementos de atención (PRO-002 y PRO-001)', (await pd.locator('#s-inv').count()) === 1 && (await pd.locator('.ti-atn-b').count()) === 2, (await pd.locator('#view-ti-inicio').textContent()).slice(0, 300));
+  const lecAntes = await pd.evaluate(() => window.__MOCK.lecturas['equipos']);
+  await D.logout(); await D.login(RESP); await D.espera(300);
+  const atnR = await pd.locator('.ti-atn-b').allTextContents();
+  ok('T14 Responsable: no ve el inventario y su atención son sus 3 procesos (PRO-001 vencida, PRO-003 borrador, PRO-004 en revisión)', (await pd.locator('#s-inv').count()) === 0 && atnR.length === 3 && atnR.some((t) => t.includes('PRO-003') && t.includes('Borrador')) && atnR.some((t) => t.includes('PRO-004')) && atnR.some((t) => t.includes('PRO-001')) && !atnR.some((t) => t.includes('PRO-006')), (await pd.locator('#view-ti-inicio').textContent()).slice(0, 300));
+  ok('T14 Responsable: no se lee el inventario (ninguna lectura extra)', (await pd.evaluate(() => window.__MOCK.lecturas['equipos'])) === lecAntes, { lecAntes });
+  await D.logout(); await D.login(TEC); await D.espera(300);
+  ok('T14 Técnico: sin indicadores ni atención ni inventario; solo accesos', (await pd.locator('#s-inv').count()) === 0 && (await pd.locator('.ti-kpis').count()) === 0 && (await pd.locator('.ti-atn-b').count()) === 0 && (await pd.locator('#s-acc').count()) === 1, (await pd.locator('#view-ti-inicio').textContent()).slice(0, 300));
+  await D.logout(); await D.login(SOL); await D.espera(300);
+  ok('T14 Solicitante: solo accesos (inventario aparte), sin datos de procesos ni inventario', (await pd.locator('#s-inv').count()) === 0 && (await pd.locator('.ti-kpis').count()) === 0 && (await pd.locator('.ti-mod').count()) === 1);
+  await D.logout(); await pd.close();
+
+  /* ---------- T15: estados vacíos ---------- */
+  const semilla2 = {}; semilla2['usuarios_ti/' + ADMIN] = { email: ADMIN, nombre: 'Admin', roles: ['administrador', 'director'], activo: true };
+  const E = await abrir(browser, errores, semilla2), pe = E.page;
+  await E.login(ADMIN); await E.espera(400);
+  const txt = await pe.locator('#view-ti-inicio').textContent();
+  ok('T15 sin procesos ni equipos: mensajes de estado vacío comprensibles y sin cifras inventadas', txt.includes('Aún no hay procesos registrados') && txt.includes('Aún no hay equipos registrados') && txt.includes('Nada pendiente') && (await pe.locator('.ti-kpi').count()) === 0, txt.slice(0, 200));
+  ok('T15 el aviso dice que no hay metas ni tendencias', txt.includes('no existe un histórico'));
+  await pe.close();
 
   ok('Sin errores de JavaScript en toda la sesión', errores.length === 0, errores.slice(0, 5));
   await browser.close();

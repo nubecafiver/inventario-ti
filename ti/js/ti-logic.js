@@ -15,8 +15,8 @@
     solicitante:   'Solicitante'
   };
   var PERMISOS_POR_ROL = {
-    director:      ['procesos.ver', 'procesos.aprobar', 'procesos.publicar', 'auditoria.ver'],
-    administrador: ['procesos.ver', 'procesos.crear', 'procesos.editar_todos', 'procesos.publicar', 'procesos.catalogo', 'usuarios.admin', 'auditoria.ver'],
+    director:      ['procesos.ver', 'procesos.aprobar', 'procesos.publicar', 'auditoria.ver', 'inventario.resumen'],
+    administrador: ['procesos.ver', 'procesos.crear', 'procesos.editar_todos', 'procesos.publicar', 'procesos.catalogo', 'usuarios.admin', 'auditoria.ver', 'inventario.resumen'],
     resp_proceso:  ['procesos.ver', 'procesos.crear', 'procesos.editar_propios'],
     tecnico:       ['procesos.ver_publicados'],
     solicitante:   []
@@ -200,6 +200,39 @@
       sinRespaldo: activos.filter(function (p) { return !(p.participantes || []).length; }).length
     };
   }
+  /* ===== Indicadores del inventario (solo lectura de `equipos`; no se modifica el inventario) =====
+     Campos usados: estado (Bueno/Regular/Malo/Baja), responsable (texto), fecha (de compra, AAAA-MM-DD).
+     Base de todos los cálculos salvo "dados de baja": equipos ACTIVOS = estado distinto de "Baja".
+     Vida útil: misma regla que la app de inventario (VIDA_UTIL = 4 años): vencida ≥ 4, próxima ≥ 3 y < 4, vigente < 3.
+     Equipos sin fecha de compra válida se cuentan aparte ("sinFecha"); nunca se mezclan con los demás.
+     Los porcentajes solo se calculan con ≥ MIN_MUESTRA equipos activos; con menos son null. */
+  var VIDA_UTIL_ANIOS = 4;
+  function aniosDesde(fecha, hoy) {
+    if (fecha == null || String(fecha).trim() === '') return null;
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(fecha).trim()); if (!m) return null;
+    var d = Date.UTC(+m[1], +m[2] - 1, +m[3]), h = Date.UTC(+hoy.slice(0, 4), +hoy.slice(5, 7) - 1, +hoy.slice(8, 10));
+    if (isNaN(d) || +m[2] < 1 || +m[2] > 12 || +m[3] < 1 || +m[3] > 31) return null;
+    return (h - d) / (1000 * 60 * 60 * 24 * 365.25);
+  }
+  function indicadoresInventario(equipos, hoy) {
+    hoy = hoy || hoyISO();
+    var r = { total: 0, activos: 0, dadosDeBaja: 0, conResponsable: 0, sinResponsable: 0,
+      bueno: 0, regular: 0, malo: 0, sinEstado: 0, vidaVencida: 0, vidaProxima: 0, vidaVigente: 0, sinFecha: 0,
+      pctConResponsable: null, pctBueno: null, muestraMinima: MIN_MUESTRA, vidaUtilAnios: VIDA_UTIL_ANIOS };
+    (equipos || []).forEach(function (e) {
+      r.total++;
+      var estado = String((e && e.estado) || '').trim();
+      if (estado === 'Baja') { r.dadosDeBaja++; return; }
+      r.activos++;
+      if (String((e && e.responsable) || '').trim()) r.conResponsable++; else r.sinResponsable++;
+      if (estado === 'Bueno') r.bueno++; else if (estado === 'Regular') r.regular++; else if (estado === 'Malo') r.malo++; else r.sinEstado++;
+      var a = aniosDesde(e && e.fecha, hoy);
+      if (a === null) r.sinFecha++; else if (a >= VIDA_UTIL_ANIOS) r.vidaVencida++; else if (a >= VIDA_UTIL_ANIOS - 1) r.vidaProxima++; else r.vidaVigente++;
+    });
+    if (r.activos >= MIN_MUESTRA) { r.pctConResponsable = Math.round(r.conResponsable / r.activos * 100); r.pctBueno = Math.round(r.bueno / r.activos * 100); }
+    return r;
+  }
+
   /* Filtro de la tabla correspondiente a cada tarjeta, para "navegar hasta los registros que la componen". */
   function filtroIndicador(clave, hoy, ventana) {
     hoy = hoy || hoyISO(); var limite = sumarDias(hoy, ventana || VENTANA_DIAS);
@@ -237,7 +270,7 @@
     validarContenido: validarContenido, esDocumentado: esDocumentado,
     hoyISO: hoyISO, sumarMeses: sumarMeses, sumarDias: sumarDias,
     ACCIONES: ACCIONES, accionesDisponibles: accionesDisponibles, aplicarAccion: aplicarAccion,
-    indicadores: indicadores, filtroIndicador: filtroIndicador, MIN_MUESTRA: MIN_MUESTRA, VENTANA_DIAS: VENTANA_DIAS,
+    indicadores: indicadores, indicadoresInventario: indicadoresInventario, filtroIndicador: filtroIndicador, MIN_MUESTRA: MIN_MUESTRA, VENTANA_DIAS: VENTANA_DIAS,
     CATEGORIAS: CATEGORIAS, CATALOGO_INICIAL: CATALOGO_INICIAL
   };
 });

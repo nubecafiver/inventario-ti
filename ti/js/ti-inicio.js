@@ -1,0 +1,148 @@
+/* CAFIVER TI — Inicio: dashboard con datos reales.
+   Procesos: de la misma suscripción que el módulo de Procesos (no duplica lecturas).
+   Inventario: SOLO LECTURA de `equipos` (una lectura puntual con caché de 10 minutos). No modifica el inventario. */
+(function () {
+  'use strict';
+  var TI = window.TI, L = TI.L, esc = TI.esc;
+  var TTL_MS = 10 * 60 * 1000;
+  var INV = { datos: null, ts: 0, cargando: false, error: '', equipos: 0 };
+  var el = null;
+
+  TI.registrarVista('ti-inicio', {
+    permitido: function () { return true; },
+    render: function (contenedor) {
+      el = contenedor;
+      if (TI.user && L.tiene(TI.user, 'procesos.ver_publicados') || TI.user && L.tiene(TI.user, 'procesos.ver')) {
+        if (TI.datosProcesos) { TI.datosProcesos.asegurar(); TI.datosProcesos.alCambiar(repintarSiVisible); }
+      }
+      if (TI.user && L.tiene(TI.user, 'inventario.resumen')) leerInventario(false);
+      pintar();
+    },
+    destruir: function () { INV = { datos: null, ts: 0, cargando: false, error: '', equipos: 0 }; el = null; }
+  });
+  function repintarSiVisible() { if (el && !el.classList.contains('hidden')) pintar(); }
+
+  /* ===== Inventario: lectura puntual con caché ===== */
+  function leerInventario(forzar) {
+    var vigente = INV.datos && (Date.now() - INV.ts) < TTL_MS;
+    if (INV.cargando || (vigente && !forzar)) return;
+    INV.cargando = true; INV.error = '';
+    db.collection('equipos').get().then(function (snap) {
+      var lista = snap.docs.map(function (d) { return d.data(); });
+      INV.datos = L.indicadoresInventario(lista, L.hoyISO()); INV.ts = Date.now(); INV.equipos = lista.length;
+    }).catch(function (e) { INV.error = e.code === 'permission-denied' ? 'permiso' : (e.message || 'error'); })
+      .then(function () { INV.cargando = false; repintarSiVisible(); });
+  }
+
+  /* ===== Piezas ===== */
+  function sem(clase, icono, texto) { return '<span class="ti-sem ' + clase + '"><i class="ti ' + icono + '" aria-hidden="true"></i>' + esc(texto) + '</span>'; }
+  function tarjeta(o) {
+    var cuerpo = '<div class="ti-kl">' + esc(o.titulo) + '</div><div class="ti-kv">' + o.valor + '</div>' + (o.sub ? '<div class="ti-kd">' + esc(o.sub) + '</div>' : '') + (o.sem ? '<div class="ti-sembox">' + o.sem + '</div>' : '');
+    if (o.nav) return '<button class="ti-kpi" data-nav="' + esc(o.nav) + '">' + cuerpo + '</button>';
+    return '<div class="ti-kpi ti-kpi-fija' + (o.nd ? ' ti-nd' : '') + '"' + (o.nd ? ' role="group" aria-label="' + esc(o.titulo) + ': no disponible"' : '') + '>' + cuerpo + '</div>';
+  }
+  function pct(n, total, minimo) { return total >= minimo ? Math.round(n / total * 100) + '%' : n + ' de ' + total; }
+
+  /* ===== Requiere atención (según rol) ===== */
+  function atencion(lista) {
+    var u = TI.user, hoy = L.hoyISO(), items = [], vistos = {};
+    function add(p, motivo, clase, icono) { if (vistos[p.id]) return; vistos[p.id] = 1; items.push({ p: p, motivo: motivo, clase: clase, icono: icono }); }
+    var venc = function (p) { return L.vigente(p.estado) && p.proximaRevision && p.proximaRevision < hoy; };
+    if (L.tiene(u, 'procesos.aprobar')) lista.filter(function (p) { return p.estado === 'pendiente_aprobacion'; }).forEach(function (p) { add(p, 'Espera tu decisión', 'warn', 'ti-hourglass'); });
+    if (L.tiene(u, 'procesos.aprobar') || L.tiene(u, 'procesos.editar_todos') || L.tiene(u, 'procesos.editar_propios')) {
+      /* El Director supervisa todas las revisiones vencidas; quien edita, las de sus procesos. */
+      lista.filter(function (p) { return venc(p) && (L.tiene(u, 'procesos.aprobar') || L.esEditor(u, p)); }).forEach(function (p) { add(p, 'Revisión vencida desde ' + TI.fecha(p.proximaRevision), 'bad', 'ti-clock-exclamation'); });
+    }
+    if (L.tiene(u, 'procesos.editar_propios') && !L.tiene(u, 'procesos.editar_todos')) {
+      lista.filter(function (p) { return L.esPropietario(u, p) && p.estado === 'borrador'; }).forEach(function (p) { add(p, 'Borrador por completar', 'n', 'ti-edit'); });
+      lista.filter(function (p) { return L.esPropietario(u, p) && p.estado === 'en_revision'; }).forEach(function (p) { add(p, 'En revisión: falta solicitar aprobación', 'n', 'ti-eye-check'); });
+    }
+    return items;
+  }
+
+  /* ===== Pintado ===== */
+  function pintar() {
+    if (!el) return;
+    var u = TI.user, h = '', verProcesos = !!(u && L.tiene(u, 'procesos.ver')), verPublicados = !!(u && L.tiene(u, 'procesos.ver_publicados'));
+    var nombre = (window.curUser && curUser.name) || '';
+    h += '<div class="ti-home"><div class="ti-head"><div><h1 class="ti-h1">Hola, ' + esc(nombre) + '</h1><div class="ti-sub">Resumen de la operación de TI · ' + esc(new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })) + '</div></div></div>';
+    if (TI.estado === 'error') h += '<div class="ti-note err"><b>No se pudo leer tu rol.</b> Si las reglas de seguridad aún no se publicaron o tu sesión expiró, vuelve a iniciar sesión. Mientras tanto puedes usar el Inventario de equipos.</div>';
+    else if (TI.estado === 'sin-registro' && !TI.pendienteBootstrap) h += '<div class="ti-note warn"><b>Tu cuenta aún no tiene un rol en esta plataforma.</b> Pide a la persona administradora que te lo asigne. Mientras tanto puedes usar el Inventario de equipos.</div>';
+    else if (TI.estado === 'inactivo') h += '<div class="ti-note warn"><b>Tu usuario está desactivado en la plataforma.</b> Contacta a la persona administradora.</div>';
+    else if (TI.pendienteBootstrap) h += '<div class="ti-note warn"><b>Configuración inicial pendiente.</b> Abre Administración y crea tu registro de administrador.</div>';
+
+    if (verProcesos) h += seccionProcesos();
+    if (u && L.tiene(u, 'inventario.resumen')) h += seccionInventario();
+    h += seccionAccesos(u, verProcesos || verPublicados);
+    h += '<div class="ti-note">Mesa de ayuda, cambios, proyectos, contratos y respaldos aparecerán aquí cuando se construyan. Todavía no hay metas ni tendencias: no existe un histórico guardado de los indicadores.</div></div>';
+    var foco = document.activeElement && document.activeElement.dataset && (document.activeElement.dataset.nav || document.activeElement.id);
+    el.innerHTML = h; ligar();
+    if (foco) { var x = el.querySelector('[data-nav="' + foco + '"]') || (foco.charAt && el.querySelector('#' + foco)); if (x) x.focus(); }
+  }
+
+  function seccionProcesos() {
+    var lista = TI.datosProcesos ? TI.datosProcesos.lista() : [], err = TI.datosProcesos && TI.datosProcesos.error();
+    var h = '<section class="ti-seccion" aria-labelledby="s-proc"><h2 class="ti-h2" id="s-proc">Requiere tu atención</h2>';
+    if (err === 'permiso') return h + '<div class="ti-note err">Sin acceso a los procesos: es posible que las reglas de seguridad aún no estén publicadas.</div></section>';
+    if (err) return h + '<div class="ti-note err">No se pudieron leer los procesos: ' + esc(err) + '</div></section>';
+    var items = atencion(lista);
+    if (!items.length) h += '<div class="ti-card"><div class="ti-empty">Nada pendiente por ahora.</div></div>';
+    else h += '<div class="ti-card"><ul class="ti-atn">' + items.slice(0, 8).map(function (i) { return '<li><button class="ti-atn-b" data-abrir="' + esc(i.p.id) + '"><span><b>' + esc(i.p.nombre) + '</b><small>' + esc(i.p.codigo || i.p.id) + '</small></span>' + sem(i.clase, i.icono, i.motivo) + '</button></li>'; }).join('') + '</ul>' + (items.length > 8 ? '<div class="ti-kd" style="padding:8px 12px">Y ' + (items.length - 8) + ' más en Procesos y procedimientos.</div>' : '') + '</div>';
+    h += '</section>';
+    var ind = L.indicadores(lista), vacio = !lista.length;
+    h += '<section class="ti-seccion" aria-labelledby="s-ind"><h2 class="ti-h2" id="s-ind">Procesos y procedimientos</h2>';
+    if (vacio) return h + '<div class="ti-card"><div class="ti-empty">Aún no hay procesos registrados. Crea el primero o carga el catálogo inicial en Procesos y procedimientos.</div></div></section>';
+    var doc = ind.porcentajeDocumentados === null ? ind.documentados + ' de ' + ind.registrados : ind.porcentajeDocumentados + '%';
+    h += '<div class="ti-kpis">' +
+      tarjeta({ nav: 'registrados', titulo: 'Procesos registrados', valor: ind.registrados, sub: 'No obsoletos' }) +
+      tarjeta({ nav: 'documentados', titulo: 'Documentados', valor: doc, sub: ind.porcentajeDocumentados === null ? 'Muestra insuficiente (se requieren ≥' + L.MIN_MUESTRA + ' procesos)' : ind.documentados + ' de ' + ind.registrados + ' procesos' }) +
+      tarjeta({ nav: 'pendientesAprobacion', titulo: 'Pendientes de aprobación', valor: ind.pendientesAprobacion, sem: ind.pendientesAprobacion ? sem('warn', 'ti-hourglass', 'Requiere decisión') : sem('ok', 'ti-circle-check', 'Al día') }) +
+      tarjeta({ nav: 'revisionVencida', titulo: 'Revisión vencida', valor: ind.revisionVencida, sem: ind.revisionVencida ? sem('bad', 'ti-alert-octagon', 'Atención') : sem('ok', 'ti-circle-check', 'Al día') }) +
+      tarjeta({ nav: 'proximosRevision', titulo: 'Revisión en ' + L.VENTANA_DIAS + ' días', valor: ind.proximosRevision, sub: 'Vigentes próximos a revisar' }) +
+      tarjeta({ nav: 'publicados', titulo: 'Publicados vigentes', valor: ind.publicados }) +
+      tarjeta({ nav: 'enRevision', titulo: 'En revisión', valor: ind.enRevision }) +
+      tarjeta({ nav: 'sinRespaldo', titulo: 'Dependen de una persona', valor: ind.sinRespaldo, sem: ind.sinRespaldo ? sem('warn', 'ti-user-exclamation', 'Riesgo') : sem('ok', 'ti-circle-check', 'Cubierto') }) + '</div>';
+    return h + '</section>';
+  }
+
+  function seccionInventario() {
+    var h = '<section class="ti-seccion" aria-labelledby="s-inv"><div class="ti-seccion-h"><h2 class="ti-h2" id="s-inv">Inventario de equipos</h2><span class="ti-mut" id="inv-edad"></span>' +
+      '<button class="btn btn-sm" id="inv-act"' + (INV.cargando ? ' disabled' : '') + '>' + (INV.cargando ? 'Actualizando…' : 'Actualizar') + '</button>' +
+      '<a class="btn btn-sm" href="../index.html" target="_blank" rel="noopener">Abrir inventario <i class="ti ti-external-link" aria-hidden="true"></i></a></div>';
+    if (INV.error === 'permiso') return h + '<div class="ti-note err">No se pudo leer el inventario: sin permiso. Los indicadores de procesos no se ven afectados.</div></section>';
+    if (INV.error) return h + '<div class="ti-note err">No se pudo leer el inventario: ' + esc(INV.error) + '. Los indicadores de procesos no se ven afectados.</div></section>';
+    if (!INV.datos) return h + '<div class="ti-card"><div class="ti-empty" role="status">Leyendo el inventario…</div></div></section>';
+    var d = INV.datos;
+    if (!d.total) return h + '<div class="ti-card"><div class="ti-empty">Aún no hay equipos registrados en el inventario.</div></div></section>';
+    var min = d.muestraMinima, sinMuestra = d.activos < min;
+    h += '<div class="ti-kpis">' +
+      tarjeta({ titulo: 'Equipos registrados', valor: d.total, sub: d.dadosDeBaja + ' dados de baja' }) +
+      tarjeta({ titulo: 'Equipos activos', valor: d.activos, sub: 'Estado distinto de Baja' }) +
+      tarjeta({ titulo: 'Con responsable', valor: pct(d.conResponsable, d.activos, min), sub: d.sinResponsable + ' sin responsable registrado', sem: d.sinResponsable ? sem('warn', 'ti-user-exclamation', 'Requiere asignación') : sem('ok', 'ti-circle-check', 'Todos asignados') }) +
+      tarjeta({ titulo: 'En buen estado', valor: pct(d.bueno, d.activos, min), sub: 'Regular ' + d.regular + ' · Malo ' + d.malo + (d.sinEstado ? ' · Sin estado ' + d.sinEstado : ''), sem: d.malo ? sem('bad', 'ti-alert-triangle', d.malo + ' en mal estado') : '' }) +
+      tarjeta({ titulo: 'Vida útil vencida (≥ ' + d.vidaUtilAnios + ' años)', valor: d.vidaVencida, sub: 'Candidatos a reemplazo', sem: d.vidaVencida ? sem('bad', 'ti-alert-octagon', 'Atención') : sem('ok', 'ti-circle-check', 'Sin vencidos') }) +
+      tarjeta({ titulo: 'Vida útil próxima (' + (d.vidaUtilAnios - 1) + '–' + d.vidaUtilAnios + ' años)', valor: d.vidaProxima, sub: 'Planificar reemplazo', sem: d.vidaProxima ? sem('warn', 'ti-clock', 'Próximos') : '' }) +
+      tarjeta({ titulo: 'Sin fecha de compra', valor: d.sinFecha, sub: 'No entran en el cálculo de vida útil', sem: d.sinFecha ? sem('n', 'ti-info-circle', 'Datos incompletos') : '' }) +
+      tarjeta({ nd: true, titulo: 'Garantías próximas a vencer', valor: '<span class="ti-ndv">No disponible</span>', sub: 'El inventario guarda la garantía como texto libre (por ejemplo "1 año"); no se puede calcular el vencimiento con certeza.' }) +
+      tarjeta({ nd: true, titulo: 'Equipos en reparación', valor: '<span class="ti-ndv">No disponible</span>', sub: 'El inventario registra reparaciones terminadas, no un estado "en reparación" vigente.' }) + '</div>';
+    if (sinMuestra) h += '<div class="ti-kd" style="margin-top:8px">Los porcentajes se muestran cuando hay al menos ' + min + ' equipos activos.</div>';
+    return h + '</section>';
+  }
+
+  function seccionAccesos(u, verProc) {
+    var h = '<section class="ti-seccion" aria-labelledby="s-acc"><h2 class="ti-h2" id="s-acc">Accesos</h2><div class="ti-cards">';
+    if (verProc) h += '<div class="ti-mod"><h2><i class="ti ti-sitemap" aria-hidden="true"></i>Procesos y procedimientos</h2><p>' + (L.tiene(u, 'procesos.ver') ? 'Documenta, revisa, aprueba y publica los procedimientos del departamento de TI.' : 'Consulta los procedimientos publicados vigentes.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-procesos">Abrir</button></div>';
+    h += '<div class="ti-mod"><h2><i class="ti ti-devices-pc" aria-hidden="true"></i>Inventario de equipos</h2><p>Equipos, QR, reparaciones, celulares, licencias, personal y etiquetas. Es la app de inventario que ya usas, sin cambios.</p><a class="btn btn-sm" href="../index.html" target="_blank" rel="noopener">Abrir en otra pestaña <i class="ti ti-external-link" aria-hidden="true"></i></a></div>';
+    if (u && (L.tiene(u, 'usuarios.admin') || L.tiene(u, 'auditoria.ver') || TI.pendienteBootstrap)) h += '<div class="ti-mod"><h2><i class="ti ti-shield-lock" aria-hidden="true"></i>Administración</h2><p>' + (TI.pendienteBootstrap ? 'Configuración inicial pendiente: crea tu registro de administrador.' : 'Usuarios, roles y bitácora de auditoría.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-admin">Abrir</button></div>';
+    return h + '</div></section>';
+  }
+
+  function ligar() {
+    el.querySelectorAll('[data-nav]').forEach(function (b) { b.onclick = function () { TI.ir('ti-procesos', { kpi: b.dataset.nav }); }; });
+    el.querySelectorAll('[data-abrir]').forEach(function (b) { b.onclick = function () { TI.ir('ti-procesos', { abrir: b.dataset.abrir }); }; });
+    el.querySelectorAll('[data-ir]').forEach(function (b) { b.onclick = function () { TI.ir(b.dataset.ir); }; });
+    var act = el.querySelector('#inv-act'); if (act) act.onclick = function () { leerInventario(true); repintarSiVisible(); };
+    var edad = el.querySelector('#inv-edad');
+    if (edad) edad.textContent = INV.datos ? 'Datos de hace ' + (Math.max(0, Math.round((Date.now() - INV.ts) / 60000)) === 0 ? 'menos de 1 minuto' : Math.round((Date.now() - INV.ts) / 60000) + ' min') + ' · ' + INV.equipos + ' equipos leídos' : '';
+  }
+})();

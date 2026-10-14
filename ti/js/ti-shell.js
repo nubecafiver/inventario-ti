@@ -5,26 +5,10 @@
   var TI = window.TI, L = TI.L, esc = TI.esc;
   var actual = null;
 
-  /* ===== Inicio: acceso a los módulos disponibles (el resumen ejecutivo llega en la Fase 4) ===== */
-  TI.registrarVista('ti-inicio', {
-    permitido: function () { return true; },
-    render: function (el) {
-      var u = TI.user, h = '<div class="ti-home"><h1>Hola, ' + esc((window.curUser && curUser.name) || '') + '</h1><div class="ti-sub">Centro de Gestión y Control de Tecnología de CAFIVER.</div>';
-      if (TI.estado === 'error') h += '<div class="ti-note err"><b>No se pudo leer tu rol.</b> Si las reglas de seguridad aún no se publicaron o tu sesión expiró, vuelve a iniciar sesión. Mientras tanto puedes usar el Inventario de equipos.</div>';
-      else if (TI.estado === 'sin-registro' && !TI.pendienteBootstrap) h += '<div class="ti-note warn"><b>Tu cuenta aún no tiene un rol en esta plataforma.</b> Pide a la persona administradora que te lo asigne. Mientras tanto puedes usar el Inventario de equipos.</div>';
-      else if (TI.estado === 'inactivo') h += '<div class="ti-note warn"><b>Tu usuario está desactivado en la plataforma.</b> Contacta a la persona administradora.</div>';
-      h += '<div class="ti-cards">';
-      if (L.tiene(u, 'procesos.ver') || L.tiene(u, 'procesos.ver_publicados')) h += '<div class="ti-mod"><h2><i class="ti ti-sitemap" aria-hidden="true"></i>Procesos y procedimientos</h2><p>' + (L.tiene(u, 'procesos.ver') ? 'Documenta, revisa, aprueba y publica los procedimientos del departamento de TI.' : 'Consulta los procedimientos publicados vigentes.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-procesos">Abrir</button></div>';
-      h += '<div class="ti-mod"><h2><i class="ti ti-devices-pc" aria-hidden="true"></i>Inventario de equipos</h2><p>Equipos, QR, reparaciones, celulares, licencias, personal y etiquetas. Es la app de inventario que ya usas, sin cambios.</p><a class="btn btn-sm" href="../index.html" target="_blank" rel="noopener">Abrir en otra pestaña <i class="ti ti-external-link" aria-hidden="true"></i></a></div>';
-      if (L.tiene(u, 'usuarios.admin') || L.tiene(u, 'auditoria.ver') || TI.pendienteBootstrap) h += '<div class="ti-mod"><h2><i class="ti ti-shield-lock" aria-hidden="true"></i>Administración</h2><p>' + (TI.pendienteBootstrap ? 'Configuración inicial pendiente: crea tu registro de administrador.' : 'Usuarios, roles y bitácora de auditoría.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-admin">Abrir</button></div>';
-      h += '</div><div class="ti-note" style="margin-top:16px">Mesa de ayuda, cambios, proyectos, contratos y respaldos aparecerán aquí cuando se construyan. El resumen ejecutivo con indicadores es la siguiente fase.</div></div>';
-      el.innerHTML = h;
-      el.querySelectorAll('[data-ir]').forEach(function (b) { b.onclick = function () { TI.ir(b.dataset.ir); }; });
-    }
-  });
+  /* La pantalla de Inicio (dashboard) vive en ti/js/ti-inicio.js. */
 
   /* ===== Enrutador ===== */
-  TI.ir = function (id) {
+  TI.ir = function (id, parametros) {
     var vista = TI.vistas[id];
     if (!vista) return;
     if (!TI.puedeEntrar(id)) { TI.msg('No tienes permiso para abrir esta sección.'); id = 'ti-inicio'; vista = TI.vistas[id]; }
@@ -35,7 +19,7 @@
     });
     document.body.classList.remove('menu-abierto'); document.getElementById('burger').setAttribute('aria-expanded', 'false');
     try { if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id); } catch (e) {}
-    vista.render(document.getElementById('view-' + id));
+    vista.render(document.getElementById('view-' + id), parametros);
     window.scrollTo(0, 0);
   };
   /* Se llama al cargar o cambiar el rol: muestra solo los menús que corresponden. */
@@ -50,6 +34,7 @@
 
   /* ===== Sesión ===== */
   function mostrarLogin() {
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}   /* un nuevo inicio de sesión siempre empieza en Inicio */
     document.getElementById('app').classList.add('hidden'); document.getElementById('login-screen').classList.remove('hidden');
     var b = document.getElementById('login-btn'); b.disabled = false; b.textContent = 'Iniciar sesión';
   }

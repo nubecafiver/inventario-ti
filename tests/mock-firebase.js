@@ -8,7 +8,7 @@
   var store = window.__SEED_STORE || {};      // ruta -> datos
   var USERS = window.__SEED_USERS || {};      // correo -> contraseña
   var listeners = [], writes = 0;
-  window.__MOCK = { store: store, writes: function () { return writes; }, fail: null };
+  window.__MOCK = { store: store, writes: function () { return writes; }, fail: null, failRead: null, lecturas: {} };
 
   function clone(v) {
     if (v instanceof TS) return new TS(v.ms);
@@ -54,7 +54,11 @@
     if (this.l) out = out.slice(0, this.l);
     return out;
   };
-  Query.prototype.get = function () { var d = this._docs(); return Promise.resolve({ docs: d, empty: !d.length, size: d.length }); };
+  Query.prototype.get = function () {
+    if (window.__MOCK.failRead) { var f = window.__MOCK.failRead(this.path); if (f) return Promise.reject(f); }
+    var d = this._docs(); window.__MOCK.lecturas[this.path] = (window.__MOCK.lecturas[this.path] || 0) + d.length;
+    return Promise.resolve({ docs: d, empty: !d.length, size: d.length });
+  };
   Query.prototype.onSnapshot = function (cb, err) { var q = this; return listen({ run: function () { var d = q._docs(); cb({ docs: d, empty: !d.length, size: d.length }); } }); };
 
   function listen(l) { listeners.push(l); setTimeout(function () { try { l.run(); } catch (e) { console.error(e); } }, 0); return function () { var i = listeners.indexOf(l); if (i >= 0) listeners.splice(i, 1); }; }
