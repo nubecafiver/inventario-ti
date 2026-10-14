@@ -40,23 +40,36 @@ service cloud.firestore {
     }
 
     /* ---------- Configuración (folios y mesa de ayuda) ---------- */
-    // Folios: ti_config/contadores {procesos, tickets}. Los procesos los incrementa el administrador o un responsable (el catálogo
+    // Folios: ti_config/contadores {procesos, tickets, cambios, proveedores, contratos}. Los procesos los incrementa el administrador o un responsable (el catálogo
     // reserva varios a la vez); los tickets los incrementa cualquier usuario activo, de uno en uno.
     function ctr() { return request.resource.data; }
     function ctrAntes(k) { return resource.data.get(k, 0); }
+    function dc(k) { return request.resource.data.get(k, 0) - resource.data.get(k, 0); }
     match /ti_config/{doc} {
       allow read: if activo();
       allow create: if (doc == 'contadores'
                         && ((ctr().keys().hasOnly(['procesos']) && ctr().procesos is int && ctr().procesos >= 1 && (esAdmin() || esResp()))
                          || (ctr().keys().hasOnly(['tickets']) && ctr().tickets == 1 && activo())
-                         || (ctr().keys().hasOnly(['cambios']) && ctr().cambios == 1 && (esAdmin() || esResp()))))
-                    || (doc == 'tickets' && esAdmin() && configTicketsValida());
-      allow update: if (doc == 'contadores' && ctr().keys().hasOnly(['procesos', 'tickets', 'cambios'])
-                        && ((ctr().get('procesos', 0) > ctrAntes('procesos') && ctr().get('tickets', 0) == ctrAntes('tickets') && ctr().get('cambios', 0) == ctrAntes('cambios') && (esAdmin() || esResp()))
-                         || (ctr().get('tickets', 0) == ctrAntes('tickets') + 1 && ctr().get('procesos', 0) == ctrAntes('procesos') && ctr().get('cambios', 0) == ctrAntes('cambios') && activo())
-                         || (ctr().get('cambios', 0) == ctrAntes('cambios') + 1 && ctr().get('procesos', 0) == ctrAntes('procesos') && ctr().get('tickets', 0) == ctrAntes('tickets') && (esAdmin() || esResp()))))
-                    || (doc == 'tickets' && esAdmin() && configTicketsValida());
+                         || (ctr().keys().hasOnly(['cambios']) && ctr().cambios == 1 && (esAdmin() || esResp()))
+                         || (ctr().keys().hasOnly(['proveedores']) && ctr().proveedores == 1 && (esAdmin() || esResp()))
+                         || (ctr().keys().hasOnly(['contratos']) && ctr().contratos == 1 && (esAdmin() || esResp()))))
+                    || (doc == 'tickets' && esAdmin() && configTicketsValida())
+                    || (doc == 'proveedores' && esAdmin() && configProveedoresValida());
+      // Cada folio sube de uno en uno (los procesos pueden reservar varios a la vez) y no toca los demás.
+      allow update: if (doc == 'contadores' && ctr().keys().hasOnly(['procesos', 'tickets', 'cambios', 'proveedores', 'contratos'])
+                        && ((dc('procesos') > 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && (esAdmin() || esResp()))
+                         || (dc('tickets') == 1 && dc('procesos') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && activo())
+                         || (dc('cambios') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && (esAdmin() || esResp()))
+                         || (dc('proveedores') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('contratos') == 0 && (esAdmin() || esResp()))
+                         || (dc('contratos') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && (esAdmin() || esResp()))))
+                    || (doc == 'tickets' && esAdmin() && configTicketsValida())
+                    || (doc == 'proveedores' && esAdmin() && configProveedoresValida());
       allow delete: if false;
+    }
+    function configProveedoresValida() {
+      return request.resource.data.keys().hasOnly(['avisoVencimientoDias', 'actualizadoPor', 'actualizadoEn']) && request.resource.data.avisoVencimientoDias is number
+          && request.resource.data.avisoVencimientoDias >= 1 && request.resource.data.avisoVencimientoDias <= 720
+          && request.resource.data.actualizadoPor == correo() && request.resource.data.actualizadoEn == request.time;
     }
     function configTicketsValida() {
       return request.resource.data.keys().hasOnly(['categorias', 'sla', 'horario', 'ventanaReaperturaDias', 'alertaPct', 'actualizadoPor', 'actualizadoEn'])
@@ -263,6 +276,53 @@ service cloud.firestore {
              && ((cm().estado in ['borrador', 'pendiente_aprobacion'] && cm().solicitanteEmail == correo()) || (cm().estado in ['borrador', 'pendiente_aprobacion', 'aprobado'] && esAdmin()))));
       allow delete: if false;
 
+      match /historial/{h} {
+        allow read: if esAdmin() || esDirector();
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- Proveedores y contratos ---------- */
+    // Crean: Gerente, Administrador, Consultor y Responsable de proceso. Aprueban contratos: Gerente y Director (nunca el que crearon).
+    // Ven todo: Gerente, Administrador y Director; el Consultor, lo que creó o tiene asignado.
+    function pv() { return resource.data; }
+    function pvNuevo() { return request.resource.data; }
+    function veProv() { return esAdmin() || esDirector() || (activo() && (pv().creadoPor == correo() || pv().responsable == correo())); }
+    match /ti_proveedores/{id} {
+      allow read: if veProv();
+      allow create: if (esAdmin() || esResp()) && pvNuevo().creadoPor == correo() && pvNuevo().codigo == id && pvNuevo().creadoEn == request.time
+                    && pvNuevo().nombre is string && pvNuevo().nombre.size() > 0 && pvNuevo().nombre.size() <= 200
+                    && pvNuevo().categoria in ['software', 'hardware', 'servicios', 'telecom', 'nube', 'otro'] && pvNuevo().estado in ['activo', 'inactivo'];
+      allow update: if !cambia().hasAny(['codigo', 'creadoPor', 'creadoEn']) && (esAdmin() || (esResp() && (pv().creadoPor == correo() || pv().responsable == correo())))
+                    && pvNuevo().nombre is string && pvNuevo().nombre.size() > 0 && pvNuevo().nombre.size() <= 200 && pvNuevo().estado in ['activo', 'inactivo'];
+      allow delete: if false;
+      match /historial/{h} {
+        allow read: if esAdmin() || esDirector();
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow update, delete: if false;
+      }
+    }
+    function ct() { return resource.data; }
+    function ctNuevo() { return request.resource.data; }
+    function completoContrato() {
+      return ctNuevo().objeto is string && ctNuevo().objeto.size() > 0 && ctNuevo().inicio is string && ctNuevo().fin is string && ctNuevo().fin >= ctNuevo().inicio
+          && ctNuevo().monto is number && ctNuevo().monto >= 0 && ctNuevo().responsable is string && ctNuevo().responsable.size() > 0 && ctNuevo().proveedorId is string;
+    }
+    match /ti_contratos/{id} {
+      allow read: if esAdmin() || esDirector() || (activo() && (ct().creadoPor == correo() || ct().responsable == correo()));
+      allow create: if (esAdmin() || esResp()) && ctNuevo().creadoPor == correo() && ctNuevo().estado == 'borrador' && ctNuevo().codigo == id && ctNuevo().aprobacion == null
+                    && ctNuevo().titulo is string && ctNuevo().titulo.size() > 0 && ctNuevo().titulo.size() <= 200
+                    && ctNuevo().creadoMs is int && math.abs(ctNuevo().creadoMs - request.time.toMillis()) < 600000 && ctNuevo().creadoEn == request.time;
+      allow update: if !cambia().hasAny(['codigo', 'creadoPor', 'creadoMs', 'creadoEn']) && (
+            (ct().estado == 'borrador' && ctNuevo().estado == 'borrador' && (ct().creadoPor == correo() || esAdmin()) && !cambia().hasAny(['estado', 'aprobacion']))
+         || (ct().estado == 'borrador' && ctNuevo().estado == 'pendiente_aprobacion' && (ct().creadoPor == correo() || esAdmin()) && cambia().hasOnly(['estado', 'actualizadoEn']) && completoContrato())
+         || (ct().estado == 'pendiente_aprobacion' && ctNuevo().estado == 'vigente' && esDirector() && ct().creadoPor != correo() && cambia().hasOnly(['estado', 'aprobacion', 'actualizadoEn']) && ctNuevo().aprobacion.por == correo())
+         || (ct().estado == 'pendiente_aprobacion' && ctNuevo().estado in ['rechazado', 'borrador'] && esDirector() && cambia().hasOnly(['estado', 'motivoRechazo', 'actualizadoEn']))
+         || (ct().estado == 'vigente' && ctNuevo().estado == 'terminado' && (esAdmin() || esDirector()) && cambia().hasOnly(['estado', 'terminadoMs', 'actualizadoEn']))
+         || (ct().estado == 'vigente' && ctNuevo().estado == 'renovado' && esDirector() && cambia().hasOnly(['estado', 'actualizadoEn']))
+         || (ct().estado in ['borrador', 'pendiente_aprobacion'] && ctNuevo().estado == 'cancelado' && (ct().creadoPor == correo() || esAdmin()) && cambia().hasOnly(['estado', 'actualizadoEn'])));
+      allow delete: if false;
       match /historial/{h} {
         allow read: if esAdmin() || esDirector();
         allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;

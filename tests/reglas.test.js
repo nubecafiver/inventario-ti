@@ -287,3 +287,63 @@ test('ti_config: folio de cambios lo incrementa quien puede crear cambios (+1); 
   await assertFails(updateDoc(doc(db('ger'), 'ti_config', 'contadores'), { cambios: 9 }));
   await assertFails(updateDoc(doc(db('sol'), 'ti_config', 'contadores'), { cambios: 3 }));
 });
+
+/* ===================== PROVEEDORES Y CONTRATOS — preparadas, no ejecutadas ===================== */
+const contrato = (extra) => Object.assign({ codigo: 'CTR-0001', titulo: 'C', tipo: 'soporte', proveedorId: 'PRV-001', objeto: 'o', inicio: '2026-01-01', fin: '2026-12-31', monto: 100, moneda: 'MXN', periodicidad: 'mensual', responsable: U.cons, estado: 'borrador', creadoPor: U.cons, aprobacion: null, documentos: [], creadoMs: Date.now() }, extra || {});
+async function sembrarContrato(extra) {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const f = ctx.firestore();
+    for (const k of Object.keys(ROLES)) await setDoc(doc(f, 'usuarios_ti', U[k]), { email: U[k], roles: ROLES[k], activo: true });
+    await setDoc(doc(f, 'ti_contratos', 'CTR-0001'), contrato(extra));
+    await setDoc(doc(f, 'ti_proveedores', 'PRV-001'), { codigo: 'PRV-001', nombre: 'P', categoria: 'nube', estado: 'activo', creadoPor: U.cons, responsable: U.cons });
+  });
+}
+const kref = (k) => doc(db(k), 'ti_contratos', 'CTR-0001');
+test('contratos: crean gerente y consultor a su nombre en borrador; técnico y solicitante no', async () => {
+  await sembrarContrato();
+  const nuevo = (k, id) => setDoc(doc(db(k), 'ti_contratos', id), contrato({ codigo: id, creadoPor: U[k], creadoEn: serverTimestamp() }));
+  await assertSucceeds(nuevo('cons', 'CTR-0002')); await assertSucceeds(nuevo('ger', 'CTR-0003'));
+  await assertFails(nuevo('tec', 'CTR-0004')); await assertFails(nuevo('sol', 'CTR-0005'));
+  await assertFails(setDoc(doc(db('cons'), 'ti_contratos', 'CTR-0006'), contrato({ codigo: 'CTR-0006', creadoPor: U.ger, creadoEn: serverTimestamp() })));
+});
+test('contratos: lectura — gerente todos; consultor solo los suyos; solicitante nada', async () => {
+  await sembrarContrato();
+  await assertSucceeds(getDoc(kref('ger'))); await assertSucceeds(getDoc(kref('dir'))); await assertSucceeds(getDoc(kref('cons')));
+  await assertFails(getDoc(kref('cons2'))); await assertFails(getDoc(kref('sol')));
+  await assertFails(getDocs(collection(db('cons'), 'ti_contratos')));
+  await assertSucceeds(getDocs(query(collection(db('cons'), 'ti_contratos'), where('creadoPor', '==', U.cons))));
+});
+test('contratos: enviar exige datos completos; aprueba el gerente, nunca el creador; terminar y renovar', async () => {
+  await sembrarContrato({ objeto: '' });
+  await assertFails(updateDoc(kref('cons'), { estado: 'pendiente_aprobacion', actualizadoEn: serverTimestamp() }));
+  await sembrarContrato();
+  await assertSucceeds(updateDoc(kref('cons'), { estado: 'pendiente_aprobacion', actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(kref('cons'), { estado: 'vigente', aprobacion: { por: U.cons }, actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(kref('ger'), { estado: 'vigente', aprobacion: { por: U.ger, fecha: 1 }, actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(kref('cons'), { estado: 'terminado', terminadoMs: 1, actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(kref('ger'), { estado: 'renovado', actualizadoEn: serverTimestamp() }));
+  await sembrarContrato({ estado: 'pendiente_aprobacion', creadoPor: U.ger });
+  await assertFails(updateDoc(kref('ger'), { estado: 'vigente', aprobacion: { por: U.ger }, actualizadoEn: serverTimestamp() }));
+});
+test('contratos: un contrato vigente no se edita (monto, fechas); cancelar solo antes de aprobarse', async () => {
+  await sembrarContrato({ estado: 'vigente' });
+  await assertFails(updateDoc(kref('cons'), { monto: 1, actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(kref('ger'), { monto: 1, actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(kref('ger'), { estado: 'cancelado', actualizadoEn: serverTimestamp() }));
+  await sembrarContrato({ estado: 'pendiente_aprobacion' });
+  await assertSucceeds(updateDoc(kref('cons'), { estado: 'cancelado', actualizadoEn: serverTimestamp() }));
+  await assertFails(deleteDoc(kref('ger')));
+});
+test('proveedores: crean gerente y consultor; el consultor solo ve y edita los suyos; folios y configuración', async () => {
+  await sembrarContrato();
+  await assertSucceeds(setDoc(doc(db('cons'), 'ti_proveedores', 'PRV-002'), { codigo: 'PRV-002', nombre: 'X', categoria: 'otro', estado: 'activo', creadoPor: U.cons, creadoEn: serverTimestamp() }));
+  await assertFails(setDoc(doc(db('sol'), 'ti_proveedores', 'PRV-003'), { codigo: 'PRV-003', nombre: 'X', categoria: 'otro', estado: 'activo', creadoPor: U.sol, creadoEn: serverTimestamp() }));
+  await assertFails(getDoc(doc(db('cons2'), 'ti_proveedores', 'PRV-001'))); await assertSucceeds(getDoc(doc(db('ger'), 'ti_proveedores', 'PRV-001')));
+  await assertFails(updateDoc(doc(db('cons2'), 'ti_proveedores', 'PRV-001'), { nombre: 'Y' }));
+  await assertSucceeds(updateDoc(doc(db('cons'), 'ti_proveedores', 'PRV-001'), { nombre: 'Y' }));
+  await assertSucceeds(setDoc(doc(db('cons'), 'ti_config', 'contadores'), { contratos: 1 }));
+  await assertSucceeds(updateDoc(doc(db('cons'), 'ti_config', 'contadores'), { contratos: 2 }));
+  await assertFails(updateDoc(doc(db('cons'), 'ti_config', 'contadores'), { contratos: 9 }));
+  const cfg = { avisoVencimientoDias: 90, actualizadoPor: U.ger, actualizadoEn: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(db('ger'), 'ti_config', 'proveedores'), cfg)); await assertFails(setDoc(doc(db('cons'), 'ti_config', 'proveedores'), Object.assign({}, cfg, { actualizadoPor: U.cons })));
+});

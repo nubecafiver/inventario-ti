@@ -577,3 +577,60 @@ test('cambios: indicadores y muestra mínima de éxito', () => {
   assert.equal(cinco.tasaExito, 80);
   assert.equal(L.indicadoresCambios([Object.assign(fin(9, false), { finalizadoMs: ahora - 100 * 86400000 })], ahora).finalizados, 0, 'fuera de la ventana de 90 días');
 });
+
+/* ===================== PROVEEDORES Y CONTRATOS ===================== */
+const ctr = (extra) => Object.assign({ titulo: 'Soporte ERP', tipo: 'soporte', proveedorId: 'PRV-001', objeto: 'o', inicio: '2026-01-01', fin: '2026-12-31', monto: 1000, moneda: 'MXN', periodicidad: 'mensual', responsable: 'cons@x.mx', estado: 'borrador', creadoPor: 'cons@x.mx', documentos: [{ titulo: 'PDF', url: 'https://d.com/x' }] }, extra || {});
+const ctrIds = (u, c) => L.accionesContratoDisponibles({ user: u, contrato: c }).filter((a) => a.ok).map((a) => a.id);
+test('contratos: fechas ISO válidas y diferencia en días exacta', () => {
+  assert.equal(L.fechaISOok('2026-02-28'), true); assert.equal(L.fechaISOok('2026-02-30'), false); assert.equal(L.fechaISOok('28/02/2026'), false); assert.equal(L.fechaISOok(''), false);
+  assert.equal(L.diasEntreISO('2026-10-14', '2026-10-15'), 1); assert.equal(L.diasEntreISO('2026-01-01', '2026-12-31'), 364); assert.equal(L.diasEntreISO('2026-10-14', '2026-10-13'), -1);
+});
+test('contratos: vigencia calculada (vigente, por vencer, vencido) con ventana global editable y por contrato', () => {
+  const hoy = '2026-10-14', v = (extra, cfg) => L.estadoVigencia(ctr(Object.assign({ estado: 'vigente' }, extra)), hoy, cfg);
+  assert.equal(v({ fin: '2027-12-31' }).estado, 'vigente');
+  assert.equal(v({ fin: '2027-01-12' }).estado, 'por_vencer', '90 días exactos');
+  assert.equal(v({ fin: '2027-01-13' }).estado, 'vigente', '91 días');
+  assert.equal(v({ fin: '2026-10-14' }).estado, 'por_vencer', 'vence hoy');
+  assert.equal(v({ fin: '2026-10-13' }).estado, 'vencido'); assert.equal(v({ fin: '2026-10-13' }).dias, -1);
+  assert.equal(v({ fin: '2027-01-13' }, { avisoVencimientoDias: 120 }).estado, 'por_vencer', 'ventana global editable');
+  assert.equal(v({ fin: '2026-11-20', avisoDias: 10 }).estado, 'vigente', 'ventana propia del contrato');
+  assert.equal(v({ fin: '' }).estado, 'sin_fecha');
+  assert.equal(L.estadoVigencia(ctr({ estado: 'borrador' }), hoy), null);
+});
+test('contratos: validar proveedor y contrato', () => {
+  assert.deepEqual(L.validarProveedor({ nombre: 'A', categoria: 'nube', contactos: [{ nombre: 'x', correo: 'a@b.mx' }] }), {});
+  const e = L.validarProveedor({ nombre: '', categoria: 'zz', rfc: '12', sitioWeb: 'http://x', contactos: [{ nombre: '', correo: 'mal' }] });
+  ['nombre', 'categoria', 'rfc', 'sitioWeb', 'ct0.nombre', 'ct0.correo'].forEach((k) => assert.ok(e[k], k));
+  assert.deepEqual(L.validarContrato(ctr(), true), {});
+  assert.deepEqual(L.validarContrato({ titulo: 't', tipo: 'otro', proveedorId: 'P' }, false), {});
+  const m = L.validarContrato({ titulo: '', tipo: 'x', inicio: '2026-05-01', fin: '2026-01-01', monto: -1, documentos: [{ titulo: '', url: 'http://a' }], activoIds: 'a b' }, true);
+  ['titulo', 'tipo', 'proveedorId', 'fin', 'monto', 'objeto', 'moneda', 'periodicidad', 'responsable', 'dc0.titulo', 'dc0.url', 'activoIds'].forEach((k) => assert.ok(m[k], k));
+});
+test('contratos: flujo con segregación (quien lo crea no lo aprueba)', () => {
+  let c = ctr(); const paso = (u, id, d) => { const r = L.aplicarAccionContrato({ user: u, contrato: c, ahora: 5 }, id, d); c = Object.assign({}, c, r.cambios); return r; };
+  assert.ok(ctrIds(cons, c).includes('enviar')); assert.ok(!ctrIds(cons2, c).includes('enviar'), 'otro consultor ni lo ve');
+  paso(cons, 'enviar'); assert.equal(c.estado, 'pendiente_aprobacion');
+  assert.ok(!ctrIds(cons, c).includes('aprobar')); assert.ok(ctrIds(ger, c).includes('aprobar'));
+  assert.throws(() => L.aplicarAccionContrato({ user: ger, contrato: c }, 'rechazar', {}), /obligatorios/);
+  paso(ger, 'aprobar'); assert.equal(c.estado, 'vigente'); assert.equal(c.aprobacion.por, 'ger@x.mx');
+  assert.ok(ctrIds(ger, c).includes('terminar') && ctrIds(ger, c).includes('renovar') && ctrIds(cons, c).includes('renovar') && !ctrIds(cons, c).includes('terminar'));
+  assert.throws(() => L.aplicarAccionContrato({ user: ger, contrato: c }, 'renovar', {}), /interfaz/);
+  paso(ger, 'terminar', { motivo: 'Cambio de proveedor' }); assert.equal(c.estado, 'terminado');
+});
+test('contratos: el gerente tampoco aprueba el contrato que él creó; enviar incompleto da detalle', () => {
+  assert.ok(!ctrIds(ger, ctr({ estado: 'pendiente_aprobacion', creadoPor: 'ger@x.mx' })).includes('aprobar'));
+  assert.throws(() => L.aplicarAccionContrato({ user: cons, contrato: ctr({ objeto: '' }) }, 'enviar', {}), (e) => !!(e.detalle && e.detalle.objeto));
+});
+test('contratos: visibilidad (consultor solo lo que creó o tiene asignado)', () => {
+  assert.equal(L.puedeVerContrato(cons, ctr()), true); assert.equal(L.puedeVerContrato(cons2, ctr()), false); assert.equal(L.puedeVerContrato(cons2, ctr({ responsable: 'cons2@x.mx' })), true);
+  assert.equal(L.puedeVerContrato(ger, ctr()), true); assert.equal(L.puedeVerContrato(sol, ctr()), false);
+  assert.equal(L.puedeVerProveedor(cons, { creadoPor: 'cons@x.mx' }), true); assert.equal(L.puedeVerProveedor(cons2, { creadoPor: 'cons@x.mx' }), false); assert.equal(L.puedeVerProveedor(ger, { creadoPor: 'cons@x.mx' }), true);
+});
+test('contratos: indicadores — monto anual por moneda (mensual ×12, anual ×1, único no suma)', () => {
+  const hoy = '2026-10-14', l = [ctr({ estado: 'vigente', monto: 100, periodicidad: 'mensual', fin: '2026-12-01' }), ctr({ estado: 'vigente', monto: 500, periodicidad: 'anual', moneda: 'USD', fin: '2027-12-31', documentos: [] }),
+    ctr({ estado: 'vigente', monto: 999, periodicidad: 'unico', fin: '2026-01-01' }), ctr({ estado: 'borrador', monto: 7777 }), ctr({ estado: 'pendiente_aprobacion' }), ctr({ estado: 'terminado', monto: 50 })];
+  const i = L.indicadoresContratos(l, hoy);
+  assert.equal(i.vigentes, 3); assert.equal(i.porVencer, 1); assert.equal(i.vencidos, 1); assert.equal(i.sinDocumento, 1); assert.equal(i.pendientesAprobacion, 1);
+  assert.deepEqual(i.montoAnual, { MXN: 1200, USD: 500 }, 'monedas separadas, sin conversión');
+  assert.equal(L.filtroContratos('vencidos', hoy)(l[2]), true); assert.equal(L.filtroContratos('nada', hoy), null);
+});

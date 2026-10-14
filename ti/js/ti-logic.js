@@ -17,8 +17,8 @@
     solicitante:   'Solicitante'
   };
   var PERMISOS_POR_ROL = {
-    director:      ['procesos.ver', 'procesos.aprobar', 'procesos.publicar', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'cambios.ver_todos', 'cambios.aprobar'],
-    administrador: ['procesos.ver', 'procesos.crear', 'procesos.editar_todos', 'procesos.publicar', 'procesos.catalogo', 'usuarios.admin', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'tickets.atender', 'tickets.configurar', 'cambios.crear', 'cambios.ver_todos', 'cambios.ver_propios', 'cambios.implementar_todos', 'cambios.cancelar_todos'],
+    director:      ['procesos.ver', 'procesos.aprobar', 'procesos.publicar', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'cambios.ver_todos', 'cambios.aprobar', 'proveedores.ver_todos', 'contratos.ver_todos', 'contratos.aprobar'],
+    administrador: ['procesos.ver', 'procesos.crear', 'procesos.editar_todos', 'procesos.publicar', 'procesos.catalogo', 'usuarios.admin', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'tickets.atender', 'tickets.configurar', 'cambios.crear', 'cambios.ver_todos', 'cambios.ver_propios', 'cambios.implementar_todos', 'cambios.cancelar_todos', 'proveedores.crear', 'proveedores.ver_todos', 'proveedores.gestionar', 'contratos.crear', 'contratos.ver_todos', 'contratos.gestionar'],
     resp_proceso:  ['procesos.ver', 'procesos.crear', 'procesos.editar_propios', 'tickets.crear', 'tickets.ver_propios', 'cambios.crear', 'cambios.ver_propios'],
     tecnico:       ['procesos.ver_publicados', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.atender'],
     solicitante:   ['tickets.crear', 'tickets.ver_propios']
@@ -26,7 +26,7 @@
   /* Gerente de TI = todo lo del Administrador y del Director (unión calculada, no copiada). Consultor = Responsable de proceso
      + atender tickets (solo los asignados a él o los que nadie ha tomado). Los roles anteriores se conservan. */
   PERMISOS_POR_ROL.gerente = PERMISOS_POR_ROL.administrador.concat(PERMISOS_POR_ROL.director.filter(function (p) { return PERMISOS_POR_ROL.administrador.indexOf(p) < 0; }));
-  PERMISOS_POR_ROL.consultor = PERMISOS_POR_ROL.resp_proceso.concat(['tickets.atender', 'cambios.implementar']);
+  PERMISOS_POR_ROL.consultor = PERMISOS_POR_ROL.resp_proceso.concat(['tickets.atender', 'cambios.implementar', 'proveedores.crear', 'proveedores.ver_propios', 'contratos.crear', 'contratos.ver_propios']);
   function permisos(roles) {
     var set = {};
     (roles || []).forEach(function (r) { (PERMISOS_POR_ROL[r] || []).forEach(function (p) { set[p] = true; }); });
@@ -593,6 +593,127 @@
     return f[clave] || null;
   }
 
+
+  /* =====================================================================================================
+     PROVEEDORES Y CONTRATOS. Lógica pura. Las fechas son 'AAAA-MM-DD'. "Por vencer" y "vencido" se CALCULAN con la fecha y la
+     ventana de aviso (90 días por omisión, editable); no se guardan. Los montos se muestran por moneda, sin conversiones.
+     ===================================================================================================== */
+  var CATEGORIAS_PROVEEDOR = { software: 'Software', hardware: 'Hardware', servicios: 'Servicios', telecom: 'Telecomunicaciones', nube: 'Nube', otro: 'Otro' };
+  var TIPOS_CONTRATO = { licencia: 'Licencia', soporte: 'Soporte', servicio: 'Servicio', arrendamiento: 'Arrendamiento', otro: 'Otro' };
+  var PERIODICIDADES = { mensual: 'Mensual', anual: 'Anual', unico: 'Pago único' };
+  var MONEDAS = { MXN: 'MXN', USD: 'USD' };
+  var ESTADOS_CONTRATO = ['borrador', 'pendiente_aprobacion', 'vigente', 'rechazado', 'renovado', 'terminado', 'cancelado'];
+  var CONTRATO_ESTADO_LABEL = { borrador: 'Borrador', pendiente_aprobacion: 'Pendiente de aprobación', vigente: 'Vigente', rechazado: 'Rechazado', renovado: 'Renovado', terminado: 'Terminado', cancelado: 'Cancelado' };
+  var CONTRATO_ACTIVOS = ['borrador', 'pendiente_aprobacion', 'vigente'];
+  var AVISO_CONTRATO_DIAS = 90;
+  function fechaISOok(x) { return /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) && !isNaN(Date.parse(x)) && new Date(x + 'T00:00:00Z').toISOString().slice(0, 10) === x; }
+  function diasEntreISO(a, b) { return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000); }
+  function normalizarConfigProveedores(c) { return { avisoVencimientoDias: c && typeof c.avisoVencimientoDias === 'number' && c.avisoVencimientoDias > 0 ? c.avisoVencimientoDias : AVISO_CONTRATO_DIAS }; }
+  function puedeVerProveedor(u, p) { return tiene(u, 'proveedores.ver_todos') || (tiene(u, 'proveedores.ver_propios') && (p.creadoPor === u.email || p.responsable === u.email)); }
+  function puedeVerContrato(u, c) { return tiene(u, 'contratos.ver_todos') || (tiene(u, 'contratos.ver_propios') && (c.creadoPor === u.email || c.responsable === u.email)); }
+  function validarProveedor(d) {
+    var e = {};
+    if (!texto(d.nombre)) e.nombre = 'Escribe el nombre del proveedor.'; else if (texto(d.nombre).length > 200) e.nombre = 'Máximo 200 caracteres.';
+    if (!CATEGORIAS_PROVEEDOR[d.categoria]) e.categoria = 'Elige la categoría.';
+    if (texto(d.rfc) && !/^[A-Za-zÑ&0-9]{12,13}$/.test(texto(d.rfc))) e.rfc = 'El RFC lleva 12 o 13 letras y números.';
+    if (texto(d.sitioWeb) && !urlSegura(d.sitioWeb)) e.sitioWeb = 'Usa un enlace https:// válido.';
+    (d.contactos || []).forEach(function (c, i) {
+      if (!texto(c.nombre)) e['ct' + i + '.nombre'] = 'Escribe el nombre.';
+      if (texto(c.correo) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(texto(c.correo))) e['ct' + i + '.correo'] = 'Correo no válido.';
+    });
+    return e;
+  }
+  function validarContrato(d, completo) {
+    var e = {};
+    if (!texto(d.titulo)) e.titulo = 'Escribe un título.'; else if (texto(d.titulo).length > 200) e.titulo = 'Máximo 200 caracteres.';
+    if (!TIPOS_CONTRATO[d.tipo]) e.tipo = 'Elige el tipo.';
+    if (!texto(d.proveedorId)) e.proveedorId = 'Elige el proveedor.';
+    if (texto(d.inicio) && !fechaISOok(d.inicio)) e.inicio = 'Fecha no válida.';
+    if (texto(d.fin) && !fechaISOok(d.fin)) e.fin = 'Fecha no válida.';
+    if (!e.inicio && !e.fin && texto(d.inicio) && texto(d.fin) && d.fin < d.inicio) e.fin = 'El fin no puede ser anterior al inicio.';
+    if (d.monto != null && d.monto !== '' && !(+d.monto >= 0)) e.monto = 'El monto debe ser un número mayor o igual a 0.';
+    if (d.avisoDias != null && d.avisoDias !== '' && !(+d.avisoDias > 0)) e.avisoDias = 'Los días de aviso deben ser mayores que 0.';
+    if (texto(d.activoIds) && !texto(d.activoIds).split(',').every(function (x) { return /^[A-Za-z0-9_-]{3,40}$/.test(texto(x)); })) e.activoIds = 'Usa IDs separados por coma (letras, números y guiones).';
+    (d.documentos || []).forEach(function (x, i) { if (!texto(x.titulo)) e['dc' + i + '.titulo'] = 'Escribe un título.'; if (!urlSegura(x.url)) e['dc' + i + '.url'] = 'Usa un enlace https:// válido.'; });
+    if (completo) {
+      if (!texto(d.objeto)) e.objeto = 'Describe el objeto del contrato.';
+      if (!texto(d.inicio)) e.inicio = 'Indica el inicio.'; if (!texto(d.fin)) e.fin = 'Indica el fin.';
+      if (!(d.monto !== '' && d.monto != null && +d.monto >= 0)) e.monto = 'Captura el monto (0 si no aplica).';
+      if (!MONEDAS[d.moneda]) e.moneda = 'Elige la moneda.'; if (!PERIODICIDADES[d.periodicidad]) e.periodicidad = 'Elige la periodicidad.';
+      if (!texto(d.responsable)) e.responsable = 'Asigna un responsable.';
+    }
+    return e;
+  }
+  /* Estado de vigencia calculado (solo para contratos vigentes). */
+  function estadoVigencia(c, hoy, config) {
+    if (c.estado !== 'vigente') return null;
+    if (!fechaISOok(c.fin)) return { estado: 'sin_fecha', dias: null };
+    var dias = diasEntreISO(hoy, c.fin), ventana = +c.avisoDias > 0 ? +c.avisoDias : normalizarConfigProveedores(config).avisoVencimientoDias;
+    return { estado: dias < 0 ? 'vencido' : dias <= ventana ? 'por_vencer' : 'vigente', dias: dias, ventana: ventana };
+  }
+  function montoAnual(c) { var m = +c.monto || 0; return c.periodicidad === 'mensual' ? m * 12 : c.periodicidad === 'anual' ? m : 0; }
+  var ACCIONES_CONTRATO = {
+    enviar:   { label: 'Enviar a aprobación', desde: ['borrador'], regla: function (u, c) { return (c.creadoPor === u.email || tiene(u, 'contratos.gestionar')) ? null : 'Solo quien lo creó puede enviarlo.'; } },
+    aprobar:  { label: 'Aprobar', desde: ['pendiente_aprobacion'], regla: function (u, c) { return !tiene(u, 'contratos.aprobar') ? 'Solo el Gerente o el Director aprueban contratos.' : c.creadoPor === u.email ? 'No puedes aprobar un contrato que tú creaste.' : null; } },
+    rechazar: { label: 'Rechazar', desde: ['pendiente_aprobacion'], requiere: ['motivo'], regla: function (u) { return tiene(u, 'contratos.aprobar') ? null : 'Solo el Gerente o el Director rechazan contratos.'; } },
+    devolver: { label: 'Devolver a borrador', desde: ['pendiente_aprobacion'], requiere: ['motivo'], regla: function (u) { return tiene(u, 'contratos.aprobar') ? null : 'Solo el Gerente o el Director devuelven contratos.'; } },
+    renovar:  { label: 'Renovar (crear contrato nuevo)', desde: ['vigente'], regla: function (u, c) { return (tiene(u, 'contratos.crear') && (c.creadoPor === u.email || c.responsable === u.email || tiene(u, 'contratos.gestionar'))) ? null : 'No puedes renovar este contrato.'; } },
+    terminar: { label: 'Dar por terminado', desde: ['vigente'], requiere: ['motivo'], regla: function (u, c) { return (tiene(u, 'contratos.gestionar') || tiene(u, 'contratos.aprobar')) ? null : 'Solo el Gerente puede dar por terminado un contrato.'; } },
+    cancelar: { label: 'Cancelar', desde: ['borrador', 'pendiente_aprobacion'], requiere: ['motivo'], regla: function (u, c) { return (c.creadoPor === u.email || tiene(u, 'contratos.gestionar')) ? null : 'Solo quien lo creó o el Gerente pueden cancelarlo.'; } }
+  };
+  function accionesContratoDisponibles(ctx) {
+    var u = ctx.user, c = ctx.contrato, out = [];
+    if (!puedeVerContrato(u, c)) return out;
+    Object.keys(ACCIONES_CONTRATO).forEach(function (id) {
+      var a = ACCIONES_CONTRATO[id]; if (a.desde.indexOf(c.estado) < 0) return;
+      var m = a.regla(u, c); out.push({ id: id, label: a.label, ok: !m, motivo: m || '', requiere: a.requiere || [] });
+    });
+    return out;
+  }
+  function aplicarAccionContrato(ctx, id, datos) {
+    datos = datos || {}; var u = ctx.user, c = ctx.contrato, ahora = ctx.ahora || Date.now();
+    var disp = accionesContratoDisponibles(ctx).filter(function (x) { return x.id === id; })[0];
+    if (!disp) throw new Error('La acción no es válida para el estado actual del contrato.');
+    if (!disp.ok) throw new Error(disp.motivo);
+    var a = ACCIONES_CONTRATO[id], faltan = [];
+    (a.requiere || []).forEach(function (k) { if (!texto(datos[k])) faltan.push(k); });
+    if (faltan.length) { var e = new Error('Faltan datos obligatorios: ' + faltan.join(', ') + '.'); e.faltan = faltan; throw e; }
+    var ch = {}, detalle = a.label;
+    switch (id) {
+      case 'enviar': var err = validarContrato(c, true); if (Object.keys(err).length) { var e2 = new Error('El contrato está incompleto.'); e2.detalle = err; throw e2; } ch.estado = 'pendiente_aprobacion'; detalle = 'Enviado a aprobación'; break;
+      case 'aprobar': ch.estado = 'vigente'; ch.aprobacion = { por: u.email, fecha: ahora }; detalle = 'Aprobado' + (c.renovacionDe ? ' (renueva ' + c.renovacionDe + ')' : ''); break;
+      case 'rechazar': ch.estado = 'rechazado'; ch.motivoRechazo = texto(datos.motivo); detalle = 'Rechazado'; break;
+      case 'devolver': ch.estado = 'borrador'; ch.motivoRechazo = texto(datos.motivo); detalle = 'Devuelto a borrador'; break;
+      case 'terminar': ch.estado = 'terminado'; ch.terminadoMs = ahora; detalle = 'Dado por terminado'; break;
+      case 'cancelar': ch.estado = 'cancelado'; detalle = 'Cancelado'; break;
+      default: throw new Error('Esta acción se resuelve en la interfaz.');
+    }
+    return { cambios: ch, historial: { accion: id, detalle: detalle, motivo: texto(datos.motivo) } };
+  }
+  /* Indicadores. Sin metas. El monto anual solo suma contratos VIGENTES con periodicidad mensual (×12) o anual, por moneda. */
+  function indicadoresContratos(lista, hoy, config) {
+    var r = { vigentes: 0, porVencer: 0, vencidos: 0, sinDocumento: 0, pendientesAprobacion: 0, sinFecha: 0, montoAnual: {}, muestraMinima: MIN_MUESTRA };
+    (lista || []).forEach(function (c) {
+      if (c.estado === 'pendiente_aprobacion') r.pendientesAprobacion++;
+      var v = estadoVigencia(c, hoy, config); if (!v) return;
+      r.vigentes++;
+      if (v.estado === 'por_vencer') r.porVencer++; else if (v.estado === 'vencido') r.vencidos++; else if (v.estado === 'sin_fecha') r.sinFecha++;
+      if (!(c.documentos || []).length) r.sinDocumento++;
+      var m = montoAnual(c); if (m > 0) { var mo = MONEDAS[c.moneda] ? c.moneda : 'MXN'; r.montoAnual[mo] = (r.montoAnual[mo] || 0) + m; }
+    });
+    return r;
+  }
+  function filtroContratos(clave, hoy, config) {
+    var f = {
+      vigentes: function (c) { return c.estado === 'vigente'; },
+      porVencer: function (c) { var v = estadoVigencia(c, hoy, config); return !!v && v.estado === 'por_vencer'; },
+      vencidos: function (c) { var v = estadoVigencia(c, hoy, config); return !!v && v.estado === 'vencido'; },
+      sinDocumento: function (c) { return c.estado === 'vigente' && !(c.documentos || []).length; },
+      pendientesAprobacion: function (c) { return c.estado === 'pendiente_aprobacion'; }
+    };
+    return f[clave] || null;
+  }
+
   /* Filtro de la tabla correspondiente a cada tarjeta, para "navegar hasta los registros que la componen". */
   function filtroIndicador(clave, hoy, ventana) {
     hoy = hoy || hoyISO(); var limite = sumarDias(hoy, ventana || VENTANA_DIAS);
@@ -639,6 +760,9 @@
     clasificarTicket: clasificarTicket, indicadoresTickets: indicadoresTickets, filtroTickets: filtroTickets, VENTANA_TICKETS_DIAS: VENTANA_TICKETS_DIAS, MIN_MUESTRA: MIN_MUESTRA, VENTANA_DIAS: VENTANA_DIAS,
     TIPOS_CAMBIO: TIPOS_CAMBIO, ESTADOS_CAMBIO: ESTADOS_CAMBIO, CAMBIO_ESTADO_LABEL: CAMBIO_ESTADO_LABEL, CAMBIO_ABIERTOS: CAMBIO_ABIERTOS, RIESGO_LABEL: RIESGO_LABEL, PROBABILIDADES: PROBABILIDADES, VENTANA_CAMBIOS_DIAS: VENTANA_CAMBIOS_DIAS,
     riesgoDe: riesgoDe, puedeVerCambio: puedeVerCambio, validarCambio: validarCambio, conflictosCambio: conflictosCambio, ACCIONES_CAMBIO: ACCIONES_CAMBIO, accionesCambioDisponibles: accionesCambioDisponibles, aplicarAccionCambio: aplicarAccionCambio, indicadoresCambios: indicadoresCambios, filtroCambios: filtroCambios,
+    CATEGORIAS_PROVEEDOR: CATEGORIAS_PROVEEDOR, TIPOS_CONTRATO: TIPOS_CONTRATO, PERIODICIDADES: PERIODICIDADES, MONEDAS: MONEDAS, ESTADOS_CONTRATO: ESTADOS_CONTRATO, CONTRATO_ESTADO_LABEL: CONTRATO_ESTADO_LABEL, CONTRATO_ACTIVOS: CONTRATO_ACTIVOS, AVISO_CONTRATO_DIAS: AVISO_CONTRATO_DIAS,
+    fechaISOok: fechaISOok, diasEntreISO: diasEntreISO, normalizarConfigProveedores: normalizarConfigProveedores, puedeVerProveedor: puedeVerProveedor, puedeVerContrato: puedeVerContrato, validarProveedor: validarProveedor, validarContrato: validarContrato,
+    estadoVigencia: estadoVigencia, montoAnual: montoAnual, ACCIONES_CONTRATO: ACCIONES_CONTRATO, accionesContratoDisponibles: accionesContratoDisponibles, aplicarAccionContrato: aplicarAccionContrato, indicadoresContratos: indicadoresContratos, filtroContratos: filtroContratos,
     CATEGORIAS: CATEGORIAS, CATALOGO_INICIAL: CATALOGO_INICIAL
   };
 });

@@ -49,3 +49,6 @@ El dashboard **lee** la colección `equipos` solo cuando el Director o el Admini
 
 ## Gestión de cambios (Fase 6)
 Las reglas agregan `ti_cambios` (con `historial`) y el folio `cambios` en `ti_config/contadores`. Prueba en el Simulador: un consultor aprobando su propio cambio (denegado), un consultor leyendo el cambio de otro (denegado), un consultor enviando un borrador sin plan de reversa (denegado) y el Gerente aprobando un cambio ajeno pendiente (permitido).
+
+## Proveedores y contratos (Fase 8)
+Las reglas agregan `ti_proveedores`, `ti_contratos` (con `historial`), `ti_config/proveedores` y los folios `proveedores` y `contratos` en `ti_config/contadores` (la regla de folios se reescribió: cada folio sube de uno en uno y no toca los demás). Prueba en el Simulador: un consultor aprobando su propio contrato (denegado), editando el monto de un contrato vigente (denegado), leyendo el contrato de otro consultor (denegado) y el Gerente aprobando un contrato ajeno pendiente (permitido). Vuelve a probar también el catálogo inicial de procesos, porque usa el folio `procesos`.

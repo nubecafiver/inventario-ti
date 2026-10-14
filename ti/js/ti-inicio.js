@@ -19,6 +19,7 @@
       if (TI.user && L.tiene(TI.user, 'inventario.resumen')) leerResumen();
       if (TI.user && TI.datosTickets && (L.tiene(TI.user, 'tickets.ver_propios') || L.tiene(TI.user, 'tickets.ver_todos'))) { TI.datosTickets.asegurar(); TI.datosTickets.alCambiar(repintarSiVisible); }
       if (TI.user && TI.datosCambios && (L.tiene(TI.user, 'cambios.ver_todos'))) { TI.datosCambios.asegurar(); TI.datosCambios.alCambiar(repintarSiVisible); }
+      if (TI.user && TI.datosContratos && L.tiene(TI.user, 'contratos.ver_todos')) { TI.datosContratos.asegurar(); TI.datosContratos.alCambiar(repintarSiVisible); }
       pintar();
     },
     destruir: function () { INV = { resumen: null, leido: false, cargando: false, actualizando: false, error: '' }; el = null; }
@@ -55,6 +56,7 @@
   function tarjeta(o) {
     var cuerpo = '<div class="ti-kl">' + esc(o.titulo) + '</div><div class="ti-kv">' + o.valor + '</div>' + (o.sub ? '<div class="ti-kd">' + esc(o.sub) + '</div>' : '') + (o.sem ? '<div class="ti-sembox">' + o.sem + '</div>' : '');
     if (o.nav) return '<button class="ti-kpi" data-nav="' + esc(o.nav) + '">' + cuerpo + '</button>';
+    if (o.pnav) return '<button class="ti-kpi" data-pnav="' + esc(o.pnav) + '">' + cuerpo + '</button>';
     if (o.cnav) return '<button class="ti-kpi" data-cnav="' + esc(o.cnav) + '">' + cuerpo + '</button>';
     if (o.tnav) return '<button class="ti-kpi" data-tnav="' + esc(o.tnav) + '">' + cuerpo + '</button>';
     return '<div class="ti-kpi ti-kpi-fija' + (o.nd ? ' ti-nd' : '') + '"' + (o.nd ? ' role="group" aria-label="' + esc(o.titulo) + ': no disponible"' : '') + '>' + cuerpo + '</div>';
@@ -93,12 +95,13 @@
     if (u && L.tiene(u, 'tickets.ver_todos')) h += seccionTickets();
     else if (u && L.tiene(u, 'tickets.ver_propios')) h += seccionMisTickets();
     if (u && L.tiene(u, 'cambios.ver_todos')) h += seccionCambios();
+    if (u && L.tiene(u, 'contratos.ver_todos')) h += seccionContratos();
     if (u && L.tiene(u, 'inventario.resumen')) h += seccionInventario();
     h += seccionAccesos(u, verProcesos || verPublicados);
-    h += '<div class="ti-note">Contratos, respaldos y otros módulos aparecerán aquí cuando se construyan. Todavía no hay metas ni tendencias: no existe un histórico guardado de los indicadores.</div></div>';
-    var foco = document.activeElement && document.activeElement.dataset && (document.activeElement.dataset.nav || document.activeElement.dataset.tnav || document.activeElement.dataset.cnav || document.activeElement.id);
+    h += '<div class="ti-note">Respaldos, IA y otros módulos aparecerán aquí cuando se construyan. Todavía no hay metas ni tendencias: no existe un histórico guardado de los indicadores.</div></div>';
+    var foco = document.activeElement && document.activeElement.dataset && (document.activeElement.dataset.nav || document.activeElement.dataset.tnav || document.activeElement.dataset.cnav || document.activeElement.dataset.pnav || document.activeElement.id);
     el.innerHTML = h; ligar();
-    if (foco) { var x = el.querySelector('[data-nav="' + foco + '"]') || el.querySelector('[data-tnav="' + foco + '"]') || el.querySelector('[data-cnav="' + foco + '"]') || (foco.charAt && el.querySelector('#' + foco)); if (x) x.focus(); }
+    if (foco) { var x = el.querySelector('[data-nav="' + foco + '"]') || el.querySelector('[data-tnav="' + foco + '"]') || el.querySelector('[data-cnav="' + foco + '"]') || el.querySelector('[data-pnav="' + foco + '"]') || (foco.charAt && el.querySelector('#' + foco)); if (x) x.focus(); }
   }
 
   function seccionProcesos() {
@@ -169,6 +172,23 @@
     return h + '</section>';
   }
 
+  function seccionContratos() {
+    var D = TI.datosContratos, err = D && D.error(), h = '<section class="ti-seccion" aria-labelledby="s-ct"><div class="ti-seccion-h"><h2 class="ti-h2" id="s-ct">Proveedores y contratos</h2><button class="btn btn-sm" data-ir="ti-proveedores">Abrir proveedores y contratos</button></div>';
+    if (err === 'permiso') return h + '<div class="ti-note err">Sin acceso a los contratos: es posible que las reglas de seguridad aún no estén publicadas.</div></section>';
+    if (err) return h + '<div class="ti-note err">No se pudieron leer los contratos: ' + esc(err) + '</div></section>';
+    var lista = D.lista(), i = L.indicadoresContratos(lista, L.hoyISO(), D.config());
+    if (!lista.length) return h + '<div class="ti-card"><div class="ti-empty">Aún no hay contratos registrados.</div></div></section>';
+    var mon = Object.keys(i.montoAnual);
+    h += '<div class="ti-kpis">' +
+      tarjeta({ pnav: 'vigentes', titulo: 'Contratos vigentes', valor: i.vigentes }) +
+      tarjeta({ pnav: 'porVencer', titulo: 'Por vencer (' + D.config().avisoVencimientoDias + ' días)', valor: i.porVencer, sem: i.porVencer ? sem('warn', 'ti-clock-exclamation', 'Renovar o terminar') : sem('ok', 'ti-circle-check', 'Sin pendientes') }) +
+      tarjeta({ pnav: 'vencidos', titulo: 'Vencidos', valor: i.vencidos, sem: i.vencidos ? sem('bad', 'ti-alert-triangle', 'Atención') : sem('ok', 'ti-circle-check', 'Sin vencidos') }) +
+      tarjeta({ pnav: 'sinDocumento', titulo: 'Sin documento', valor: i.sinDocumento, sem: i.sinDocumento ? sem('warn', 'ti-file-alert', 'Falta el enlace') : '' }) +
+      tarjeta({ pnav: 'pendientesAprobacion', titulo: 'Pendientes de aprobación', valor: i.pendientesAprobacion }) +
+      tarjeta({ nd: !mon.length, titulo: 'Monto anual vigente', valor: mon.length ? mon.map(function (m) { return esc(new Intl.NumberFormat('es-MX', { style: 'currency', currency: m }).format(i.montoAnual[m])); }).join('<br>') : '<span class="ti-ndv">No disponible</span>', sub: mon.length ? 'Por moneda, sin conversión; mensual ×12 + anual' : 'No hay contratos vigentes con monto recurrente' }) + '</div>';
+    return h + '</section>';
+  }
+
   function edadResumen() {
     var r = INV.resumen; if (!r || !r.calculadoMs) return '';
     var min = Math.max(0, Math.round((Date.now() - r.calculadoMs) / 60000)), dias = Math.floor(min / 1440);
@@ -206,6 +226,7 @@
     if (verProc) h += '<div class="ti-mod"><h2><i class="ti ti-sitemap" aria-hidden="true"></i>Procesos y procedimientos</h2><p>' + (L.tiene(u, 'procesos.ver') ? 'Documenta, revisa, aprueba y publica los procedimientos del departamento de TI.' : 'Consulta los procedimientos publicados vigentes.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-procesos">Abrir</button></div>';
     if (u && (L.tiene(u, 'tickets.crear') || L.tiene(u, 'tickets.ver_todos'))) h += '<div class="ti-mod"><h2><i class="ti ti-headset" aria-hidden="true"></i>Mesa de ayuda</h2><p>' + (L.tiene(u, 'tickets.ver_todos') ? 'Atiende incidentes y solicitudes, con prioridad y SLA.' : 'Reporta un problema o pide un servicio y consulta su avance.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-tickets">Abrir</button></div>';
     if (u && (L.tiene(u, 'cambios.crear') || L.tiene(u, 'cambios.ver_todos'))) h += '<div class="ti-mod"><h2><i class="ti ti-git-pull-request" aria-hidden="true"></i>Gestión de cambios</h2><p>' + (L.tiene(u, 'cambios.ver_todos') ? 'Revisa, aprueba y da seguimiento a los cambios, con riesgo, reversa y ventana.' : 'Solicita cambios y da seguimiento a los que implementas.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-cambios">Abrir</button></div>';
+    if (u && (L.tiene(u, 'contratos.crear') || L.tiene(u, 'contratos.ver_todos'))) h += '<div class="ti-mod"><h2><i class="ti ti-building-store" aria-hidden="true"></i>Proveedores y contratos</h2><p>' + (L.tiene(u, 'contratos.ver_todos') ? 'Proveedores, contratos, vigencias y montos, con aviso de vencimiento.' : 'Tus proveedores y contratos.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-proveedores">Abrir</button></div>';
     h += '<div class="ti-mod"><h2><i class="ti ti-timeline" aria-hidden="true"></i>Proyectos</h2><p>Gantt, tareas, bitácora y evidencias de los proyectos de TI. Es GanttTracker, la app que ya usas, sin cambios.</p><a class="btn btn-sm" href="https://nubecafiver.github.io/gantttracker/" target="_blank" rel="noopener">Abrir en otra pestaña <i class="ti ti-external-link" aria-hidden="true"></i></a></div>';
     h += '<div class="ti-mod"><h2><i class="ti ti-devices-pc" aria-hidden="true"></i>Inventario de equipos</h2><p>Equipos, QR, reparaciones, celulares, licencias, personal y etiquetas. Es la app de inventario que ya usas, sin cambios.</p><a class="btn btn-sm" href="../index.html" target="_blank" rel="noopener">Abrir en otra pestaña <i class="ti ti-external-link" aria-hidden="true"></i></a></div>';
     if (u && (L.tiene(u, 'usuarios.admin') || L.tiene(u, 'auditoria.ver') || TI.pendienteBootstrap)) h += '<div class="ti-mod"><h2><i class="ti ti-shield-lock" aria-hidden="true"></i>Administración</h2><p>' + (TI.pendienteBootstrap ? 'Configuración inicial pendiente: crea tu registro de administrador.' : 'Usuarios, roles y bitácora de auditoría.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-admin">Abrir</button></div>';
@@ -216,6 +237,7 @@
     el.querySelectorAll('[data-nav]').forEach(function (b) { b.onclick = function () { TI.ir('ti-procesos', { kpi: b.dataset.nav }); }; });
     el.querySelectorAll('[data-tnav]').forEach(function (b) { b.onclick = function () { TI.ir('ti-tickets', { kpi: b.dataset.tnav }); }; });
     el.querySelectorAll('[data-cnav]').forEach(function (b) { b.onclick = function () { TI.ir('ti-cambios', { kpi: b.dataset.cnav }); }; });
+    el.querySelectorAll('[data-pnav]').forEach(function (b) { b.onclick = function () { TI.ir('ti-proveedores', { kpi: b.dataset.pnav }); }; });
     el.querySelectorAll('[data-abrir]').forEach(function (b) { b.onclick = function () { TI.ir('ti-procesos', { abrir: b.dataset.abrir }); }; });
     el.querySelectorAll('[data-ir]').forEach(function (b) { b.onclick = function () { TI.ir(b.dataset.ir); }; });
     var act = el.querySelector('#inv-act'); if (act) act.onclick = actualizarDesdeInventario;

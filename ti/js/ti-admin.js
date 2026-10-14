@@ -29,12 +29,14 @@
       el.innerHTML = h + '<div class="ti-note warn"><b>Configuración inicial.</b> Aún no hay roles en la plataforma. Tu correo (<b>' + esc(TI.user.email) + '</b>) está autorizado para crear su propio registro como <b>Gerente de TI</b>. Después podrás asignar roles a tu equipo.<div style="margin-top:10px"><button class="btn btn-blue" id="ad-boot">Crear mi registro de administrador</button></div></div>';
       el.querySelector('#ad-boot').onclick = inicializar; return;
     }
-    h += '<div class="ti-tabs" role="tablist">' + (admin ? '<button role="tab" data-t="usuarios" aria-selected="' + (A.tab === 'usuarios') + '">Usuarios y roles</button><button role="tab" data-t="roles" aria-selected="' + (A.tab === 'roles') + '">Qué puede hacer cada rol</button>' : '') + (admin && TI.puede('tickets.configurar') ? '<button role="tab" data-t="tickets" aria-selected="' + (A.tab === 'tickets') + '">Mesa de ayuda</button>' : '') + (audi ? '<button role="tab" data-t="auditoria" aria-selected="' + (A.tab === 'auditoria') + '">Auditoría</button>' : '') + '</div>';
+    h += '<div class="ti-tabs" role="tablist">' + (admin ? '<button role="tab" data-t="usuarios" aria-selected="' + (A.tab === 'usuarios') + '">Usuarios y roles</button><button role="tab" data-t="roles" aria-selected="' + (A.tab === 'roles') + '">Qué puede hacer cada rol</button>' : '') + (admin && TI.puede('contratos.gestionar') ? '<button role="tab" data-t="proveedores" aria-selected="' + (A.tab === 'proveedores') + '">Proveedores y contratos</button>' : '') + (admin && TI.puede('tickets.configurar') ? '<button role="tab" data-t="tickets" aria-selected="' + (A.tab === 'tickets') + '">Mesa de ayuda</button>' : '') + (audi ? '<button role="tab" data-t="auditoria" aria-selected="' + (A.tab === 'auditoria') + '">Auditoría</button>' : '') + '</div>';
     if (A.tab === 'usuarios' && admin) h += vistaUsuarios();
     if (A.tab === 'roles' && admin) h += vistaRoles();
     if (A.tab === 'auditoria' && audi) h += vistaAuditoria();
+    if (A.tab === 'proveedores' && admin) h += '<div id="ad-pv"><div class="ti-empty">Cargando…</div></div>';
     if (A.tab === 'tickets' && admin) h += '<div id="ad-tk"><div class="ti-empty">Cargando…</div></div>';
     el.innerHTML = h;
+    if (A.tab === 'proveedores' && admin) TI.configProveedoresUI(el.querySelector('#ad-pv'));
     if (A.tab === 'tickets' && admin) TI.configTicketsUI(el.querySelector('#ad-tk'));
     el.querySelectorAll('[data-t]').forEach(function (b) { b.onclick = function () { A.tab = b.dataset.t; if (A.tab === 'auditoria' && !A.audit) cargarAuditoria(); pintar(); }; });
     el.querySelectorAll('[data-ed]').forEach(function (b) { b.onclick = function () { editarUsuario(b.dataset.ed); }; });
