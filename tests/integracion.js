@@ -207,10 +207,11 @@ async function abrir(browser, errores, semilla) {
   ok('T13 la pestaña y el menú dicen CAFIVER TI (no "InventarioTech")', (await p3.title()).includes('CAFIVER TI') && (await p3.locator('.marca b').textContent()) === 'CAFIVER TI');
   await p3.evaluate(() => TI.ir('ti-admin')); await p3.click('#ad-boot'); await p3.waitForTimeout(400);
   const orden = await p3.evaluate(() => [...document.querySelectorAll('#side nav > *')].filter((e) => !e.classList.contains('hidden')).map((e) => e.id));
-  ok('T13 orden del menú: Inicio, Procesos, Mesa de ayuda, Gestión de cambios, Inventario de equipos, Administración', JSON.stringify(orden) === JSON.stringify(['tnav-ti-inicio', 'tnav-ti-procesos', 'tnav-ti-tickets', 'tnav-ti-cambios', 'tnav-ti-inv', 'tnav-ti-admin']), orden);
+  ok('T13 orden del menú: Inicio, Procesos, Mesa de ayuda, Gestión de cambios, Proyectos, Inventario de equipos, Administración', JSON.stringify(orden) === JSON.stringify(['tnav-ti-inicio', 'tnav-ti-procesos', 'tnav-ti-tickets', 'tnav-ti-cambios', 'tnav-ti-proy', 'tnav-ti-inv', 'tnav-ti-admin']), orden);
   await C.ir('ti-inicio'); await C.shot('7-inicio');
-  ok('T13 Inicio muestra las tarjetas de los 5 módulos disponibles', (await p3.locator('.ti-mod').count()) === 5);
-  ok('T13 Inicio no muestra módulos que no existen (proyectos, contratos, respaldos) como tarjetas', (await p3.locator('.ti-mod h2').allTextContents()).filter((t) => /proyectos|contratos|proveedores|respaldos/i.test(t)).length === 0);
+  ok('T13 Inicio muestra las tarjetas de los 6 módulos disponibles', (await p3.locator('.ti-mod').count()) === 6);
+  ok('T13 Inicio no muestra módulos que no existen (contratos, respaldos) como tarjetas', (await p3.locator('.ti-mod h2').allTextContents()).filter((t) => /contratos|proveedores|respaldos/i.test(t)).length === 0);
+  ok('T13 Proyectos es un enlace a GanttTracker en otra pestaña (sin tocar su código)', (await p3.getAttribute('#tnav-ti-proy', 'href')) === 'https://nubecafiver.github.io/gantttracker/' && (await p3.getAttribute('#tnav-ti-proy', 'target')) === '_blank' && (await p3.getAttribute('#tnav-ti-proy', 'rel')).includes('noopener'));
   await C.ir('ti-procesos'); await C.shot('8-menu-procesos');
   await p3.setViewportSize({ width: 420, height: 800 });
   await p3.waitForTimeout(450);
@@ -306,7 +307,7 @@ async function abrir(browser, errores, semilla) {
   await D.logout(); await D.login(TEC); await D.espera(300);
   ok('T14 Técnico: sin indicadores ni atención ni inventario; solo accesos', (await pd.locator('#s-inv').count()) === 0 && (await pd.locator('.ti-kpis').count()) === 0 && (await pd.locator('.ti-atn-b').count()) === 0 && (await pd.locator('#s-acc').count()) === 1, (await pd.locator('#view-ti-inicio').textContent()).slice(0, 300));
   await D.logout(); await D.login(SOL); await D.espera(300);
-  ok('T14 Solicitante: accesos a Mesa de ayuda e inventario, sin datos de procesos ni inventario', (await pd.locator('#s-inv').count()) === 0 && (await pd.locator('.ti-mod').count()) === 2 && (await pd.locator('.ti-mod:has-text("Mesa de ayuda")').count()) === 1 && !(await pd.locator('#view-ti-inicio').textContent()).includes('Procesos registrados'));
+  ok('T14 Solicitante: accesos a Mesa de ayuda e inventario, sin datos de procesos ni inventario', (await pd.locator('#s-inv').count()) === 0 && (await pd.locator('.ti-mod').count()) === 3 && (await pd.locator('.ti-mod:has-text("Mesa de ayuda")').count()) === 1 && !(await pd.locator('#view-ti-inicio').textContent()).includes('Procesos registrados'));
   await D.logout(); await pd.close();
 
   /* ---------- T15: estados vacíos ---------- */

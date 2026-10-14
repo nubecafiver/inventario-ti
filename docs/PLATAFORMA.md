@@ -9,7 +9,8 @@
 | 4 Dashboard de Inicio | **Primera versión hecha y probada con datos simulados:** atención por rol, indicadores de procesos e indicadores del inventario (solo lectura). Sin metas ni tendencias (no hay histórico). Garantías y equipos en reparación: "No disponible" (ver más abajo). |
 | 5 Mesa de ayuda | **Implementada y probada con Firebase simulado** (ver "Mesa de ayuda"). Los SLA no vienen definidos: los configura el administrador. **Reglas sin probar con el emulador.** |
 | 6 Gestión de cambios | **Implementada y probada con Firebase simulado** (ver "Gestión de cambios"). **Reglas sin probar con el emulador.** |
-| 7–10 Proyectos, contratos, respaldos, IA y SAP | **No iniciadas.** No aparecen en el menú. |
+| 7 Proyectos | **Ya existe GanttTracker** (repositorio aparte, otro proyecto de Firebase). Por decisión de la Gerencia se integra **solo como enlace** en el menú; ver `docs/GANTTTRACKER.md`. |
+| 8–10 Proveedores y contratos, respaldos, IA y SAP | **No iniciadas.** No aparecen en el menú. |
 
 ## Arquitectura
 Firebase puro: Authentication + Cloud Firestore, alojado donde ya estaba (GitHub Pages). Sin servidor propio, sin Cloud Functions, sin Storage.
@@ -77,9 +78,10 @@ CAFIVER TI es la plataforma; el **Inventario de equipos es un módulo dentro de 
 2. **Procesos y procedimientos** (según rol).
 3. **Mesa de ayuda** (todos los roles).
 4. **Gestión de cambios** (quien crea o ve cambios).
-5. **Inventario de equipos** (enlace a la app de inventario existente, en otra pestaña; visible para todos los que inician sesión, igual que hoy).
-6. *(Proyectos, Proveedores y Respaldos aparecerán cuando existan.)*
-7. **Administración** (usuarios, roles y auditoría; según rol).
+5. **Proyectos** (enlace a GanttTracker, otra pestaña).
+6. **Inventario de equipos** (enlace a la app de inventario existente, en otra pestaña; visible para todos los que inician sesión, igual que hoy).
+7. *(Proveedores y Respaldos aparecerán cuando existan.)*
+8. **Administración** (usuarios, roles y auditoría; según rol).
 
 ## Mesa de ayuda
 **Ticket.** Tipo (incidente o solicitud), categoría, título, descripción, departamento, sistema afectado, equipo (ID o activo fijo, verificado con una consulta puntual a `equipos`), impacto, urgencia y evidencias como enlaces https. El folio es `TCK-####` (transacción sobre `ti_config/contadores`).
@@ -204,7 +206,7 @@ Variables de entorno y secretos: **ninguno**. La configuración pública de Fire
 | Prueba | Resultado |
 |---|---|
 | `node --test tests/logica.test.js` — lógica pura | **68 de 68 correctas.** Lo anterior más la mesa de ayuda: matriz de prioridad, horario laboral (noches y fines de semana), pausas por espera, fecha objetivo, estados de SLA, permisos y flujo de acciones, ventana de reapertura, validación e indicadores con muestra mínima. |
-| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **187 de 187 correctas** (51 son de la mesa de ayuda: crear, asignar, atender, esperar, responder, resolver, confirmar y reabrir con distintos roles; visibilidad; nota interna; SLA configurado desde Administración; CSV; dashboard). Que `index.html` no cambió, dashboard de Inicio (cifras exactas con datos sembrados, caché y costo de lecturas, permisos por rol, estados vacíos, errores), arranque, equipo inicial, estructura del menú, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
+| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **188 de 188 correctas** (51 son de la mesa de ayuda: crear, asignar, atender, esperar, responder, resolver, confirmar y reabrir con distintos roles; visibilidad; nota interna; SLA configurado desde Administración; CSV; dashboard). Que `index.html` no cambió, dashboard de Inicio (cifras exactas con datos sembrados, caché y costo de lecturas, permisos por rol, estados vacíos, errores), arranque, equipo inicial, estructura del menú, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
 | `tests/reglas.test.js` — reglas con el emulador | **NO ejecutadas** (incluidas las nuevas de tickets). El entorno de desarrollo bloqueaba `registry.npmjs.org`, `gstatic.com` y `storage.googleapis.com`. Están escritas y listas para ejecutar donde haya internet. |
 
 La simulación **no aplica reglas de seguridad**, así que las pruebas de integración no demuestran que las reglas funcionen. Tampoco se probó contra el Firebase real.
