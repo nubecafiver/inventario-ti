@@ -36,12 +36,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    /* ---------- Configuración (folios) ---------- */
+    /* ---------- Configuración (folios y mesa de ayuda) ---------- */
+    // Folios: ti_config/contadores {procesos, tickets}. Los procesos los incrementa el administrador o un responsable (el catálogo
+    // reserva varios a la vez); los tickets los incrementa cualquier usuario activo, de uno en uno.
+    function ctr() { return request.resource.data; }
+    function ctrAntes(k) { return resource.data.get(k, 0); }
     match /ti_config/{doc} {
       allow read: if activo();
-      allow create: if doc == 'contadores' && (esAdmin() || esResp()) && request.resource.data.keys().hasOnly(['procesos']) && request.resource.data.procesos is int && request.resource.data.procesos >= 1;
-      allow update: if doc == 'contadores' && (esAdmin() || esResp()) && request.resource.data.keys().hasOnly(['procesos']) && request.resource.data.procesos > resource.data.procesos;
+      allow create: if (doc == 'contadores'
+                        && ((ctr().keys().hasOnly(['procesos']) && ctr().procesos is int && ctr().procesos >= 1 && (esAdmin() || esResp()))
+                         || (ctr().keys().hasOnly(['tickets']) && ctr().tickets == 1 && activo())))
+                    || (doc == 'tickets' && esAdmin() && configTicketsValida());
+      allow update: if (doc == 'contadores' && ctr().keys().hasOnly(['procesos', 'tickets'])
+                        && ((ctr().get('procesos', 0) > ctrAntes('procesos') && ctr().get('tickets', 0) == ctrAntes('tickets') && (esAdmin() || esResp()))
+                         || (ctr().get('tickets', 0) == ctrAntes('tickets') + 1 && ctr().get('procesos', 0) == ctrAntes('procesos') && activo())))
+                    || (doc == 'tickets' && esAdmin() && configTicketsValida());
       allow delete: if false;
+    }
+    function configTicketsValida() {
+      return request.resource.data.keys().hasOnly(['categorias', 'sla', 'horario', 'ventanaReaperturaDias', 'alertaPct', 'actualizadoPor', 'actualizadoEn'])
+          && request.resource.data.categorias is list && request.resource.data.categorias.size() > 0 && request.resource.data.categorias.size() <= 60
+          && request.resource.data.sla is map
+          && request.resource.data.ventanaReaperturaDias is number && request.resource.data.alertaPct is number
+          && request.resource.data.actualizadoPor == correo() && request.resource.data.actualizadoEn == request.time;
     }
 
     /* ---------- Resumen del inventario (calculado a mano por Director o Administrador) ---------- */
@@ -127,6 +144,78 @@ service cloud.firestore {
       match /historial/{h} {
         allow read: if esAdmin() || esDirector() || esResp();
         allow create: if (editorDe(getAfter(rutaProceso(id)).data) || esDirector() || esAdmin()) && request.resource.data.usuario == correo();
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- Mesa de ayuda ---------- */
+    // Administrador, Director y Técnico ven todos los tickets; los demás solo los que crearon. El ticket guarda únicamente el ID
+    // del equipo afectado. Las transiciones de estado válidas están en la tabla de abajo (la misma que ti-logic.js).
+    function equipoTI() { return esAdmin() || esDirector() || esTecnico(); }
+    function rutaTicket(id) { return /databases/$(database)/documents/ti_tickets/$(id); }
+    function tk() { return resource.data; }
+    function tkNuevo() { return request.resource.data; }
+    function cambia() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function soyElSolicitante() { return tk().solicitanteEmail == correo(); }
+    function ventanaDias() { return exists(/databases/$(database)/documents/ti_config/tickets) ? get(/databases/$(database)/documents/ti_config/tickets).data.ventanaReaperturaDias : 5; }
+    // cerradoMs puede existir con valor null (ticket resuelto aún no cerrado): se usa resueltoMs en ese caso.
+    function refCierre() { return tk().cerradoMs != null ? tk().cerradoMs : tk().resueltoMs; }
+    function dentroDeVentana() { return refCierre() is int && request.time.toMillis() - refCierre() <= ventanaDias() * 86400000; }
+    function transicionValida(a, b) {
+      return (a == 'nuevo' && b in ['asignado', 'cancelado'])
+          || (a == 'asignado' && b in ['en_atencion', 'cancelado'])
+          || (a == 'en_atencion' && b in ['espera_usuario', 'espera_tercero', 'resuelto', 'cancelado'])
+          || (a in ['espera_usuario', 'espera_tercero'] && b in ['en_atencion', 'cancelado'])
+          || (a == 'resuelto' && b in ['cerrado', 'en_atencion'])
+          || (a == 'cerrado' && b == 'en_atencion');
+    }
+    function camposFijos() {
+      return !cambia().hasAny(['codigo', 'solicitanteEmail', 'creadoMs', 'creadoEn', 'titulo', 'descripcion', 'tipo', 'categoria', 'evidencias', 'activoId', 'departamento', 'sistema']);
+    }
+    function estadoOk() { return tkNuevo().estado == tk().estado || transicionValida(tk().estado, tkNuevo().estado); }
+    // Quien atiende: el administrador siempre; el técnico solo si el ticket es suyo o lo toma (sin responsable); el director solo asigna y cambia prioridad.
+    function atiendeTI() {
+      return esAdmin()
+          || (esTecnico() && (tk().responsable == correo() || (tk().responsable == null && tkNuevo().responsable == correo() && tk().estado == 'nuevo')))
+          || (esDirector() && cambia().hasOnly(['responsable', 'estado', 'impacto', 'urgencia', 'prioridad', 'actualizadoEn']) && (tkNuevo().estado == tk().estado || (tk().estado == 'nuevo' && tkNuevo().estado == 'asignado')));
+    }
+    function solicitanteActua() {
+      return soyElSolicitante() && (
+          (tk().estado == 'nuevo' && tkNuevo().estado == 'cancelado' && cambia().hasOnly(['estado', 'esperas', 'actualizadoEn']))
+       || (tk().estado == 'espera_usuario' && tkNuevo().estado == 'en_atencion' && cambia().hasOnly(['estado', 'esperas', 'actualizadoEn']))
+       || (tk().estado == 'resuelto' && tkNuevo().estado == 'cerrado' && cambia().hasOnly(['estado', 'cerradoMs', 'confirmacion', 'actualizadoEn']))
+       || (tk().estado in ['resuelto', 'cerrado'] && tkNuevo().estado == 'en_atencion' && dentroDeVentana()
+           && cambia().hasOnly(['estado', 'resueltoMs', 'cerradoMs', 'confirmacion', 'reaperturas', 'actualizadoEn']) && tkNuevo().reaperturas == tk().get('reaperturas', 0) + 1));
+    }
+
+    match /ti_tickets/{id} {
+      allow read: if equipoTI() || (activo() && soyElSolicitante());
+      allow create: if activo() && tkNuevo().solicitanteEmail == correo() && tkNuevo().estado == 'nuevo' && tkNuevo().responsable == null
+                    && tkNuevo().codigo == id && tkNuevo().tipo in ['incidente', 'solicitud'] && tkNuevo().impacto in ['alto', 'medio', 'bajo'] && tkNuevo().urgencia in ['alta', 'media', 'baja']
+                    && tkNuevo().prioridad in ['critica', 'alta', 'media', 'baja']
+                    && tkNuevo().titulo is string && tkNuevo().titulo.size() > 0 && tkNuevo().titulo.size() <= 200
+                    && tkNuevo().descripcion is string && tkNuevo().descripcion.size() > 0 && tkNuevo().descripcion.size() <= 5000
+                    && tkNuevo().esperas == [] && tkNuevo().reaperturas == 0 && tkNuevo().escaladoNivel == 0
+                    && tkNuevo().creadoMs is int && math.abs(tkNuevo().creadoMs - request.time.toMillis()) < 600000 && tkNuevo().creadoEn == request.time;
+      allow update: if camposFijos() && estadoOk() && (
+                    // El administrador y el equipo técnico, con las restricciones de arriba. Cancelar un ticket ajeno es solo del administrador.
+                    (equipoTI() && atiendeTI() && (tkNuevo().estado != 'cancelado' || tk().estado == tkNuevo().estado || esAdmin()))
+                    // Primera respuesta pública (la registra el comentario de TI).
+                 || (equipoTI() && tk().primeraRespuestaMs == null && cambia().hasOnly(['primeraRespuestaMs', 'actualizadoEn']))
+                 || solicitanteActua());
+      allow delete: if false;
+
+      match /comentarios/{c} {
+        function padreT() { return get(rutaTicket(id)).data; }
+        allow read: if equipoTI() || (activo() && padreT().solicitanteEmail == correo() && resource.data.interno == false);
+        allow create: if activo() && request.resource.data.autor == correo() && request.resource.data.texto is string && request.resource.data.texto.size() > 0 && request.resource.data.texto.size() <= 2000
+                      && request.resource.data.interno is bool && request.resource.data.fecha == request.time
+                      && (equipoTI() || (getAfter(rutaTicket(id)).data.solicitanteEmail == correo() && request.resource.data.interno == false));
+        allow update, delete: if false;
+      }
+      match /historial/{h} {
+        allow read: if equipoTI();
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
         allow update, delete: if false;
       }
     }

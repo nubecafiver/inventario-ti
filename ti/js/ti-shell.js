@@ -27,6 +27,7 @@
     var u = TI.user, verProc = !!(u && (L.tiene(u, 'procesos.ver') || L.tiene(u, 'procesos.ver_publicados')));
     var verAdmin = !!(u && (L.tiene(u, 'usuarios.admin') || L.tiene(u, 'auditoria.ver')) || TI.pendienteBootstrap);
     document.getElementById('tnav-ti-procesos').classList.toggle('hidden', !verProc);
+    document.getElementById('tnav-ti-tickets').classList.toggle('hidden', !(u && (L.tiene(u, 'tickets.crear') || L.tiene(u, 'tickets.ver_propios') || L.tiene(u, 'tickets.ver_todos'))));
     document.getElementById('tnav-ti-admin').classList.toggle('hidden', !verAdmin);
     var roles = u && u.roles && u.roles.length ? u.roles.map(function (r) { return L.ROLES[r] || r; }).join(' · ') : 'Sin rol en la plataforma';
     document.getElementById('cur-rol').textContent = roles;

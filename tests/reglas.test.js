@@ -109,3 +109,91 @@ test('inventario (transitorio): usuario autenticado lee y escribe; sin sesión n
   await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'equipos', 'EQ1')));
   await assertFails(getDoc(doc(db('adm'), 'coleccion_inexistente', 'x')));
 });
+
+/* ===================== MESA DE AYUDA (tickets) — preparadas, no ejecutadas ===================== */
+const ahoraMs = () => Date.now();
+const ticket = (extra) => Object.assign({ codigo: 'TCK-0001', titulo: 'T', descripcion: 'd', tipo: 'incidente', categoria: 'sap', impacto: 'alto', urgencia: 'alta', prioridad: 'critica', estado: 'nuevo', solicitanteEmail: U.sol, responsable: null, departamento: '', sistema: '', activoId: '', evidencias: [], esperas: [], escaladoNivel: 0, reaperturas: 0, primeraRespuestaMs: null, resueltoMs: null, cerradoMs: null, creadoMs: ahoraMs() }, extra || {});
+async function sembrarTicket(extra) {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const f = ctx.firestore();
+    for (const k of Object.keys(ROLES)) await setDoc(doc(f, 'usuarios_ti', U[k]), { email: U[k], roles: ROLES[k], activo: true });
+    await setDoc(doc(f, 'ti_tickets', 'TCK-0001'), ticket(extra));
+    await setDoc(doc(f, 'ti_tickets', 'TCK-0001', 'comentarios', 'c1'), { texto: 'público', autor: U.tec, interno: false, fechaMs: 1 });
+    await setDoc(doc(f, 'ti_tickets', 'TCK-0001', 'comentarios', 'c2'), { texto: 'interno', autor: U.tec, interno: true, fechaMs: 2 });
+  });
+}
+const tref = (k) => doc(db(k), 'ti_tickets', 'TCK-0001');
+test('tickets: cualquier usuario activo crea el suyo (estado nuevo, sin responsable); no a nombre de otro', async () => {
+  await sembrarTicket();
+  const nuevo = (k, extra) => setDoc(doc(db(k), 'ti_tickets', 'TCK-0002'), Object.assign(ticket({ codigo: 'TCK-0002', solicitanteEmail: U[k], creadoEn: serverTimestamp() }), extra || {}));
+  await assertSucceeds(nuevo('sol'));
+  await assertSucceeds(nuevo('resp'));
+  await assertFails(setDoc(doc(db('sol'), 'ti_tickets', 'TCK-0003'), ticket({ codigo: 'TCK-0003', solicitanteEmail: U.resp, creadoEn: serverTimestamp() })));
+  await assertFails(nuevo('sol', { estado: 'resuelto' }));
+  await assertFails(nuevo('sol', { responsable: U.tec }));
+  await assertFails(nuevo('sinrol'));
+  await assertFails(nuevo('sol', { creadoMs: ahoraMs() - 3600000 }));
+});
+test('tickets: lectura — TI ve todos; el solicitante solo los suyos; comentarios internos solo TI', async () => {
+  await sembrarTicket();
+  await assertSucceeds(getDoc(tref('tec'))); await assertSucceeds(getDoc(tref('dir'))); await assertSucceeds(getDoc(tref('adm'))); await assertSucceeds(getDoc(tref('sol')));
+  await assertFails(getDoc(tref('resp')));
+  await assertSucceeds(getDocs(query(collection(db('sol'), 'ti_tickets'), where('solicitanteEmail', '==', U.sol))));
+  await assertFails(getDocs(collection(db('sol'), 'ti_tickets')));
+  await assertSucceeds(getDocs(collection(db('tec'), 'ti_tickets')));
+  await assertSucceeds(getDocs(query(collection(db('sol'), 'ti_tickets', 'TCK-0001', 'comentarios'), where('interno', '==', false))));
+  await assertFails(getDocs(collection(db('sol'), 'ti_tickets', 'TCK-0001', 'comentarios')));
+  await assertSucceeds(getDocs(collection(db('tec'), 'ti_tickets', 'TCK-0001', 'comentarios')));
+  await assertFails(getDocs(collection(db('sol'), 'ti_tickets', 'TCK-0001', 'historial')));
+});
+test('tickets: el técnico toma un ticket nuevo, pero no uno ajeno; el director solo asigna; el solicitante no atiende', async () => {
+  await sembrarTicket();
+  await assertSucceeds(updateDoc(tref('tec'), { responsable: U.tec, estado: 'asignado', actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(tref('sol'), { estado: 'en_atencion', actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(tref('dir'), { estado: 'en_atencion', actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(tref('dir'), { responsable: U.adm, actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(tref('resp'), { estado: 'cancelado' }));
+});
+test('tickets: transiciones — saltos inválidos, campos fijos y cancelar ajenos', async () => {
+  await sembrarTicket({ estado: 'en_atencion', responsable: U.tec });
+  await assertFails(updateDoc(tref('tec'), { estado: 'nuevo' }));
+  await assertFails(updateDoc(tref('tec'), { estado: 'cerrado' }));
+  await assertFails(updateDoc(tref('tec'), { titulo: 'otro', actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(tref('tec'), { solicitanteEmail: U.tec }));
+  await assertFails(updateDoc(tref('tec'), { estado: 'cancelado' }));
+  await assertSucceeds(updateDoc(tref('tec'), { estado: 'resuelto', resueltoMs: ahoraMs(), actualizadoEn: serverTimestamp() }));
+  await sembrarTicket({ estado: 'en_atencion', responsable: U.tec });
+  await assertSucceeds(updateDoc(tref('adm'), { estado: 'cancelado', actualizadoEn: serverTimestamp() }));
+});
+test('tickets: el solicitante confirma, reabre dentro de la ventana y no fuera; cancela solo si es nuevo', async () => {
+  await sembrarTicket({ estado: 'resuelto', responsable: U.tec, resueltoMs: ahoraMs() - 3600000 });
+  await assertSucceeds(updateDoc(tref('sol'), { estado: 'en_atencion', resueltoMs: null, cerradoMs: null, confirmacion: null, reaperturas: 1, actualizadoEn: serverTimestamp() }));
+  await sembrarTicket({ estado: 'resuelto', responsable: U.tec, resueltoMs: ahoraMs() - 9 * 86400000 });
+  await assertFails(updateDoc(tref('sol'), { estado: 'en_atencion', resueltoMs: null, cerradoMs: null, confirmacion: null, reaperturas: 1, actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(tref('sol'), { estado: 'cerrado', cerradoMs: ahoraMs(), confirmacion: { por: U.sol, fecha: ahoraMs(), ok: true }, actualizadoEn: serverTimestamp() }));
+  await sembrarTicket({ estado: 'asignado', responsable: U.tec });
+  await assertFails(updateDoc(tref('sol'), { estado: 'cancelado', actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(tref('resp'), { estado: 'cancelado', actualizadoEn: serverTimestamp() }));
+});
+test('tickets: comentarios — el solicitante solo públicos en su ticket; TI también internos; no se editan ni borran', async () => {
+  await sembrarTicket({ estado: 'en_atencion', responsable: U.tec });
+  const c = (k, interno) => setDoc(doc(db(k), 'ti_tickets', 'TCK-0001', 'comentarios', 'n' + Math.random().toString(36).slice(2)), { texto: 'x', autor: U[k], interno, fechaMs: ahoraMs(), fecha: serverTimestamp() });
+  await assertSucceeds(c('sol', false)); await assertFails(c('sol', true)); await assertSucceeds(c('tec', true)); await assertFails(c('resp', false));
+  await assertFails(updateDoc(doc(db('tec'), 'ti_tickets', 'TCK-0001', 'comentarios', 'c1'), { texto: 'editado' }));
+  await assertFails(deleteDoc(doc(db('adm'), 'ti_tickets', 'TCK-0001', 'comentarios', 'c1')));
+  await assertFails(deleteDoc(tref('adm')));
+});
+test('ti_config: folio de tickets lo incrementa cualquier usuario activo (+1); la configuración solo el administrador', async () => {
+  await sembrarTicket();
+  const cr = doc(db('sol'), 'ti_config', 'contadores');
+  await assertSucceeds(setDoc(cr, { tickets: 1 }));
+  await assertSucceeds(updateDoc(cr, { tickets: 2 }));
+  await assertFails(updateDoc(cr, { tickets: 9 }));
+  await assertFails(updateDoc(cr, { procesos: 5 }));
+  const cfgDoc = (k) => doc(db(k), 'ti_config', 'tickets');
+  const cfg = { categorias: [{ id: 'sap', nombre: 'SAP', activa: true }], sla: {}, horario: null, ventanaReaperturaDias: 5, alertaPct: 25, actualizadoPor: U.adm, actualizadoEn: serverTimestamp() };
+  await assertSucceeds(setDoc(cfgDoc('adm'), cfg));
+  await assertFails(setDoc(cfgDoc('dir'), Object.assign({}, cfg, { actualizadoPor: U.dir })));
+  await assertFails(setDoc(cfgDoc('tec'), Object.assign({}, cfg, { actualizadoPor: U.tec })));
+  await assertSucceeds(getDoc(cfgDoc('sol')));
+});

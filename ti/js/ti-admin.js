@@ -12,11 +12,11 @@
   });
 
   var DESCRIPCION = {
-    director: 'Ve todos los procesos, aprueba o rechaza procedimientos (no los que él mismo editó), consulta la auditoría.',
-    administrador: 'Crea y edita cualquier proceso, publica, carga el catálogo inicial, administra usuarios y roles, consulta la auditoría. No aprueba por ser administrador.',
+    director: 'Ve todos los procesos, aprueba o rechaza procedimientos (no los que él mismo editó), consulta la auditoría. En la mesa de ayuda ve todos los tickets, asigna y cambia prioridad (no atiende).',
+    administrador: 'Crea y edita cualquier proceso, publica, carga el catálogo inicial, administra usuarios y roles, consulta la auditoría. No aprueba por ser administrador. En la mesa de ayuda atiende y asigna tickets, cancela los ajenos y configura categorías, SLA y horario.',
     resp_proceso: 'Crea procesos y edita solo aquellos donde es responsable, participante o creador. Envía a revisión y a aprobación.',
-    tecnico: 'Consulta únicamente procedimientos publicados vigentes.',
-    solicitante: 'Sin acceso a procesos. Reservado para crear y dar seguimiento a tickets en la mesa de ayuda (fase posterior).'
+    tecnico: 'Consulta procedimientos publicados vigentes. En la mesa de ayuda ve todos los tickets, toma los que no tienen responsable y atiende los suyos.',
+    solicitante: 'Sin acceso a procesos. Crea tickets en la mesa de ayuda y da seguimiento a los suyos.'
   };
 
   function pintar() {
@@ -27,11 +27,13 @@
       el.innerHTML = h + '<div class="ti-note warn"><b>Configuración inicial.</b> Aún no hay roles en la plataforma. Tu correo (<b>' + esc(TI.user.email) + '</b>) está autorizado para crear su propio registro como <b>Administrador de la plataforma y Director de TI</b>. Después podrás asignar roles a tu equipo.<div style="margin-top:10px"><button class="btn btn-blue" id="ad-boot">Crear mi registro de administrador</button></div></div>';
       el.querySelector('#ad-boot').onclick = inicializar; return;
     }
-    h += '<div class="ti-tabs" role="tablist">' + (admin ? '<button role="tab" data-t="usuarios" aria-selected="' + (A.tab === 'usuarios') + '">Usuarios y roles</button><button role="tab" data-t="roles" aria-selected="' + (A.tab === 'roles') + '">Qué puede hacer cada rol</button>' : '') + (audi ? '<button role="tab" data-t="auditoria" aria-selected="' + (A.tab === 'auditoria') + '">Auditoría</button>' : '') + '</div>';
+    h += '<div class="ti-tabs" role="tablist">' + (admin ? '<button role="tab" data-t="usuarios" aria-selected="' + (A.tab === 'usuarios') + '">Usuarios y roles</button><button role="tab" data-t="roles" aria-selected="' + (A.tab === 'roles') + '">Qué puede hacer cada rol</button>' : '') + (admin && TI.puede('tickets.configurar') ? '<button role="tab" data-t="tickets" aria-selected="' + (A.tab === 'tickets') + '">Mesa de ayuda</button>' : '') + (audi ? '<button role="tab" data-t="auditoria" aria-selected="' + (A.tab === 'auditoria') + '">Auditoría</button>' : '') + '</div>';
     if (A.tab === 'usuarios' && admin) h += vistaUsuarios();
     if (A.tab === 'roles' && admin) h += vistaRoles();
     if (A.tab === 'auditoria' && audi) h += vistaAuditoria();
+    if (A.tab === 'tickets' && admin) h += '<div id="ad-tk"><div class="ti-empty">Cargando…</div></div>';
     el.innerHTML = h;
+    if (A.tab === 'tickets' && admin) TI.configTicketsUI(el.querySelector('#ad-tk'));
     el.querySelectorAll('[data-t]').forEach(function (b) { b.onclick = function () { A.tab = b.dataset.t; if (A.tab === 'auditoria' && !A.audit) cargarAuditoria(); pintar(); }; });
     el.querySelectorAll('[data-ed]').forEach(function (b) { b.onclick = function () { editarUsuario(b.dataset.ed); }; });
     var nu = el.querySelector('#ad-nuevo'); if (nu) nu.onclick = function () { editarUsuario(null); };
@@ -55,7 +57,7 @@
     return h + '</tbody></table></div></div><div class="ti-note">Cada cambio de roles queda en la auditoría. Siempre debe quedar al menos un Administrador activo.</div>';
   }
   function vistaRoles() {
-    return '<div class="ti-card"><div class="ti-scroll"><table class="ti-table"><thead><tr><th>Rol</th><th>Alcance en procesos y administración</th></tr></thead><tbody>' + Object.keys(L.ROLES).map(function (r) { return '<tr><td><b>' + esc(L.ROLES[r]) + '</b></td><td>' + esc(DESCRIPCION[r]) + '</td></tr>'; }).join('') + '</tbody></table></div></div><div class="ti-note">Un usuario puede tener varios roles; sus permisos se suman. La separación de funciones se mantiene aunque una persona tenga varios roles: nadie aprueba una versión que él mismo editó.</div>';
+    return '<div class="ti-card"><div class="ti-scroll"><table class="ti-table"><thead><tr><th>Rol</th><th>Alcance (procesos, mesa de ayuda y administración)</th></tr></thead><tbody>' + Object.keys(L.ROLES).map(function (r) { return '<tr><td><b>' + esc(L.ROLES[r]) + '</b></td><td>' + esc(DESCRIPCION[r]) + '</td></tr>'; }).join('') + '</tbody></table></div></div><div class="ti-note">Un usuario puede tener varios roles; sus permisos se suman. La separación de funciones se mantiene aunque una persona tenga varios roles: nadie aprueba una versión que él mismo editó.</div>';
   }
   function editarUsuario(email) {
     var cache = TI.usuariosCache || {}, d = email ? cache[email] : null;

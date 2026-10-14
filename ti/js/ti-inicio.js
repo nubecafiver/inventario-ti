@@ -17,6 +17,7 @@
         if (TI.datosProcesos) { TI.datosProcesos.asegurar(); TI.datosProcesos.alCambiar(repintarSiVisible); }
       }
       if (TI.user && L.tiene(TI.user, 'inventario.resumen')) leerResumen();
+      if (TI.user && TI.datosTickets && (L.tiene(TI.user, 'tickets.ver_propios') || L.tiene(TI.user, 'tickets.ver_todos'))) { TI.datosTickets.asegurar(); TI.datosTickets.alCambiar(repintarSiVisible); }
       pintar();
     },
     destruir: function () { INV = { resumen: null, leido: false, cargando: false, actualizando: false, error: '' }; el = null; }
@@ -53,6 +54,7 @@
   function tarjeta(o) {
     var cuerpo = '<div class="ti-kl">' + esc(o.titulo) + '</div><div class="ti-kv">' + o.valor + '</div>' + (o.sub ? '<div class="ti-kd">' + esc(o.sub) + '</div>' : '') + (o.sem ? '<div class="ti-sembox">' + o.sem + '</div>' : '');
     if (o.nav) return '<button class="ti-kpi" data-nav="' + esc(o.nav) + '">' + cuerpo + '</button>';
+    if (o.tnav) return '<button class="ti-kpi" data-tnav="' + esc(o.tnav) + '">' + cuerpo + '</button>';
     return '<div class="ti-kpi ti-kpi-fija' + (o.nd ? ' ti-nd' : '') + '"' + (o.nd ? ' role="group" aria-label="' + esc(o.titulo) + ': no disponible"' : '') + '>' + cuerpo + '</div>';
   }
   function pct(n, total, minimo) { return total >= minimo ? Math.round(n / total * 100) + '%' : n + ' de ' + total; }
@@ -86,12 +88,14 @@
     else if (TI.pendienteBootstrap) h += '<div class="ti-note warn"><b>Configuración inicial pendiente.</b> Abre Administración y crea tu registro de administrador.</div>';
 
     if (verProcesos) h += seccionProcesos();
+    if (u && L.tiene(u, 'tickets.ver_todos')) h += seccionTickets();
+    else if (u && L.tiene(u, 'tickets.ver_propios')) h += seccionMisTickets();
     if (u && L.tiene(u, 'inventario.resumen')) h += seccionInventario();
     h += seccionAccesos(u, verProcesos || verPublicados);
-    h += '<div class="ti-note">Mesa de ayuda, cambios, proyectos, contratos y respaldos aparecerán aquí cuando se construyan. Todavía no hay metas ni tendencias: no existe un histórico guardado de los indicadores.</div></div>';
-    var foco = document.activeElement && document.activeElement.dataset && (document.activeElement.dataset.nav || document.activeElement.id);
+    h += '<div class="ti-note">Cambios, proyectos, contratos y respaldos aparecerán aquí cuando se construyan. Todavía no hay metas ni tendencias: no existe un histórico guardado de los indicadores.</div></div>';
+    var foco = document.activeElement && document.activeElement.dataset && (document.activeElement.dataset.nav || document.activeElement.dataset.tnav || document.activeElement.id);
     el.innerHTML = h; ligar();
-    if (foco) { var x = el.querySelector('[data-nav="' + foco + '"]') || (foco.charAt && el.querySelector('#' + foco)); if (x) x.focus(); }
+    if (foco) { var x = el.querySelector('[data-nav="' + foco + '"]') || el.querySelector('[data-tnav="' + foco + '"]') || (foco.charAt && el.querySelector('#' + foco)); if (x) x.focus(); }
   }
 
   function seccionProcesos() {
@@ -117,6 +121,33 @@
       tarjeta({ nav: 'enRevision', titulo: 'En revisión', valor: ind.enRevision }) +
       tarjeta({ nav: 'sinRespaldo', titulo: 'Dependen de una persona', valor: ind.sinRespaldo, sem: ind.sinRespaldo ? sem('warn', 'ti-user-exclamation', 'Riesgo') : sem('ok', 'ti-circle-check', 'Cubierto') }) + '</div>';
     return h + '</section>';
+  }
+
+  /* ===== Mesa de ayuda ===== */
+  function seccionTickets() {
+    var D = TI.datosTickets, err = D && D.error(), h = '<section class="ti-seccion" aria-labelledby="s-tk"><div class="ti-seccion-h"><h2 class="ti-h2" id="s-tk">Mesa de ayuda</h2><button class="btn btn-sm" data-ir="ti-tickets">Abrir mesa de ayuda</button></div>';
+    if (err === 'permiso') return h + '<div class="ti-note err">Sin acceso a los tickets: es posible que las reglas de seguridad aún no estén publicadas.</div></section>';
+    if (err) return h + '<div class="ti-note err">No se pudieron leer los tickets: ' + esc(err) + '</div></section>';
+    var lista = D.lista(), cfg = D.config(), i = L.indicadoresTickets(lista, cfg, Date.now());
+    if (!lista.length) return h + '<div class="ti-card"><div class="ti-empty">Aún no hay tickets. Aparecerán aquí cuando se creen.</div></div></section>';
+    var sla = i.slaConfigurado, nc = '<span class="ti-ndv">No disponible</span>';
+    h += '<div class="ti-kpis">' +
+      tarjeta({ tnav: 'abiertos', titulo: 'Tickets abiertos', valor: i.abiertos, sub: i.sinAsignar + ' sin asignar' }) +
+      tarjeta({ tnav: 'criticos', titulo: 'Críticos abiertos', valor: i.criticos, sem: i.criticos ? sem('bad', 'ti-alert-octagon', 'Atención') : sem('ok', 'ti-circle-check', 'Sin críticos') }) +
+      tarjeta({ tnav: 'sinAsignar', titulo: 'Sin asignar', valor: i.sinAsignar, sem: i.sinAsignar ? sem('warn', 'ti-user-exclamation', 'Requiere asignación') : sem('ok', 'ti-circle-check', 'Todos asignados') }) +
+      (sla ? tarjeta({ tnav: 'vencidos', titulo: 'SLA vencido', valor: i.vencidos, sem: i.vencidos ? sem('bad', 'ti-alert-triangle', 'Fuera de plazo') : sem('ok', 'ti-circle-check', 'En plazo') }) +
+        tarjeta({ tnav: 'porVencer', titulo: 'SLA por vencer', valor: i.porVencer, sem: i.porVencer ? sem('warn', 'ti-clock-exclamation', 'Por vencer') : '' })
+        : tarjeta({ nd: true, titulo: 'SLA vencido / por vencer', valor: nc, sub: 'SLA no configurado: el administrador define los plazos en Administración › Mesa de ayuda.' })) +
+      tarjeta({ nd: i.tiempoMedioResolucionHoras === null, titulo: 'Tiempo medio de resolución', valor: i.tiempoMedioResolucionHoras === null ? nc : i.tiempoMedioResolucionHoras + ' h', sub: i.tiempoMedioResolucionHoras === null ? 'Muestra insuficiente (' + i.resueltosEnPeriodo + ' resueltos en ' + i.ventanaDias + ' días; se requieren ≥' + i.muestraMinima + ')' : i.resueltosEnPeriodo + ' resueltos en ' + i.ventanaDias + ' días, sin contar esperas' }) +
+      tarjeta({ nd: i.cumplimientoSLA === null, titulo: 'Cumplimiento de SLA', valor: i.cumplimientoSLA === null ? nc : i.cumplimientoSLA + '%', sub: i.cumplimientoSLA === null ? (sla ? 'Muestra insuficiente (' + i.evaluablesSLA + ' evaluables; se requieren ≥' + i.muestraMinima + ')' : 'SLA no configurado') : i.cumplidosSLA + ' de ' + i.evaluablesSLA + ' resueltos con SLA' }) + '</div>';
+    var rs = Object.keys(i.porResponsable).sort();
+    if (rs.length) h += '<div class="ti-card" style="margin-top:12px;padding:12px 14px"><div class="ti-kl" style="margin-bottom:6px">Abiertos por responsable</div><div class="ti-resp">' + rs.map(function (r) { return '<span class="ti-sem n">' + esc(r === '(sin asignar)' ? 'Sin asignar' : TI.nombreDe(r)) + ': <b>' + i.porResponsable[r] + '</b></span>'; }).join(' ') + '</div></div>';
+    return h + '</section>';
+  }
+  function seccionMisTickets() {
+    var D = TI.datosTickets, lista = D ? D.lista() : [], ab = lista.filter(function (t) { return L.TICKET_ABIERTOS.indexOf(t.estado) >= 0; }).length, res = lista.filter(function (t) { return t.estado === 'resuelto'; }).length;
+    return '<section class="ti-seccion" aria-labelledby="s-tk"><div class="ti-seccion-h"><h2 class="ti-h2" id="s-tk">Mis solicitudes</h2><button class="btn btn-sm" data-ir="ti-tickets">Abrir mesa de ayuda</button></div><div class="ti-kpis">' +
+      tarjeta({ tnav: 'abiertos', titulo: 'Abiertas', valor: ab }) + tarjeta({ titulo: 'Esperan tu confirmación', valor: res, sem: res ? sem('warn', 'ti-hourglass', 'Confirma si quedó resuelto') : '' }) + '</div></section>';
   }
 
   function edadResumen() {
@@ -154,6 +185,7 @@
   function seccionAccesos(u, verProc) {
     var h = '<section class="ti-seccion" aria-labelledby="s-acc"><h2 class="ti-h2" id="s-acc">Accesos</h2><div class="ti-cards">';
     if (verProc) h += '<div class="ti-mod"><h2><i class="ti ti-sitemap" aria-hidden="true"></i>Procesos y procedimientos</h2><p>' + (L.tiene(u, 'procesos.ver') ? 'Documenta, revisa, aprueba y publica los procedimientos del departamento de TI.' : 'Consulta los procedimientos publicados vigentes.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-procesos">Abrir</button></div>';
+    if (u && (L.tiene(u, 'tickets.crear') || L.tiene(u, 'tickets.ver_todos'))) h += '<div class="ti-mod"><h2><i class="ti ti-headset" aria-hidden="true"></i>Mesa de ayuda</h2><p>' + (L.tiene(u, 'tickets.ver_todos') ? 'Atiende incidentes y solicitudes, con prioridad y SLA.' : 'Reporta un problema o pide un servicio y consulta su avance.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-tickets">Abrir</button></div>';
     h += '<div class="ti-mod"><h2><i class="ti ti-devices-pc" aria-hidden="true"></i>Inventario de equipos</h2><p>Equipos, QR, reparaciones, celulares, licencias, personal y etiquetas. Es la app de inventario que ya usas, sin cambios.</p><a class="btn btn-sm" href="../index.html" target="_blank" rel="noopener">Abrir en otra pestaña <i class="ti ti-external-link" aria-hidden="true"></i></a></div>';
     if (u && (L.tiene(u, 'usuarios.admin') || L.tiene(u, 'auditoria.ver') || TI.pendienteBootstrap)) h += '<div class="ti-mod"><h2><i class="ti ti-shield-lock" aria-hidden="true"></i>Administración</h2><p>' + (TI.pendienteBootstrap ? 'Configuración inicial pendiente: crea tu registro de administrador.' : 'Usuarios, roles y bitácora de auditoría.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-admin">Abrir</button></div>';
     return h + '</div></section>';
@@ -161,6 +193,7 @@
 
   function ligar() {
     el.querySelectorAll('[data-nav]').forEach(function (b) { b.onclick = function () { TI.ir('ti-procesos', { kpi: b.dataset.nav }); }; });
+    el.querySelectorAll('[data-tnav]').forEach(function (b) { b.onclick = function () { TI.ir('ti-tickets', { kpi: b.dataset.tnav }); }; });
     el.querySelectorAll('[data-abrir]').forEach(function (b) { b.onclick = function () { TI.ir('ti-procesos', { abrir: b.dataset.abrir }); }; });
     el.querySelectorAll('[data-ir]').forEach(function (b) { b.onclick = function () { TI.ir(b.dataset.ir); }; });
     var act = el.querySelector('#inv-act'); if (act) act.onclick = actualizarDesdeInventario;

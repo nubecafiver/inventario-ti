@@ -207,10 +207,10 @@ async function abrir(browser, errores, semilla) {
   ok('T13 la pestaña y el menú dicen CAFIVER TI (no "InventarioTech")', (await p3.title()).includes('CAFIVER TI') && (await p3.locator('.marca b').textContent()) === 'CAFIVER TI');
   await p3.evaluate(() => TI.ir('ti-admin')); await p3.click('#ad-boot'); await p3.waitForTimeout(400);
   const orden = await p3.evaluate(() => [...document.querySelectorAll('#side nav > *')].filter((e) => !e.classList.contains('hidden')).map((e) => e.id));
-  ok('T13 orden del menú: Inicio, Procesos, Inventario de equipos, Administración', JSON.stringify(orden) === JSON.stringify(['tnav-ti-inicio', 'tnav-ti-procesos', 'tnav-ti-inv', 'tnav-ti-admin']), orden);
+  ok('T13 orden del menú: Inicio, Procesos, Mesa de ayuda, Inventario de equipos, Administración', JSON.stringify(orden) === JSON.stringify(['tnav-ti-inicio', 'tnav-ti-procesos', 'tnav-ti-tickets', 'tnav-ti-inv', 'tnav-ti-admin']), orden);
   await C.ir('ti-inicio'); await C.shot('7-inicio');
-  ok('T13 Inicio muestra las tarjetas de los 3 módulos disponibles', (await p3.locator('.ti-mod').count()) === 3);
-  ok('T13 Inicio no muestra módulos que no existen (mesa de ayuda, cambios, proyectos…) como tarjetas', (await p3.locator('.ti-mod:has-text("Mesa de ayuda")').count()) === 0);
+  ok('T13 Inicio muestra las tarjetas de los 4 módulos disponibles', (await p3.locator('.ti-mod').count()) === 4);
+  ok('T13 Inicio no muestra módulos que no existen (cambios, proyectos, contratos, respaldos) como tarjetas', (await p3.locator('.ti-mod h2').allTextContents()).filter((t) => /cambios|proyectos|contratos|proveedores|respaldos/i.test(t)).length === 0);
   await C.ir('ti-procesos'); await C.shot('8-menu-procesos');
   await p3.setViewportSize({ width: 420, height: 800 });
   await p3.waitForTimeout(450);
@@ -306,7 +306,7 @@ async function abrir(browser, errores, semilla) {
   await D.logout(); await D.login(TEC); await D.espera(300);
   ok('T14 Técnico: sin indicadores ni atención ni inventario; solo accesos', (await pd.locator('#s-inv').count()) === 0 && (await pd.locator('.ti-kpis').count()) === 0 && (await pd.locator('.ti-atn-b').count()) === 0 && (await pd.locator('#s-acc').count()) === 1, (await pd.locator('#view-ti-inicio').textContent()).slice(0, 300));
   await D.logout(); await D.login(SOL); await D.espera(300);
-  ok('T14 Solicitante: solo accesos (inventario aparte), sin datos de procesos ni inventario', (await pd.locator('#s-inv').count()) === 0 && (await pd.locator('.ti-kpis').count()) === 0 && (await pd.locator('.ti-mod').count()) === 1);
+  ok('T14 Solicitante: accesos a Mesa de ayuda e inventario, sin datos de procesos ni inventario', (await pd.locator('#s-inv').count()) === 0 && (await pd.locator('.ti-mod').count()) === 2 && (await pd.locator('.ti-mod:has-text("Mesa de ayuda")').count()) === 1 && !(await pd.locator('#view-ti-inicio').textContent()).includes('Procesos registrados'));
   await D.logout(); await pd.close();
 
   /* ---------- T15: estados vacíos ---------- */
@@ -317,6 +317,152 @@ async function abrir(browser, errores, semilla) {
   ok('T15 sin procesos ni equipos: mensajes de estado vacío comprensibles y sin cifras inventadas', txt.includes('Aún no hay procesos registrados') && txt.includes('Todavía no se ha calculado el resumen del inventario') && txt.includes('Nada pendiente') && (await pe.locator('.ti-kpi').count()) === 0, txt.slice(0, 200));
   ok('T15 el aviso dice que no hay metas ni tendencias', txt.includes('no existe un histórico'));
   await pe.close();
+
+  /* ---------- T16: Mesa de ayuda ---------- */
+  const ahoraT = Date.now(), DIA = 86400000;
+  const sem3 = {};
+  [[ADMIN, ['administrador', 'director']], [DIR, ['director']], [RESP, ['resp_proceso']], [TEC, ['tecnico']], [SOL, ['solicitante']]].forEach(([e, r]) => { sem3['usuarios_ti/' + e] = { email: e, nombre: e.split('@')[0], roles: r, activo: true }; });
+  sem3['equipos/EQ-001'] = { id: 'EQ-001', af: 'AF-77', tipo: 'Laptop', marca: 'Dell', modelo: 'Latitude', responsable: 'Ana', estado: 'Bueno' };
+  const tkSemilla = (id, extra) => Object.assign({ codigo: id, titulo: 'Impresora sin tinta', descripcion: 'd', tipo: 'incidente', categoria: 'impresoras', impacto: 'bajo', urgencia: 'media', prioridad: 'baja', estado: 'nuevo', solicitanteEmail: RESP, responsable: null, evidencias: [], esperas: [], escaladoNivel: 0, reaperturas: 0, primeraRespuestaMs: null, resueltoMs: null, cerradoMs: null, creadoMs: ahoraT - 1000 }, extra || {});
+  sem3['ti_tickets/TCK-0050'] = tkSemilla('TCK-0050');
+  sem3['ti_tickets/TCK-0060'] = tkSemilla('TCK-0060', { titulo: '=HYPERLINK("http://x")', categoria: 'sap', impacto: 'alto', urgencia: 'alta', prioridad: 'critica', creadoMs: ahoraT - 3 * DIA });
+  const K = await abrir(browser, errores, sem3), pk = K.page;
+  const habil = async (id) => (await K.accion(id).count()) === 1 && (await K.accion(id).getAttribute('aria-disabled')) === null;
+  await K.login(SOL); await K.ir('ti-tickets'); await K.espera(250);
+  ok('T16 el solicitante ve "Mesa de ayuda" en el menú y no ve Procesos ni Administración', (await K.visible('#tnav-ti-tickets')) && !(await K.visible('#tnav-ti-procesos')) && !(await K.visible('#tnav-ti-admin')));
+  ok('T16 el solicitante no ve tickets ajenos (0 filas) ni tarjetas de gestión ni exportar', (await K.filas()) === 0 && (await pk.locator('#view-ti-tickets .ti-kpi').count()) === 0 && (await pk.locator('#tk-csv').count()) === 0);
+  await pk.click('#tk-nuevo'); await pk.click('#n-ok'); await K.espera(150);
+  ok('T16 formulario vacío: marca los campos obligatorios', (await pk.locator('.ti-ov .ti-err:not(:empty)').count()) >= 5);
+  await pk.fill('#n-tit', '<img src=x onerror="window.__xss=1"> No abre SAP'); await pk.fill('#n-desc', 'Marca error al iniciar sesión.');
+  await pk.selectOption('#n-cat', 'sap'); await pk.selectOption('#n-imp', 'alto'); await pk.selectOption('#n-urg', 'alta');
+  ok('T16 la prioridad se calcula con la matriz (alto × alta = Crítica)', (await pk.locator('#n-prio').textContent()).trim() === 'Crítica');
+  await pk.selectOption('#n-urg', 'baja'); ok('T16 alto × baja = Media', (await pk.locator('#n-prio').textContent()).trim() === 'Media');
+  await pk.selectOption('#n-urg', 'alta');
+  await pk.click('#n-addev'); await pk.fill('.ti-ov [data-dk=titulo]', 'Captura'); await pk.fill('.ti-ov [data-dk=url]', 'http://inseguro.com/x'); await pk.click('#n-ok'); await K.espera(150);
+  ok('T16 evidencia con http:// se rechaza (solo https)', (await pk.locator('.ti-ov [data-e="ev0.url"]').textContent()).includes('https'));
+  await pk.fill('.ti-ov [data-dk=url]', 'https://drive.google.com/captura');
+  const lecEq0 = await pk.evaluate(() => window.__MOCK.lecturas['equipos'] || 0);
+  await pk.fill('#n-act', 'AF-77'); await pk.click('#n-chk'); await K.espera(200);
+  ok('T16 verifica el equipo por número de activo fijo y muestra qué es (sin copiarlo)', (await pk.locator('#n-act-i').textContent()).includes('Dell') && (await pk.locator('#n-act-i').textContent()).includes('EQ-001'), await pk.locator('#n-act-i').textContent());
+  ok('T16 verificar un equipo cuesta pocas lecturas (no se lee el inventario completo)', ((await pk.evaluate(() => window.__MOCK.lecturas['equipos'] || 0)) - lecEq0) <= 1);
+  await pk.click('#n-ok'); await pk.waitForSelector('.ti-ov .modal-footer', { timeout: 4000 }).catch(() => {}); await K.espera(250);
+  const nuevoTk = await pk.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0001']);
+  ok('T16 el ticket se creó como TCK-0001: nuevo, crítico, del solicitante, sin responsable', nuevoTk && nuevoTk.estado === 'nuevo' && nuevoTk.prioridad === 'critica' && nuevoTk.solicitanteEmail === SOL && nuevoTk.responsable === null, nuevoTk);
+  ok('T16 el ticket guarda solo el ID del equipo, no sus datos', nuevoTk.activoId === 'EQ-001' && !JSON.stringify(nuevoTk).includes('Dell') && !JSON.stringify(nuevoTk).includes('Latitude'));
+  ok('T16 XSS: el título se muestra como texto', (await pk.evaluate(() => window.__xss)) === undefined && (await pk.locator('.ti-ov .modal-hd h3').textContent()).includes('<img'));
+  const hist0 = await pk.evaluate(() => Object.keys(window.__MOCK.store).filter((k) => k.startsWith('ti_tickets/TCK-0001/historial/')).length);
+  ok('T16 creación registrada en historial y auditoría', hist0 === 1 && (await pk.evaluate(() => Object.values(window.__MOCK.store).some((x) => x && x.accion === 'crear_ticket' && x.registroId === 'TCK-0001'))));
+  ok('T16 el solicitante solo puede cancelar su ticket nuevo; no ve acciones de TI', JSON.stringify(await pk.locator('.ti-ov [data-a]').evaluateAll((e) => e.map((x) => x.dataset.a))) === JSON.stringify(['cancelar']));
+  ok('T16 el solicitante no ve la pestaña Historial', (await pk.locator('.ti-ov [data-t=historial]').count()) === 0);
+  await K.cerrarModal();
+  ok('T16 el solicitante ve exactamente su ticket (no el de RESP)', (await K.filas()) === 1);
+  await K.logout();
+
+  // Director: asigna
+  await K.login(DIR); await K.ir('ti-tickets'); await K.espera(250);
+  ok('T16 el Director ve los 3 tickets y las tarjetas de gestión', (await K.filas()) === 3 && (await pk.locator('#view-ti-tickets .ti-kpi').count()) === 5);
+  ok('T16 sin SLA configurado: insignia "SLA no configurado" y tarjetas de vencimiento sin cifra', (await pk.locator('.ti-row').first().textContent()).includes('SLA no configurado') && (await pk.locator('[data-kpi=vencidos] .ti-kv').textContent()) === '—');
+  await K.abrirFila('TCK-0001');
+  ok('T16 el Director puede asignar y cambiar prioridad, pero no tomar ni atender', await habil('asignar') && await habil('cambiar_prioridad') && !(await habil('tomar')) && (await K.accion('iniciar_atencion').count()) === 0);
+  ok('T16 el Director no puede cancelar tickets ajenos', !(await habil('cancelar_ti')));
+  await K.accion('asignar').click(); await pk.click('#ac-ok'); await K.espera(120);
+  ok('T16 asignar exige elegir responsable', (await pk.locator('#ac-e').textContent()).length > 0);
+  const opciones = await pk.locator('#ac-responsable option').allTextContents();
+  ok('T16 solo se pueden asignar personas con rol Técnico o Administrador', opciones.some((o) => o.includes(TEC)) && opciones.some((o) => o.includes(ADMIN)) && !opciones.some((o) => o.includes(SOL)) && !opciones.some((o) => o.includes(RESP)), opciones);
+  await pk.selectOption('#ac-responsable', TEC); await pk.click('#ac-ok'); await K.espera(300);
+  ok('T16 ticket asignado al técnico', (await pk.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0001'])).responsable === TEC && (await pk.locator('.ti-ov .modal-hd .ti-te').textContent()).includes('Asignado'));
+  await K.cerrarModal(); await K.logout();
+
+  // Técnico: atiende
+  await K.login(TEC); await K.ir('ti-tickets'); await K.espera(250);
+  await K.abrirFila('TCK-0001');
+  ok('T16 el técnico asignado puede iniciar atención', await K.accion('iniciar_atencion').count() === 1 && (await K.accion('iniciar_atencion').getAttribute('aria-disabled')) === null);
+  await K.cerrarModal(); await K.abrirFila('TCK-0050');
+  ok('T16 el técnico puede tomar un ticket sin responsable, pero no asignar', await habil('tomar') && !(await habil('asignar')));
+  await K.cerrarModal(); await K.abrirFila('TCK-0001');
+  await K.accion('iniciar_atencion').click(); await K.espera(300);
+  ok('T16 en atención y se registra la primera respuesta', (await pk.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0001'])).estado === 'en_atencion' && (await pk.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0001'])).primeraRespuestaMs > 0);
+  await K.accion('esperar_usuario').click(); await pk.click('#ac-ok'); await K.espera(120);
+  ok('T16 esperar al usuario exige motivo', (await pk.locator('#ac-e').textContent()).length > 0);
+  await pk.fill('#ac-motivo', 'Necesito una captura del error'); await pk.click('#ac-ok'); await K.espera(300);
+  const enEspera = await pk.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0001']);
+  ok('T16 en espera del usuario con la pausa abierta', enEspera.estado === 'espera_usuario' && enEspera.esperas.length === 1 && enEspera.esperas[0].hasta === null);
+  // nota interna
+  await pk.click('.ti-ov [data-t=conv]'); await pk.fill('#tk-com', 'Posible bloqueo de la cuenta; revisar con seguridad.'); await pk.check('#tk-int'); await pk.click('#tk-enviar'); await K.espera(300);
+  await pk.fill('#tk-com', 'Hola, ya estoy revisando tu caso.'); await pk.click('#tk-enviar'); await K.espera(300);
+  ok('T16 la conversación muestra la nota interna marcada y el mensaje público', (await pk.locator('.ti-msg').count()) === 2 && (await pk.locator('.ti-msg.int').count()) === 1);
+  await K.cerrarModal(); await K.logout();
+
+  // Solicitante responde
+  await K.login(SOL); await K.ir('ti-tickets'); await K.espera(250); await K.abrirFila('TCK-0001');
+  await pk.click('.ti-ov [data-t=conv]'); await K.espera(150);
+  ok('T16 el solicitante NO ve la nota interna (solo el mensaje público)', (await pk.locator('.ti-msg').count()) === 1 && !(await pk.locator('.ti-ov').textContent()).includes('bloqueo de la cuenta'));
+  ok('T16 el solicitante puede "Responder y reanudar"', await K.accion('responder').count() === 1);
+  await K.accion('responder').click(); await pk.fill('#ac-motivo', 'Adjunto la captura en el enlace.'); await pk.click('#ac-ok'); await K.espera(300);
+  const resp1 = await pk.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0001']);
+  ok('T16 la respuesta reanuda la atención, cierra la pausa y queda como mensaje', resp1.estado === 'en_atencion' && resp1.esperas[0].hasta > 0 && (await pk.locator('.ti-msg').count()) === 2);
+  await K.cerrarModal(); await K.logout();
+
+  // Técnico resuelve
+  await K.login(TEC); await K.ir('ti-tickets'); await K.espera(250); await K.abrirFila('TCK-0001');
+  await K.accion('resolver').click(); await pk.fill('#ac-diagnostico', 'Cuenta bloqueada por intentos fallidos.'); await pk.click('#ac-ok'); await K.espera(120);
+  ok('T16 resolver exige diagnóstico y solución', (await pk.locator('#ac-e').textContent()).length > 0);
+  await pk.fill('#ac-solucion', 'Se desbloqueó la cuenta y se restableció la contraseña.'); await pk.click('#ac-ok'); await K.espera(300);
+  ok('T16 ticket resuelto con diagnóstico, solución y fecha', (await pk.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0001'])).estado === 'resuelto' && (await pk.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0001'])).solucion.includes('desbloqueó'));
+  await K.cerrarModal(); await K.logout();
+
+  // Solicitante confirma
+  await K.login(SOL); await K.ir('ti-tickets'); await K.espera(250); await K.abrirFila('TCK-0001');
+  ok('T16 el solicitante ve "Confirmar" y "No quedó resuelto"', await K.accion('confirmar').count() === 1 && await K.accion('reabrir').count() === 1);
+  await K.accion('confirmar').click(); await K.espera(300);
+  const cerrado = await pk.evaluate(() => window.__MOCK.store['ti_tickets/TCK-0001']);
+  ok('T16 ticket cerrado con confirmación del solicitante', cerrado.estado === 'cerrado' && cerrado.confirmacion && cerrado.confirmacion.por === SOL);
+  ok('T16 aún dentro de la ventana de reapertura: puede reabrir', await K.accion('reabrir').count() === 1 && (await K.accion('reabrir').getAttribute('aria-disabled')) === null);
+  await pk.evaluate(() => { const t = window.__MOCK.store['ti_tickets/TCK-0001']; t.cerradoMs = Date.now() - 9 * 86400000; t.resueltoMs = t.cerradoMs; });
+  await K.cerrarModal(); await K.logout(); await K.login(SOL); await K.ir('ti-tickets'); await K.espera(250); await K.abrirFila('TCK-0001');
+  ok('T16 pasada la ventana (5 días) la reapertura se deshabilita con explicación', (await K.accion('reabrir').getAttribute('aria-disabled')) === 'true' && (await K.accion('reabrir').getAttribute('data-why')).includes('5 días'));
+  await K.cerrarModal(); await K.logout();
+
+  // Auditoría y trazabilidad del flujo
+  const traza = await pk.evaluate(() => ({ hist: Object.keys(window.__MOCK.store).filter((k) => k.startsWith('ti_tickets/TCK-0001/historial/')).map((k) => window.__MOCK.store[k].accion), aud: Object.values(window.__MOCK.store).filter((x) => x && x.tipoRegistro === 'ticket' && x.registroId === 'TCK-0001').map((x) => x.accion) }));
+  ok('T16 el historial del ticket registra todo el flujo', ['crear', 'asignar', 'iniciar_atencion', 'esperar_usuario', 'responder', 'resolver', 'confirmar'].every((a) => traza.hist.includes(a)), traza.hist);
+  ok('T16 la auditoría registra cada acción del ticket', ['crear_ticket', 'ticket_asignar', 'ticket_iniciar_atencion', 'ticket_resolver', 'ticket_confirmar'].every((a) => traza.aud.includes(a)), traza.aud);
+
+  // Administrador: configura y ve el SLA
+  await K.login(ADMIN); await K.ir('ti-admin'); await K.espera(250);
+  await pk.click('[data-t=tickets]'); await K.espera(300);
+  ok('T16 el administrador ve la configuración con 10 categorías iniciales y sin SLA', (await pk.locator('[data-cn]').count()) === 10 && (await pk.locator('[data-sla]').evaluateAll((e) => e.every((x) => x.value === ''))));
+  await pk.fill('[data-sla="sap|critica|respuestaH"]', '4'); await pk.fill('[data-sla="sap|critica|resolucionH"]', '2'); await pk.click('#cf-guardar'); await K.espera(150);
+  ok('T16 respuesta mayor que resolución se rechaza', (await pk.locator('#cf-sla-e').textContent()).includes('no puede tardar más'));
+  await pk.fill('[data-sla="sap|critica|respuestaH"]', '1'); await pk.fill('[data-sla="sap|critica|resolucionH"]', '8');
+  await pk.fill('#cf-nueva', 'Telefonía'); await pk.click('#cf-addcat'); await K.espera(150);
+  await pk.fill('[data-sla="sap|critica|respuestaH"]', '1'); await pk.fill('[data-sla="sap|critica|resolucionH"]', '8'); await pk.click('#cf-guardar'); await K.espera(300);
+  const cfgG = await pk.evaluate(() => window.__MOCK.store['ti_config/tickets']);
+  ok('T16 la configuración se guarda: SLA SAP crítica 1 h / 8 h, categoría nueva y sin horario', cfgG && cfgG.sla['sap|critica'].respuestaH === 1 && cfgG.sla['sap|critica'].resolucionH === 8 && cfgG.categorias.length === 11 && cfgG.categorias.some((c) => c.id === 'telefonia') && cfgG.horario === null, cfgG);
+  ok('T16 el cambio de configuración queda en la auditoría', await pk.evaluate(() => Object.values(window.__MOCK.store).some((x) => x && x.accion === 'configurar_mesa_ayuda')));
+  await K.ir('ti-tickets'); await K.espera(300); await K.shot('9-mesa-ayuda-lista');
+  const fila60 = await pk.locator('.ti-row:has-text("TCK-0060")').textContent();
+  ok('T16 con SLA configurado, el ticket crítico de SAP de hace 3 días aparece "Vencido" (con texto)', fila60.includes('Vencido'), fila60);
+  ok('T16 la tarjeta "SLA vencido" cuenta 1 y filtra exactamente ese ticket', (await pk.locator('[data-kpi=vencidos] .ti-kv').textContent()) === '1' && (await (async () => { await pk.click('[data-kpi=vencidos]'); await K.espera(120); return K.filas(); })()) === 1);
+  await pk.click('#tk-lim'); await K.espera(100);
+  ok('T16 los tickets de otras categorías sin SLA quedan "Sin plazo"/"no configurado", no vencidos', !(await pk.locator('.ti-row:has-text("TCK-0050")').textContent()).includes('Vencido'));
+  await K.abrirFila('TCK-0060');
+  ok('T16 el administrador puede cancelar un ticket ajeno (con motivo) y también tomarlo', await habil('cancelar_ti') && await habil('tomar'));
+  await K.shot('10-mesa-ayuda-detalle');
+  await K.cerrarModal();
+  // CSV
+  const [desc] = await Promise.all([pk.waitForEvent('download', { timeout: 4000 }), pk.click('#tk-csv')]);
+  const csv = fs.readFileSync(await desc.path(), 'utf8');
+  ok('T16 el CSV tiene encabezados en español y neutraliza fórmulas (=HYPERLINK…)', csv.includes('Folio') && csv.includes("\"'=HYPERLINK") && !csv.includes('"=HYPERLINK'), csv.slice(0, 200));
+  // Dashboard
+  await K.ir('ti-inicio'); await K.espera(300);
+  const tIni = await pk.locator('#s-tk').locator('xpath=ancestor::section').textContent();
+  ok('T16 Inicio: sección Mesa de ayuda con cifras reales (3 tickets en la ventana; 2 abiertos)', tIni.includes('Tickets abiertos') && (await pk.locator('[data-tnav=abiertos] .ti-kv').textContent()) === '2', tIni.slice(0, 300));
+  ok('T16 Inicio: con menos de 5 resueltos, tiempo medio y cumplimiento dicen "No disponible" (sin porcentaje)', tIni.includes('Tiempo medio de resolución') && (tIni.match(/No disponible/g) || []).length >= 2 && !/%/.test(tIni.replace(/Cumplimiento de SLA[^%]*$/, '')) , tIni.slice(0, 500));
+  await pk.click('[data-tnav=criticos]'); await K.espera(200);
+  ok('T16 clic en "Críticos abiertos" lleva a Mesa de ayuda filtrada', (await pk.locator('.ti-kpi.on[data-kpi=criticos]').count()) === 1 && (await K.filas()) === 1);
+  await K.logout();
+  await K.page.close();
 
   ok('Sin errores de JavaScript en toda la sesión', errores.length === 0, errores.slice(0, 5));
   await browser.close();

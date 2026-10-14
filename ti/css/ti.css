@@ -73,3 +73,13 @@
 .ti-atn-b:hover{background:#f6f8fc}.ti-atn-b:focus-visible{outline:3px solid #1d4ed8;outline-offset:-3px}
 .ti-atn-b b{display:block;font-size:13px}.ti-atn-b small{color:#4b5563;font-size:11px;font-family:ui-monospace,Menlo,Consolas,monospace}
 .btn:disabled{opacity:.6;cursor:default}
+
+/* Mesa de ayuda */
+.ti-te-nuevo{background:#e8f0fe;color:#1557b0}.ti-te-asignado{background:#efe6fa;color:#5a2c91}.ti-te-en_atencion{background:#dff3f0;color:#0b5c53}
+.ti-te-espera_usuario,.ti-te-espera_tercero{background:#fff1d6;color:#8a4b00}.ti-te-resuelto{background:#e3f4ea;color:#0f6b3a}.ti-te-cerrado{background:#eef0f5;color:#3b4658}.ti-te-cancelado{background:#fde7e7;color:#a4161a}
+.ti-tp-critica{background:#fde7e7;color:#a4161a}.ti-tp-alta{background:#ffe9d6;color:#8a3b00}.ti-tp-media{background:#fff1d6;color:#7a5200}.ti-tp-baja{background:#eef0f5;color:#3b4658}
+.ti-chk{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#34405a;cursor:pointer}
+.ti-msgs{display:flex;flex-direction:column;gap:8px}.ti-msg{border:1px solid #e8eaed;border-radius:10px;padding:10px 12px;font-size:13px;white-space:pre-wrap}.ti-msg.int{background:#fffbea;border-color:#f0e2a8}.ti-msg-h{font-size:12px;margin-bottom:4px}
+.ti-sla{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#4b5563}.ti-sla label{display:flex;align-items:center;gap:4px;justify-content:space-between}.ti-sla input{width:64px}
+.ti-resp{display:flex;flex-wrap:wrap;gap:6px}
+.ti-table .ti-code{white-space:nowrap}
