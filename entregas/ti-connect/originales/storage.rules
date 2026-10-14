@@ -1,0 +1,20 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Archivos de la base de conocimiento: lee todo usuario autenticado; sube/edita el staff
+    match /kb/{allPaths=**} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && (request.auth.token.role == 'director' || request.auth.token.role == 'consultor');
+    }
+    // Evidencias adjuntas a tickets: el dueño y el staff
+    match /tickets/{ticketId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+    // Imágenes del muro (red social interna): lee/sube todo usuario autenticado
+    match /posts/{allPaths=**} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null;
+    }
+  }
+}
