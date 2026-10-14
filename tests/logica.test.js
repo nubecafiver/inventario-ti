@@ -634,3 +634,61 @@ test('contratos: indicadores — monto anual por moneda (mensual ×12, anual ×1
   assert.deepEqual(i.montoAnual, { MXN: 1200, USD: 500 }, 'monedas separadas, sin conversión');
   assert.equal(L.filtroContratos('vencidos', hoy)(l[2]), true); assert.equal(L.filtroContratos('nada', hoy), null);
 });
+
+/* ===================== RESPALDOS ===================== */
+const NOW = D(20, 12);
+const rsp = (extra) => Object.assign({ nombre: 'Firestore diario', que: 'Datos', categoria: 'firestore', frecuencia: 'diario', ubicacion: 'Drive', responsable: 'cons@x.mx', creadoPor: 'cons@x.mx', estado: 'activo' }, extra || {});
+test('respaldos: un trabajo sin ejecuciones es "sin registros", nunca "al día"', () => {
+  assert.equal(L.estadoRespaldo(rsp(), NOW).estado, 'sin_registros');
+  assert.equal(L.estadoRespaldo(rsp({ estado: 'pausado' }), NOW).estado, 'pausado'); assert.equal(L.estadoRespaldo(rsp({ estado: 'retirado' }), NOW).estado, 'retirado');
+});
+test('respaldos: límites exactos por frecuencia (diario 1, semanal 7, mensual 31, trimestral 92, anual 366 días)', () => {
+  const e = (frec, ms, res) => L.estadoRespaldo(rsp({ frecuencia: frec, ultimaEjecucionMs: NOW - ms, ultimaEjecucionResultado: res || 'exitoso' }), NOW).estado, d = 86400000;
+  assert.equal(e('diario', d), 'al_dia'); assert.equal(e('diario', d + 1), 'atrasado');
+  assert.equal(e('semanal', 7 * d), 'al_dia'); assert.equal(e('semanal', 7 * d + 1), 'atrasado');
+  assert.equal(e('mensual', 31 * d), 'al_dia'); assert.equal(e('trimestral', 92 * d + 1), 'atrasado'); assert.equal(e('anual', 366 * d), 'al_dia');
+  assert.equal(e('diario', 1000, 'fallido'), 'fallido', 'la última fallida manda'); assert.equal(e('diario', 1000, 'con_errores'), 'al_dia');
+});
+test('respaldos: pruebas de restauración — nunca, vigente, parcial, fallida, vencida y ventana editable', () => {
+  const p = (extra, cfg) => L.estadoPrueba(rsp(extra), NOW, cfg).estado, d = 86400000;
+  assert.equal(p({}), 'nunca'); assert.equal(p({ ultimaPruebaMs: NOW - 10 * d, ultimaPruebaResultado: 'exitosa' }), 'vigente');
+  assert.equal(p({ ultimaPruebaMs: NOW - 180 * d, ultimaPruebaResultado: 'exitosa' }), 'vigente', '180 días exactos'); assert.equal(p({ ultimaPruebaMs: NOW - 180 * d - 1, ultimaPruebaResultado: 'exitosa' }), 'vencida');
+  assert.equal(p({ ultimaPruebaMs: NOW - 180 * d - 1, ultimaPruebaResultado: 'exitosa' }, { pruebaMaxDias: 365 }), 'vigente', 'ventana editable');
+  assert.equal(p({ ultimaPruebaMs: NOW - d, ultimaPruebaResultado: 'fallida' }), 'fallida'); assert.equal(p({ ultimaPruebaMs: NOW - d, ultimaPruebaResultado: 'parcial' }), 'parcial');
+  assert.equal(p({ estado: 'pausado' }), 'na');
+});
+test('respaldos: validar trabajo y registros (fecha no futura, observaciones si hubo problema)', () => {
+  assert.deepEqual(L.validarRespaldo(rsp()), {});
+  const m = L.validarRespaldo({ nombre: '', categoria: 'x', frecuencia: 'x', retencionDias: -1, procedimientoId: 'x' });
+  ['nombre', 'que', 'categoria', 'frecuencia', 'ubicacion', 'responsable', 'retencionDias', 'procedimientoId'].forEach((k) => assert.ok(m[k], k));
+  assert.deepEqual(L.validarRegistroRespaldo({ fechaMs: NOW - 1000, resultado: 'exitoso' }, 'ejecucion', NOW), {});
+  const f = L.validarRegistroRespaldo({ fechaMs: NOW + 86400000, resultado: 'fallido', evidencia: 'http://x', tamanoGB: -1 }, 'ejecucion', NOW);
+  ['fechaMs', 'observaciones', 'evidencia', 'numero'].forEach((k) => assert.ok(f[k], k));
+  assert.ok(L.validarRegistroRespaldo({ fechaMs: NOW, resultado: 'exitoso' }, 'prueba', NOW).resultado, 'exitoso no es resultado de prueba');
+});
+test('respaldos: un registro más antiguo no pisa el último; uno más nuevo sí', () => {
+  const r = rsp({ ultimaEjecucionMs: NOW - 1000, ultimaEjecucionResultado: 'exitoso' });
+  assert.deepEqual(L.cambiosPorRegistro(r, 'ejecucion', { fechaMs: NOW - 5000, resultado: 'fallido' }), {});
+  assert.deepEqual(L.cambiosPorRegistro(r, 'ejecucion', { fechaMs: NOW, resultado: 'fallido' }), { ultimaEjecucionMs: NOW, ultimaEjecucionResultado: 'fallido' });
+  assert.deepEqual(L.cambiosPorRegistro(r, 'prueba', { fechaMs: NOW, resultado: 'exitosa' }), { ultimaPruebaMs: NOW, ultimaPruebaResultado: 'exitosa' });
+});
+test('respaldos: permisos y visibilidad (consultor solo lo suyo)', () => {
+  assert.equal(L.puedeVerRespaldo(cons, rsp()), true); assert.equal(L.puedeVerRespaldo(cons2, rsp()), false); assert.equal(L.puedeVerRespaldo(ger, rsp()), true); assert.equal(L.puedeVerRespaldo(sol, rsp()), false); assert.equal(L.puedeVerRespaldo(dir, rsp()), true);
+  assert.equal(L.puedeRegistrarRespaldo(cons, rsp()), true); assert.equal(L.puedeRegistrarRespaldo(cons2, rsp()), false); assert.equal(L.puedeRegistrarRespaldo(ger, rsp()), true); assert.equal(L.puedeRegistrarRespaldo(dir, rsp()), false, 'el director solo consulta');
+});
+test('respaldos: pausar, reactivar y retirar (retirar solo el gerente; motivo obligatorio)', () => {
+  const ids = (u, r) => L.accionesRespaldoDisponibles({ user: u, respaldo: r }).filter((a) => a.ok).map((a) => a.id);
+  assert.deepEqual(ids(cons, rsp()), ['pausar']); assert.deepEqual(ids(ger, rsp()).sort(), ['pausar', 'retirar']); assert.deepEqual(ids(cons, rsp({ estado: 'pausado' })), ['reactivar']);
+  assert.throws(() => L.aplicarAccionRespaldo({ user: ger, respaldo: rsp() }, 'retirar', {}), /obligatorios/);
+  assert.equal(L.aplicarAccionRespaldo({ user: ger, respaldo: rsp() }, 'retirar', { motivo: 'Ya no existe' }).cambios.estado, 'retirado');
+  assert.throws(() => L.aplicarAccionRespaldo({ user: cons, respaldo: rsp() }, 'retirar', { motivo: 'x' }), /Gerente/);
+});
+test('respaldos: indicadores y cobertura de pruebas solo con ≥5 activos', () => {
+  const d = 86400000, ok = (extra) => rsp(Object.assign({ ultimaEjecucionMs: NOW - 1000, ultimaEjecucionResultado: 'exitoso', ultimaPruebaMs: NOW - d, ultimaPruebaResultado: 'exitosa' }, extra || {}));
+  const l = [ok(), ok(), ok({ ultimaEjecucionMs: NOW - 3 * d }), ok({ ultimaEjecucionResultado: 'fallido' }), rsp(), rsp({ estado: 'retirado' }), ok({ ultimaPruebaMs: NOW - 400 * d })];
+  const i = L.indicadoresRespaldos(l, NOW);
+  assert.equal(i.activos, 6); assert.equal(i.alDia, 3); assert.equal(i.atrasados, 1); assert.equal(i.fallidos, 1); assert.equal(i.sinRegistros, 1);
+  assert.equal(i.pruebasVigentes, 4); assert.equal(i.pruebasVencidas, 1); assert.equal(i.pruebasNunca, 1); assert.equal(i.coberturaPruebas, 67);
+  assert.equal(L.indicadoresRespaldos(l.slice(0, 4), NOW).coberturaPruebas, null, 'solo 4 activos: sin porcentaje');
+  assert.equal(L.filtroRespaldos('sinRegistros', NOW)(l[4]), true); assert.equal(L.filtroRespaldos('x', NOW), null);
+});

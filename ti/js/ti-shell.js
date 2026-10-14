@@ -30,6 +30,7 @@
     document.getElementById('tnav-ti-tickets').classList.toggle('hidden', !(u && (L.tiene(u, 'tickets.crear') || L.tiene(u, 'tickets.ver_propios') || L.tiene(u, 'tickets.ver_todos'))));
     document.getElementById('tnav-ti-cambios').classList.toggle('hidden', !(u && (L.tiene(u, 'cambios.crear') || L.tiene(u, 'cambios.ver_propios') || L.tiene(u, 'cambios.ver_todos'))));
     document.getElementById('tnav-ti-proveedores').classList.toggle('hidden', !(u && (L.tiene(u, 'contratos.crear') || L.tiene(u, 'contratos.ver_propios') || L.tiene(u, 'contratos.ver_todos') || L.tiene(u, 'proveedores.crear'))));
+    document.getElementById('tnav-ti-respaldos').classList.toggle('hidden', !(u && (L.tiene(u, 'respaldos.crear') || L.tiene(u, 'respaldos.ver_propios') || L.tiene(u, 'respaldos.ver_todos'))));
     document.getElementById('tnav-ti-admin').classList.toggle('hidden', !verAdmin);
     var roles = u && u.roles && u.roles.length ? u.roles.map(function (r) { return L.ROLES[r] || r; }).join(' · ') : 'Sin rol en la plataforma';
     document.getElementById('cur-rol').textContent = roles;

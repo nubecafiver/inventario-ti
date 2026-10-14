@@ -17,8 +17,8 @@
     solicitante:   'Solicitante'
   };
   var PERMISOS_POR_ROL = {
-    director:      ['procesos.ver', 'procesos.aprobar', 'procesos.publicar', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'cambios.ver_todos', 'cambios.aprobar', 'proveedores.ver_todos', 'contratos.ver_todos', 'contratos.aprobar'],
-    administrador: ['procesos.ver', 'procesos.crear', 'procesos.editar_todos', 'procesos.publicar', 'procesos.catalogo', 'usuarios.admin', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'tickets.atender', 'tickets.configurar', 'cambios.crear', 'cambios.ver_todos', 'cambios.ver_propios', 'cambios.implementar_todos', 'cambios.cancelar_todos', 'proveedores.crear', 'proveedores.ver_todos', 'proveedores.gestionar', 'contratos.crear', 'contratos.ver_todos', 'contratos.gestionar'],
+    director:      ['procesos.ver', 'procesos.aprobar', 'procesos.publicar', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'cambios.ver_todos', 'cambios.aprobar', 'proveedores.ver_todos', 'contratos.ver_todos', 'contratos.aprobar', 'respaldos.ver_todos'],
+    administrador: ['procesos.ver', 'procesos.crear', 'procesos.editar_todos', 'procesos.publicar', 'procesos.catalogo', 'usuarios.admin', 'auditoria.ver', 'inventario.resumen', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.asignar', 'tickets.atender', 'tickets.configurar', 'cambios.crear', 'cambios.ver_todos', 'cambios.ver_propios', 'cambios.implementar_todos', 'cambios.cancelar_todos', 'proveedores.crear', 'proveedores.ver_todos', 'proveedores.gestionar', 'contratos.crear', 'contratos.ver_todos', 'contratos.gestionar', 'respaldos.crear', 'respaldos.ver_todos', 'respaldos.gestionar'],
     resp_proceso:  ['procesos.ver', 'procesos.crear', 'procesos.editar_propios', 'tickets.crear', 'tickets.ver_propios', 'cambios.crear', 'cambios.ver_propios'],
     tecnico:       ['procesos.ver_publicados', 'tickets.crear', 'tickets.ver_propios', 'tickets.ver_todos', 'tickets.atender'],
     solicitante:   ['tickets.crear', 'tickets.ver_propios']
@@ -26,7 +26,7 @@
   /* Gerente de TI = todo lo del Administrador y del Director (unión calculada, no copiada). Consultor = Responsable de proceso
      + atender tickets (solo los asignados a él o los que nadie ha tomado). Los roles anteriores se conservan. */
   PERMISOS_POR_ROL.gerente = PERMISOS_POR_ROL.administrador.concat(PERMISOS_POR_ROL.director.filter(function (p) { return PERMISOS_POR_ROL.administrador.indexOf(p) < 0; }));
-  PERMISOS_POR_ROL.consultor = PERMISOS_POR_ROL.resp_proceso.concat(['tickets.atender', 'cambios.implementar', 'proveedores.crear', 'proveedores.ver_propios', 'contratos.crear', 'contratos.ver_propios']);
+  PERMISOS_POR_ROL.consultor = PERMISOS_POR_ROL.resp_proceso.concat(['tickets.atender', 'cambios.implementar', 'proveedores.crear', 'proveedores.ver_propios', 'contratos.crear', 'contratos.ver_propios', 'respaldos.crear', 'respaldos.ver_propios']);
   function permisos(roles) {
     var set = {};
     (roles || []).forEach(function (r) { (PERMISOS_POR_ROL[r] || []).forEach(function (p) { set[p] = true; }); });
@@ -714,6 +714,107 @@
     return f[clave] || null;
   }
 
+
+  /* =====================================================================================================
+     RESPALDOS (solo control). La plataforma NO hace ni verifica respaldos: registra los que se hacen con otras herramientas.
+     Un trabajo sin ejecuciones registradas es "sin registros"; nunca se asume que está al día.
+     ===================================================================================================== */
+  var CATEGORIAS_RESPALDO = { firestore: 'Firestore / Firebase', servidor: 'Servidor', base_datos: 'Base de datos', equipos: 'Equipos de usuario', correo_nube: 'Correo y nube', archivos: 'Archivos', otro: 'Otro' };
+  var FRECUENCIAS_RESPALDO = { diario: 'Diario', semanal: 'Semanal', mensual: 'Mensual', trimestral: 'Trimestral', anual: 'Anual' };
+  var INTERVALO_DIAS = { diario: 1, semanal: 7, mensual: 31, trimestral: 92, anual: 366 };
+  var RESULTADOS_EJECUCION = { exitoso: 'Exitoso', con_errores: 'Con errores', fallido: 'Fallido' };
+  var RESULTADOS_PRUEBA = { exitosa: 'Exitosa', parcial: 'Parcial', fallida: 'Fallida' };
+  var ESTADOS_RESPALDO = { activo: 'Activo', pausado: 'Pausado', retirado: 'Retirado' };
+  var PRUEBA_MAX_DIAS = 180, DIA_MS = 86400000;
+  function normalizarConfigRespaldos(c) { return { pruebaMaxDias: c && typeof c.pruebaMaxDias === 'number' && c.pruebaMaxDias > 0 ? c.pruebaMaxDias : PRUEBA_MAX_DIAS }; }
+  function puedeVerRespaldo(u, r) { return tiene(u, 'respaldos.ver_todos') || (tiene(u, 'respaldos.ver_propios') && (r.creadoPor === u.email || r.responsable === u.email)); }
+  function puedeRegistrarRespaldo(u, r) { return tiene(u, 'respaldos.gestionar') || (tiene(u, 'respaldos.crear') && (r.creadoPor === u.email || r.responsable === u.email)); }
+  function validarRespaldo(d) {
+    var e = {};
+    if (!texto(d.nombre)) e.nombre = 'Escribe el nombre del trabajo.'; else if (texto(d.nombre).length > 200) e.nombre = 'Máximo 200 caracteres.';
+    if (!texto(d.que)) e.que = 'Describe qué se respalda.';
+    if (!CATEGORIAS_RESPALDO[d.categoria]) e.categoria = 'Elige la categoría.';
+    if (!FRECUENCIAS_RESPALDO[d.frecuencia]) e.frecuencia = 'Elige la frecuencia.';
+    if (!texto(d.ubicacion)) e.ubicacion = 'Indica dónde se guarda el respaldo.';
+    if (!texto(d.responsable)) e.responsable = 'Asigna un responsable.';
+    ['retencionDias', 'rpoHoras', 'rtoHoras'].forEach(function (k) { if (d[k] != null && d[k] !== '' && !(+d[k] > 0)) e[k] = 'Debe ser un número mayor que 0.'; });
+    if (texto(d.procedimientoId) && !/^PRO-\d{3,}$/.test(texto(d.procedimientoId))) e.procedimientoId = 'Usa un folio como PRO-001.';
+    return e;
+  }
+  function fechaPasada(ms, ahora) { return typeof ms === 'number' && ms > 0 && ms <= ahora + 5 * 60000; }
+  function validarRegistroRespaldo(d, tipo, ahora) {
+    var e = {}, ok = tipo === 'prueba' ? RESULTADOS_PRUEBA : RESULTADOS_EJECUCION;
+    if (!fechaPasada(d.fechaMs, ahora || Date.now())) e.fechaMs = 'Indica una fecha y hora que no sea futura.';
+    if (!ok[d.resultado]) e.resultado = 'Elige el resultado.';
+    var n = tipo === 'prueba' ? d.tiempoMin : d.tamanoGB; if (n != null && n !== '' && !(+n >= 0)) e.numero = 'Debe ser un número mayor o igual a 0.';
+    if (texto(d.evidencia) && !urlSegura(d.evidencia)) e.evidencia = 'Usa un enlace https:// válido.';
+    if ((d.resultado === 'fallido' || d.resultado === 'fallida' || d.resultado === 'con_errores' || d.resultado === 'parcial') && !texto(d.observaciones)) e.observaciones = 'Explica qué ocurrió.';
+    return e;
+  }
+  /* Cambios denormalizados del trabajo al registrar una ejecución o prueba: solo avanza si el registro es más reciente. */
+  function cambiosPorRegistro(r, tipo, d) {
+    var c = {}, k = tipo === 'prueba' ? 'ultimaPrueba' : 'ultimaEjecucion';
+    if (!(r[k + 'Ms'] > d.fechaMs)) { c[k + 'Ms'] = d.fechaMs; c[k + 'Resultado'] = d.resultado; }
+    return c;
+  }
+  function estadoRespaldo(r, ahora) {
+    if (r.estado !== 'activo') return { estado: r.estado === 'pausado' ? 'pausado' : 'retirado', dias: null };
+    if (!r.ultimaEjecucionMs) return { estado: 'sin_registros', dias: null };
+    var dias = Math.floor((ahora - r.ultimaEjecucionMs) / DIA_MS), lim = INTERVALO_DIAS[r.frecuencia] || 0;
+    if (r.ultimaEjecucionResultado === 'fallido') return { estado: 'fallido', dias: dias, limite: lim };
+    return { estado: (ahora - r.ultimaEjecucionMs) > lim * DIA_MS ? 'atrasado' : 'al_dia', dias: dias, limite: lim };
+  }
+  function estadoPrueba(r, ahora, config) {
+    if (r.estado !== 'activo') return { estado: 'na', dias: null };
+    if (!r.ultimaPruebaMs) return { estado: 'nunca', dias: null };
+    var dias = Math.floor((ahora - r.ultimaPruebaMs) / DIA_MS), max = normalizarConfigRespaldos(config).pruebaMaxDias;
+    if (r.ultimaPruebaResultado === 'fallida') return { estado: 'fallida', dias: dias, max: max };
+    if ((ahora - r.ultimaPruebaMs) > max * DIA_MS) return { estado: 'vencida', dias: dias, max: max };
+    return { estado: r.ultimaPruebaResultado === 'parcial' ? 'parcial' : 'vigente', dias: dias, max: max };
+  }
+  var ACCIONES_RESPALDO = {
+    pausar:    { label: 'Pausar', desde: ['activo'], requiere: ['motivo'], nuevo: 'pausado' },
+    reactivar: { label: 'Reactivar', desde: ['pausado'], nuevo: 'activo' },
+    retirar:   { label: 'Retirar', desde: ['activo', 'pausado'], requiere: ['motivo'], nuevo: 'retirado' }
+  };
+  function accionesRespaldoDisponibles(ctx) {
+    var u = ctx.user, r = ctx.respaldo, out = [];
+    if (!puedeVerRespaldo(u, r)) return out;
+    Object.keys(ACCIONES_RESPALDO).forEach(function (id) {
+      var a = ACCIONES_RESPALDO[id]; if (a.desde.indexOf(r.estado) < 0) return;
+      var ok = tiene(u, 'respaldos.gestionar') || (id !== 'retirar' && puedeRegistrarRespaldo(u, r));
+      out.push({ id: id, label: a.label, ok: ok, motivo: ok ? '' : 'Solo el Gerente puede retirar un trabajo de respaldo.', requiere: a.requiere || [] });
+    });
+    return out;
+  }
+  function aplicarAccionRespaldo(ctx, id, datos) {
+    var d = accionesRespaldoDisponibles(ctx).filter(function (x) { return x.id === id; })[0];
+    if (!d) throw new Error('La acción no es válida para el estado actual del trabajo.');
+    if (!d.ok) throw new Error(d.motivo);
+    var a = ACCIONES_RESPALDO[id]; if ((a.requiere || []).some(function (k) { return !texto((datos || {})[k]); })) { var e = new Error('Faltan datos obligatorios: motivo.'); e.faltan = ['motivo']; throw e; }
+    return { cambios: { estado: a.nuevo }, historial: { accion: id, detalle: a.label + ' (' + ESTADOS_RESPALDO[a.nuevo].toLowerCase() + ')', motivo: texto((datos || {}).motivo) } };
+  }
+  function indicadoresRespaldos(lista, ahora, config) {
+    var r = { activos: 0, alDia: 0, atrasados: 0, fallidos: 0, sinRegistros: 0, pruebasVencidas: 0, pruebasNunca: 0, pruebasVigentes: 0, coberturaPruebas: null, muestraMinima: MIN_MUESTRA };
+    (lista || []).forEach(function (t) {
+      if (t.estado !== 'activo') return; r.activos++;
+      var e = estadoRespaldo(t, ahora).estado; if (e === 'al_dia') r.alDia++; else if (e === 'atrasado') r.atrasados++; else if (e === 'fallido') r.fallidos++; else if (e === 'sin_registros') r.sinRegistros++;
+      var p = estadoPrueba(t, ahora, config).estado; if (p === 'vencida' || p === 'fallida') r.pruebasVencidas++; else if (p === 'nunca') r.pruebasNunca++; else if (p === 'vigente') r.pruebasVigentes++;
+    });
+    if (r.activos >= MIN_MUESTRA) r.coberturaPruebas = Math.round(r.pruebasVigentes / r.activos * 100);
+    return r;
+  }
+  function filtroRespaldos(clave, ahora, config) {
+    var f = {
+      activos: function (t) { return t.estado === 'activo'; },
+      atrasados: function (t) { return estadoRespaldo(t, ahora).estado === 'atrasado'; },
+      fallidos: function (t) { return estadoRespaldo(t, ahora).estado === 'fallido'; },
+      sinRegistros: function (t) { return estadoRespaldo(t, ahora).estado === 'sin_registros'; },
+      pruebasVencidas: function (t) { var p = estadoPrueba(t, ahora, config).estado; return p === 'vencida' || p === 'fallida' || p === 'nunca'; }
+    };
+    return f[clave] || null;
+  }
+
   /* Filtro de la tabla correspondiente a cada tarjeta, para "navegar hasta los registros que la componen". */
   function filtroIndicador(clave, hoy, ventana) {
     hoy = hoy || hoyISO(); var limite = sumarDias(hoy, ventana || VENTANA_DIAS);
@@ -763,6 +864,9 @@
     CATEGORIAS_PROVEEDOR: CATEGORIAS_PROVEEDOR, TIPOS_CONTRATO: TIPOS_CONTRATO, PERIODICIDADES: PERIODICIDADES, MONEDAS: MONEDAS, ESTADOS_CONTRATO: ESTADOS_CONTRATO, CONTRATO_ESTADO_LABEL: CONTRATO_ESTADO_LABEL, CONTRATO_ACTIVOS: CONTRATO_ACTIVOS, AVISO_CONTRATO_DIAS: AVISO_CONTRATO_DIAS,
     fechaISOok: fechaISOok, diasEntreISO: diasEntreISO, normalizarConfigProveedores: normalizarConfigProveedores, puedeVerProveedor: puedeVerProveedor, puedeVerContrato: puedeVerContrato, validarProveedor: validarProveedor, validarContrato: validarContrato,
     estadoVigencia: estadoVigencia, montoAnual: montoAnual, ACCIONES_CONTRATO: ACCIONES_CONTRATO, accionesContratoDisponibles: accionesContratoDisponibles, aplicarAccionContrato: aplicarAccionContrato, indicadoresContratos: indicadoresContratos, filtroContratos: filtroContratos,
+    CATEGORIAS_RESPALDO: CATEGORIAS_RESPALDO, FRECUENCIAS_RESPALDO: FRECUENCIAS_RESPALDO, INTERVALO_DIAS: INTERVALO_DIAS, RESULTADOS_EJECUCION: RESULTADOS_EJECUCION, RESULTADOS_PRUEBA: RESULTADOS_PRUEBA, ESTADOS_RESPALDO: ESTADOS_RESPALDO, PRUEBA_MAX_DIAS: PRUEBA_MAX_DIAS,
+    normalizarConfigRespaldos: normalizarConfigRespaldos, puedeVerRespaldo: puedeVerRespaldo, puedeRegistrarRespaldo: puedeRegistrarRespaldo, validarRespaldo: validarRespaldo, validarRegistroRespaldo: validarRegistroRespaldo, cambiosPorRegistro: cambiosPorRegistro,
+    estadoRespaldo: estadoRespaldo, estadoPrueba: estadoPrueba, ACCIONES_RESPALDO: ACCIONES_RESPALDO, accionesRespaldoDisponibles: accionesRespaldoDisponibles, aplicarAccionRespaldo: aplicarAccionRespaldo, indicadoresRespaldos: indicadoresRespaldos, filtroRespaldos: filtroRespaldos,
     CATEGORIAS: CATEGORIAS, CATALOGO_INICIAL: CATALOGO_INICIAL
   };
 });

@@ -207,10 +207,10 @@ async function abrir(browser, errores, semilla) {
   ok('T13 la pestaña y el menú dicen CAFIVER TI (no "InventarioTech")', (await p3.title()).includes('CAFIVER TI') && (await p3.locator('.marca b').textContent()) === 'CAFIVER TI');
   await p3.evaluate(() => TI.ir('ti-admin')); await p3.click('#ad-boot'); await p3.waitForTimeout(400);
   const orden = await p3.evaluate(() => [...document.querySelectorAll('#side nav > *')].filter((e) => !e.classList.contains('hidden')).map((e) => e.id));
-  ok('T13 orden del menú: Inicio, Procesos, Mesa de ayuda, Gestión de cambios, Proveedores y contratos, Proyectos, Inventario de equipos, Administración', JSON.stringify(orden) === JSON.stringify(['tnav-ti-inicio', 'tnav-ti-procesos', 'tnav-ti-tickets', 'tnav-ti-cambios', 'tnav-ti-proveedores', 'tnav-ti-proy', 'tnav-ti-inv', 'tnav-ti-admin']), orden);
+  ok('T13 orden del menú: Inicio, Procesos, Mesa de ayuda, Gestión de cambios, Proveedores y contratos, Respaldos, Proyectos, Inventario de equipos, Administración', JSON.stringify(orden) === JSON.stringify(['tnav-ti-inicio', 'tnav-ti-procesos', 'tnav-ti-tickets', 'tnav-ti-cambios', 'tnav-ti-proveedores', 'tnav-ti-respaldos', 'tnav-ti-proy', 'tnav-ti-inv', 'tnav-ti-admin']), orden);
   await C.ir('ti-inicio'); await C.shot('7-inicio');
-  ok('T13 Inicio muestra las tarjetas de los 7 módulos disponibles', (await p3.locator('.ti-mod').count()) === 7);
-  ok('T13 Inicio no muestra módulos que no existen (contratos, respaldos) como tarjetas', (await p3.locator('.ti-mod h2').allTextContents()).filter((t) => /respaldos|inteligencia|sap/i.test(t)).length === 0);
+  ok('T13 Inicio muestra las tarjetas de los 8 módulos disponibles', (await p3.locator('.ti-mod').count()) === 8);
+  ok('T13 Inicio no muestra módulos que no existen (contratos, respaldos) como tarjetas', (await p3.locator('.ti-mod h2').allTextContents()).filter((t) => /inteligencia|\bsap\b/i.test(t)).length === 0);
   ok('T13 Proyectos es un enlace a GanttTracker en otra pestaña (sin tocar su código)', (await p3.getAttribute('#tnav-ti-proy', 'href')) === 'https://nubecafiver.github.io/gantttracker/' && (await p3.getAttribute('#tnav-ti-proy', 'target')) === '_blank' && (await p3.getAttribute('#tnav-ti-proy', 'rel')).includes('noopener'));
   await C.ir('ti-procesos'); await C.shot('8-menu-procesos');
   await p3.setViewportSize({ width: 420, height: 800 });
@@ -662,6 +662,78 @@ async function abrir(browser, errores, semilla) {
   ok('T19 el otro consultor ve solo los suyos (CTR-0050, 0051 y 0052) y no los de otro', JSON.stringify(codsT.sort()) === JSON.stringify(['CTR-0050', 'CTR-0051', 'CTR-0052']), codsT);
   await V.logout(); await V.login(SOL); ok('T19 el solicitante no ve Proveedores y contratos', !(await V.visible('#tnav-ti-proveedores')));
   await V.logout(); await V.page.close();
+
+  /* ---------- T20: Respaldos (solo control) ---------- */
+  const sem7 = {};
+  [[ADMIN, ['gerente']], [RESP, ['consultor']], [TEC, ['consultor']], [SOL, ['solicitante']]].forEach(([e, r]) => { sem7['usuarios_ti/' + e] = { email: e, nombre: e.split('@')[0], roles: r, activo: true }; });
+  const nowR = Date.now(), dR = 86400000;
+  const rSem = (id, extra) => Object.assign({ codigo: id, nombre: 'Trabajo ' + id, que: 'Datos', categoria: 'servidor', frecuencia: 'diario', ubicacion: 'NAS', responsable: TEC, creadoPor: TEC, estado: 'activo', ultimaEjecucionMs: nowR - 3600000, ultimaEjecucionResultado: 'exitoso', ultimaPruebaMs: nowR - 10 * dR, ultimaPruebaResultado: 'exitosa', creadoMs: nowR }, extra || {});
+  sem7['ti_respaldos/RSP-050'] = rSem('RSP-050');                                                          // al día, prueba vigente
+  sem7['ti_respaldos/RSP-051'] = rSem('RSP-051', { ultimaEjecucionMs: nowR - 3 * dR });                    // atrasado
+  sem7['ti_respaldos/RSP-052'] = rSem('RSP-052', { ultimaEjecucionResultado: 'fallido' });                  // fallido
+  sem7['ti_respaldos/RSP-053'] = rSem('RSP-053', { ultimaEjecucionMs: null, ultimaEjecucionResultado: null, ultimaPruebaMs: null, ultimaPruebaResultado: null }); // sin registros
+  sem7['ti_respaldos/RSP-054'] = rSem('RSP-054', { ultimaPruebaMs: nowR - 300 * dR });                      // prueba vencida
+  const Z = await abrir(browser, errores, sem7), pz = Z.page;
+  const habilZ = async (id) => (await Z.accion(id).count()) === 1 && (await Z.accion(id).getAttribute('aria-disabled')) === null;
+  await Z.login(ADMIN); await Z.ir('ti-respaldos'); await Z.espera(300);
+  const kz = async (c) => pz.locator('[data-kpi=' + c + '] .ti-kv').textContent();
+  ok('T20 aviso permanente: la plataforma no hace respaldos', (await pz.locator('#view-ti-respaldos .ti-note.warn').textContent()).includes('no hace respaldos'));
+  ok('T20 el Gerente ve 5 tarjetas con cifras exactas (5 activos, 1 atrasado, 1 fallido, 1 sin registros, 2 pruebas pendientes)', (await pz.locator('#view-ti-respaldos .ti-kpi').count()) === 5 && (await kz('activos')) === '5' && (await kz('atrasados')) === '1' && (await kz('fallidos')) === '1' && (await kz('sinRegistros')) === '1' && (await kz('pruebasVencidas')) === '2', [await kz('activos'), await kz('atrasados'), await kz('fallidos'), await kz('sinRegistros'), await kz('pruebasVencidas')]);
+  const fila = async (c) => pz.locator('.ti-row:has-text("' + c + '")').textContent();
+  ok('T20 un trabajo sin registros se muestra "Sin registros" (no al día) y "Nunca probada"', (await fila('RSP-053')).includes('Sin registros') && !(await fila('RSP-053')).includes('Al día') && (await fila('RSP-053')).includes('Nunca probada'));
+  ok('T20 estados con texto: Al día, Atrasado, Último fallido, Prueba vencida', (await fila('RSP-050')).includes('Al día') && (await fila('RSP-051')).includes('Atrasado') && (await fila('RSP-052')).includes('Último fallido') && (await fila('RSP-054')).includes('Vencida'));
+  const notaR = await pz.locator('#view-ti-respaldos .ti-note').nth(1).textContent();
+  ok('T20 cobertura con 5 activos: 3 de 5 con prueba vigente = 60 %', notaR.includes('60%') && notaR.includes('3 de 5'), notaR);
+  await pz.click('[data-kpi=sinRegistros]'); await Z.espera(120);
+  ok('T20 la tarjeta "Sin registros" filtra exactamente RSP-053', (await Z.filas()) === 1 && (await pz.locator('.ti-row').textContent()).includes('RSP-053'));
+  await Z.abrirFila('RSP-053');
+  ok('T20 el detalle advierte que no hay evidencia de respaldo', (await pz.locator('.ti-ov .ti-note.err').textContent()).includes('no se considera respaldado'));
+  await pz.click('#rs-ej'); await pz.selectOption('#g-res', 'fallido'); await pz.click('#g-ok'); await Z.espera(100);
+  ok('T20 un resultado fallido exige observaciones', (await pz.locator('.ti-ov [data-e=observaciones]').textContent()).length > 0);
+  await pz.fill('#g-fec', '2099-01-01T10:00'); await pz.fill('#g-obs', 'Falló el disco'); await pz.click('#g-ok'); await Z.espera(100);
+  ok('T20 no se acepta una fecha futura', (await pz.locator('.ti-ov [data-e=fechaMs]').textContent()).length > 0);
+  await pz.fill('#g-fec', new Date(nowR - 3600000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)); await pz.selectOption('#g-res', 'exitoso'); await pz.fill('#g-num', '12.5'); await pz.fill('#g-obs', ''); await pz.click('#g-ok'); await Z.espera(400);
+  const r53 = await pz.evaluate(() => window.__MOCK.store['ti_respaldos/RSP-053']);
+  ok('T20 registrar una ejecución exitosa actualiza el resumen del trabajo (Al día)', r53.ultimaEjecucionResultado === 'exitoso' && r53.ultimaEjecucionMs > 0 && (await pz.locator('.ti-ov .modal-hd').textContent()).includes('Al día'), r53);
+  ok('T20 la ejecución queda en la pestaña con su tamaño y quien la registró', (await pz.locator('.ti-ov table').textContent()).includes('12.5') && (await pz.locator('.ti-ov table').textContent()).includes(ADMIN.split('@')[0]));
+  await pz.click('#rs-pr'); await pz.selectOption('#g-res', 'exitosa'); await pz.fill('#g-num', '45'); await pz.click('#g-ok'); await Z.espera(400);
+  const r53b = await pz.evaluate(() => window.__MOCK.store['ti_respaldos/RSP-053']);
+  ok('T20 registrar una prueba de restauración exitosa la deja vigente', r53b.ultimaPruebaResultado === 'exitosa' && (await pz.locator('.ti-ov .modal-hd').textContent()).includes('Vigente'));
+  const audR = await pz.evaluate(() => Object.values(window.__MOCK.store).filter((x) => x && x.tipoRegistro === 'respaldo' && x.registroId === 'RSP-053').map((x) => x.accion));
+  ok('T20 la auditoría registra la ejecución y la prueba', audR.includes('registrar_ejecucion_respaldo') && audR.includes('registrar_prueba_restauracion'), audR);
+  ok('T20 el Gerente puede pausar y retirar', await habilZ('pausar') && await habilZ('retirar'));
+  await Z.accion('pausar').click(); await pz.click('#ac-ok'); await Z.espera(100);
+  ok('T20 pausar exige motivo', (await pz.locator('#ac-e').textContent()).length > 0); await pz.fill('#ac-motivo', 'Migración'); await pz.click('#ac-ok'); await Z.espera(400);
+  ok('T20 pausado: no se evalúa y ya no permite registrar ejecuciones', (await pz.evaluate(() => window.__MOCK.store['ti_respaldos/RSP-053'].estado)) === 'pausado' && (await pz.locator('#rs-ej').count()) === 0);
+  await Z.cerrarModal();
+  // nuevo trabajo con validación y XSS
+  await pz.click('#rs-lim').catch(() => {}); await Z.espera(100);
+  await pz.click('#rs-nuevo'); await pz.fill('#r-nom', '<b onmouseover="window.__xss=1">Respaldo ERP</b>'); await pz.click('#r-ok'); await Z.espera(100);
+  ok('T20 el trabajo exige qué se respalda, dónde se guarda y responsable', (await pz.locator('.ti-ov [data-e=que]').textContent()).length > 0 && (await pz.locator('.ti-ov [data-e=ubicacion]').textContent()).length > 0);
+  await pz.fill('#r-que', 'Base de datos del ERP'); await pz.fill('#r-ubi', 'Disco externo'); await pz.selectOption('#r-fre', 'semanal'); await pz.selectOption('#r-res', RESP); await pz.click('#r-ok'); await pz.waitForSelector('.ti-ov .modal-footer', { timeout: 3000 }).catch(() => {}); await Z.espera(300);
+  const nuevoR = await pz.evaluate(() => window.__MOCK.store['ti_respaldos/RSP-001']);
+  ok('T20 se creó RSP-001 sin RPO/RTO inventados y sin ejecuciones', nuevoR && nuevoR.rpoHoras === null && nuevoR.rtoHoras === null && nuevoR.ultimaEjecucionMs === null && nuevoR.estado === 'activo', nuevoR);
+  ok('T20 XSS: el nombre se muestra como texto', (await pz.evaluate(() => window.__xss)) === undefined && (await pz.locator('.ti-ov .modal-hd h3').textContent()).includes('<b'));
+  await Z.cerrarModal();
+  const [descZ] = await Promise.all([pz.waitForEvent('download', { timeout: 4000 }), pz.click('#rs-csv')]);
+  const csvZ = fs.readFileSync(await descZ.path(), 'utf8');
+  ok('T20 el CSV trae los estados calculados', csvZ.includes('Folio') && csvZ.includes('atrasado') && csvZ.includes('sin_registros'), csvZ.slice(0, 150));
+  await Z.ir('ti-admin'); await Z.espera(200); await pz.click('[data-t=respaldos]'); await Z.espera(250);
+  await pz.fill('#rs-max', '0'); await pz.click('#rs-guardar'); await Z.espera(100);
+  ok('T20 la vigencia de pruebas exige un valor válido', (await pz.locator('#rs-max-e').textContent()).length > 0);
+  await pz.fill('#rs-max', '400'); await pz.click('#rs-guardar'); await Z.espera(300);
+  ok('T20 la vigencia se guarda en 400 y queda en la auditoría', (await pz.evaluate(() => window.__MOCK.store['ti_config/respaldos'].pruebaMaxDias)) === 400 && await pz.evaluate(() => Object.values(window.__MOCK.store).some((x) => x && x.accion === 'configurar_respaldos')));
+  await Z.logout(); await Z.login(ADMIN); await Z.ir('ti-respaldos'); await Z.espera(300);
+  ok('T20 con 400 días la prueba de 300 días ya no está vencida', !(await pz.locator('.ti-row:has-text("RSP-054")').textContent()).includes('Vencida'));
+  await Z.ir('ti-inicio'); await Z.espera(300);
+  const rsIni = await pz.locator('#s-rs').locator('xpath=ancestor::section').textContent();
+  ok('T20 Inicio: sección de respaldos con cobertura calculada', rsIni.includes('Trabajos activos') && rsIni.includes('Cobertura de pruebas'), rsIni.slice(0, 300));
+  await Z.logout(); await Z.login(TEC); await Z.ir('ti-respaldos'); await Z.espera(300);
+  const codsR = await pz.locator('#view-ti-respaldos .ti-row .ti-code').allTextContents();
+  ok('T20 el consultor ve solo los suyos (no ve RSP-001, asignado a otro consultor)', JSON.stringify(codsR.sort()) === JSON.stringify(['RSP-050', 'RSP-051', 'RSP-052', 'RSP-053', 'RSP-054']) && (await pz.locator('#view-ti-respaldos .ti-kpi').count()) === 0, codsR);
+  await Z.abrirFila('RSP-050'); ok('T20 el consultor responsable puede registrar ejecuciones y pruebas, pero no retirar', (await pz.locator('#rs-ej').count()) === 1 && (await pz.locator('#rs-pr').count()) === 1 && !(await habilZ('retirar')));
+  await Z.cerrarModal(); await Z.logout(); await Z.login(SOL); ok('T20 el solicitante no ve Respaldos', !(await Z.visible('#tnav-ti-respaldos')));
+  await Z.logout(); await Z.page.close();
 
   ok('Sin errores de JavaScript en toda la sesión', errores.length === 0, errores.slice(0, 5));
   await browser.close();

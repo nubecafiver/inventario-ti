@@ -40,7 +40,7 @@ service cloud.firestore {
     }
 
     /* ---------- Configuración (folios y mesa de ayuda) ---------- */
-    // Folios: ti_config/contadores {procesos, tickets, cambios, proveedores, contratos}. Los procesos los incrementa el administrador o un responsable (el catálogo
+    // Folios: ti_config/contadores {procesos, tickets, cambios, proveedores, contratos, respaldos}. Los procesos los incrementa el administrador o un responsable (el catálogo
     // reserva varios a la vez); los tickets los incrementa cualquier usuario activo, de uno en uno.
     function ctr() { return request.resource.data; }
     function ctrAntes(k) { return resource.data.get(k, 0); }
@@ -52,19 +52,28 @@ service cloud.firestore {
                          || (ctr().keys().hasOnly(['tickets']) && ctr().tickets == 1 && activo())
                          || (ctr().keys().hasOnly(['cambios']) && ctr().cambios == 1 && (esAdmin() || esResp()))
                          || (ctr().keys().hasOnly(['proveedores']) && ctr().proveedores == 1 && (esAdmin() || esResp()))
-                         || (ctr().keys().hasOnly(['contratos']) && ctr().contratos == 1 && (esAdmin() || esResp()))))
+                         || (ctr().keys().hasOnly(['contratos']) && ctr().contratos == 1 && (esAdmin() || esResp()))
+                         || (ctr().keys().hasOnly(['respaldos']) && ctr().respaldos == 1 && (esAdmin() || esResp()))))
                     || (doc == 'tickets' && esAdmin() && configTicketsValida())
-                    || (doc == 'proveedores' && esAdmin() && configProveedoresValida());
+                    || (doc == 'proveedores' && esAdmin() && configProveedoresValida())
+                    || (doc == 'respaldos' && esAdmin() && configRespaldosValida());
       // Cada folio sube de uno en uno (los procesos pueden reservar varios a la vez) y no toca los demás.
-      allow update: if (doc == 'contadores' && ctr().keys().hasOnly(['procesos', 'tickets', 'cambios', 'proveedores', 'contratos'])
-                        && ((dc('procesos') > 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && (esAdmin() || esResp()))
-                         || (dc('tickets') == 1 && dc('procesos') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && activo())
-                         || (dc('cambios') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && (esAdmin() || esResp()))
-                         || (dc('proveedores') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('contratos') == 0 && (esAdmin() || esResp()))
-                         || (dc('contratos') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && (esAdmin() || esResp()))))
+      allow update: if (doc == 'contadores' && ctr().keys().hasOnly(['procesos', 'tickets', 'cambios', 'proveedores', 'contratos', 'respaldos'])
+                        && ((dc('procesos') > 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && dc('respaldos') == 0 && (esAdmin() || esResp()))
+                         || (dc('tickets') == 1 && dc('procesos') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && dc('respaldos') == 0 && activo())
+                         || (dc('cambios') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && dc('respaldos') == 0 && (esAdmin() || esResp()))
+                         || (dc('proveedores') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('contratos') == 0 && dc('respaldos') == 0 && (esAdmin() || esResp()))
+                         || (dc('contratos') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('respaldos') == 0 && (esAdmin() || esResp()))
+                         || (dc('respaldos') == 1 && dc('procesos') == 0 && dc('tickets') == 0 && dc('cambios') == 0 && dc('proveedores') == 0 && dc('contratos') == 0 && (esAdmin() || esResp()))))
                     || (doc == 'tickets' && esAdmin() && configTicketsValida())
-                    || (doc == 'proveedores' && esAdmin() && configProveedoresValida());
+                    || (doc == 'proveedores' && esAdmin() && configProveedoresValida())
+                    || (doc == 'respaldos' && esAdmin() && configRespaldosValida());
       allow delete: if false;
+    }
+    function configRespaldosValida() {
+      return request.resource.data.keys().hasOnly(['pruebaMaxDias', 'actualizadoPor', 'actualizadoEn']) && request.resource.data.pruebaMaxDias is number
+          && request.resource.data.pruebaMaxDias >= 1 && request.resource.data.pruebaMaxDias <= 1000
+          && request.resource.data.actualizadoPor == correo() && request.resource.data.actualizadoEn == request.time;
     }
     function configProveedoresValida() {
       return request.resource.data.keys().hasOnly(['avisoVencimientoDias', 'actualizadoPor', 'actualizadoEn']) && request.resource.data.avisoVencimientoDias is number
@@ -323,6 +332,50 @@ service cloud.firestore {
          || (ct().estado == 'vigente' && ctNuevo().estado == 'renovado' && esDirector() && cambia().hasOnly(['estado', 'actualizadoEn']))
          || (ct().estado in ['borrador', 'pendiente_aprobacion'] && ctNuevo().estado == 'cancelado' && (ct().creadoPor == correo() || esAdmin()) && cambia().hasOnly(['estado', 'actualizadoEn'])));
       allow delete: if false;
+      match /historial/{h} {
+        allow read: if esAdmin() || esDirector();
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- Respaldos (solo control) ---------- */
+    // La plataforma no hace respaldos: registra los trabajos, sus ejecuciones y sus pruebas de restauración. Crean y registran: Gerente,
+    // Administrador y el responsable o creador del trabajo (Consultor). Ven todo: Gerente, Administrador y Director.
+    function rs() { return resource.data; }
+    function rsNuevo() { return request.resource.data; }
+    function veRespaldo() { return esAdmin() || esDirector() || (activo() && (rs().creadoPor == correo() || rs().responsable == correo())); }
+    function rutaRespaldo(id) { return /databases/$(database)/documents/ti_respaldos/$(id); }
+    function registraRespaldo(id) { return esAdmin() || (esResp() && (get(rutaRespaldo(id)).data.creadoPor == correo() || get(rutaRespaldo(id)).data.responsable == correo())); }
+    function registroValido(resultados) {
+      return request.resource.data.registradoPor == correo() && request.resource.data.fecha == request.time && request.resource.data.resultado in resultados
+          && request.resource.data.fechaMs is int && request.resource.data.fechaMs <= request.time.toMillis() + 300000;
+    }
+    match /ti_respaldos/{id} {
+      allow read: if veRespaldo();
+      allow create: if (esAdmin() || esResp()) && rsNuevo().creadoPor == correo() && rsNuevo().codigo == id && rsNuevo().estado == 'activo' && rsNuevo().creadoEn == request.time
+                    && rsNuevo().nombre is string && rsNuevo().nombre.size() > 0 && rsNuevo().nombre.size() <= 200
+                    && rsNuevo().frecuencia in ['diario', 'semanal', 'mensual', 'trimestral', 'anual']
+                    && rsNuevo().ultimaEjecucionMs == null && rsNuevo().ultimaPruebaMs == null;
+      allow update: if !cambia().hasAny(['codigo', 'creadoPor', 'creadoMs', 'creadoEn']) && (
+            // Editar datos del trabajo: Gerente/Administrador o quien lo creó o tiene asignado; el estado y los resúmenes no cambian aquí.
+            ((esAdmin() || (esResp() && (rs().creadoPor == correo() || rs().responsable == correo()))) && !cambia().hasAny(['estado', 'ultimaEjecucionMs', 'ultimaEjecucionResultado', 'ultimaPruebaMs', 'ultimaPruebaResultado']))
+            // Resúmenes de la última ejecución o prueba (se escriben junto con el registro).
+         || ((esAdmin() || (esResp() && (rs().creadoPor == correo() || rs().responsable == correo()))) && rs().estado == 'activo' && cambia().hasOnly(['ultimaEjecucionMs', 'ultimaEjecucionResultado', 'ultimaPruebaMs', 'ultimaPruebaResultado', 'actualizadoEn']))
+            // Pausar y reactivar: responsable o Gerente. Retirar: solo Gerente/Administrador.
+         || (cambia().hasOnly(['estado', 'actualizadoEn']) && ((rs().estado == 'activo' && rsNuevo().estado == 'pausado') || (rs().estado == 'pausado' && rsNuevo().estado == 'activo')) && (esAdmin() || (esResp() && (rs().creadoPor == correo() || rs().responsable == correo()))))
+         || (cambia().hasOnly(['estado', 'actualizadoEn']) && rs().estado in ['activo', 'pausado'] && rsNuevo().estado == 'retirado' && esAdmin()));
+      allow delete: if false;
+      match /ejecuciones/{e} {
+        allow read: if esAdmin() || esDirector() || (activo() && (get(rutaRespaldo(id)).data.creadoPor == correo() || get(rutaRespaldo(id)).data.responsable == correo()));
+        allow create: if registraRespaldo(id) && registroValido(['exitoso', 'con_errores', 'fallido']);
+        allow update, delete: if false;
+      }
+      match /pruebas/{e} {
+        allow read: if esAdmin() || esDirector() || (activo() && (get(rutaRespaldo(id)).data.creadoPor == correo() || get(rutaRespaldo(id)).data.responsable == correo()));
+        allow create: if registraRespaldo(id) && registroValido(['exitosa', 'parcial', 'fallida']);
+        allow update, delete: if false;
+      }
       match /historial/{h} {
         allow read: if esAdmin() || esDirector();
         allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;

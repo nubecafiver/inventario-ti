@@ -52,3 +52,6 @@ Las reglas agregan `ti_cambios` (con `historial`) y el folio `cambios` en `ti_co
 
 ## Proveedores y contratos (Fase 8)
 Las reglas agregan `ti_proveedores`, `ti_contratos` (con `historial`), `ti_config/proveedores` y los folios `proveedores` y `contratos` en `ti_config/contadores` (la regla de folios se reescribió: cada folio sube de uno en uno y no toca los demás). Prueba en el Simulador: un consultor aprobando su propio contrato (denegado), editando el monto de un contrato vigente (denegado), leyendo el contrato de otro consultor (denegado) y el Gerente aprobando un contrato ajeno pendiente (permitido). Vuelve a probar también el catálogo inicial de procesos, porque usa el folio `procesos`.
+
+## Respaldos (Fase 9)
+Las reglas agregan `ti_respaldos` (con `ejecuciones`, `pruebas` e `historial`), `ti_config/respaldos` y el folio `respaldos`. Prueba en el Simulador: un consultor registrando una ejecución en el trabajo de otro (denegado), con fecha futura (denegado), editando una ejecución ya creada (denegado), retirando un trabajo (denegado) y el Gerente retirándolo (permitido). Vuelve a probar el catálogo de procesos, que usa el folio `procesos`.

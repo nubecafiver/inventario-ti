@@ -347,3 +347,57 @@ test('proveedores: crean gerente y consultor; el consultor solo ve y edita los s
   const cfg = { avisoVencimientoDias: 90, actualizadoPor: U.ger, actualizadoEn: serverTimestamp() };
   await assertSucceeds(setDoc(doc(db('ger'), 'ti_config', 'proveedores'), cfg)); await assertFails(setDoc(doc(db('cons'), 'ti_config', 'proveedores'), Object.assign({}, cfg, { actualizadoPor: U.cons })));
 });
+
+/* ===================== RESPALDOS — preparadas, no ejecutadas ===================== */
+const respaldo = (extra) => Object.assign({ codigo: 'RSP-001', nombre: 'R', que: 'q', categoria: 'servidor', frecuencia: 'diario', ubicacion: 'NAS', responsable: U.cons, creadoPor: U.cons, estado: 'activo', ultimaEjecucionMs: null, ultimaEjecucionResultado: null, ultimaPruebaMs: null, ultimaPruebaResultado: null, creadoMs: Date.now() }, extra || {});
+async function sembrarRespaldo(extra) {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const f = ctx.firestore();
+    for (const k of Object.keys(ROLES)) await setDoc(doc(f, 'usuarios_ti', U[k]), { email: U[k], roles: ROLES[k], activo: true });
+    await setDoc(doc(f, 'ti_respaldos', 'RSP-001'), respaldo(extra));
+  });
+}
+const rref = (k) => doc(db(k), 'ti_respaldos', 'RSP-001');
+test('respaldos: crean gerente y consultor a su nombre, sin ejecuciones; técnico y solicitante no', async () => {
+  await sembrarRespaldo();
+  const nuevo = (k, id, extra) => setDoc(doc(db(k), 'ti_respaldos', id), respaldo(Object.assign({ codigo: id, creadoPor: U[k], creadoEn: serverTimestamp() }, extra || {})));
+  await assertSucceeds(nuevo('cons', 'RSP-002')); await assertSucceeds(nuevo('ger', 'RSP-003'));
+  await assertFails(nuevo('tec', 'RSP-004')); await assertFails(nuevo('sol', 'RSP-005'));
+  await assertFails(nuevo('cons', 'RSP-006', { ultimaEjecucionMs: 5, ultimaEjecucionResultado: 'exitoso' }));
+  await assertFails(nuevo('cons', 'RSP-007', { frecuencia: 'cada_hora' }));
+});
+test('respaldos: lectura — gerente y director todos; consultor solo los suyos; solicitante nada', async () => {
+  await sembrarRespaldo();
+  await assertSucceeds(getDoc(rref('ger'))); await assertSucceeds(getDoc(rref('dir'))); await assertSucceeds(getDoc(rref('cons')));
+  await assertFails(getDoc(rref('cons2'))); await assertFails(getDoc(rref('sol')));
+  await assertFails(getDocs(collection(db('cons'), 'ti_respaldos')));
+});
+test('respaldos: ejecuciones y pruebas — las registra el responsable o el gerente; solo se crean; fecha no futura', async () => {
+  await sembrarRespaldo();
+  const ej = (k, extra) => setDoc(doc(collection(db(k), 'ti_respaldos', 'RSP-001', 'ejecuciones')), Object.assign({ fechaMs: Date.now() - 1000, resultado: 'exitoso', registradoPor: U[k], fecha: serverTimestamp() }, extra || {}));
+  await assertSucceeds(ej('cons')); await assertSucceeds(ej('ger'));
+  await assertFails(ej('cons2')); await assertFails(ej('dir')); await assertFails(ej('sol'));
+  await assertFails(ej('cons', { fechaMs: Date.now() + 86400000 })); await assertFails(ej('cons', { resultado: 'excelente' }));
+  await assertFails(setDoc(doc(collection(db('cons'), 'ti_respaldos', 'RSP-001', 'ejecuciones')), { fechaMs: 1, resultado: 'exitoso', registradoPor: U.ger, fecha: serverTimestamp() }));
+  await assertSucceeds(setDoc(doc(collection(db('cons'), 'ti_respaldos', 'RSP-001', 'pruebas')), { fechaMs: Date.now() - 1000, resultado: 'exitosa', registradoPor: U.cons, fecha: serverTimestamp() }));
+  await assertFails(setDoc(doc(collection(db('cons'), 'ti_respaldos', 'RSP-001', 'pruebas')), { fechaMs: Date.now() - 1000, resultado: 'exitoso', registradoPor: U.cons, fecha: serverTimestamp() }));
+});
+test('respaldos: el resumen del trabajo solo cambia con campos de última ejecución/prueba; retirar solo el gerente', async () => {
+  await sembrarRespaldo();
+  await assertSucceeds(updateDoc(rref('cons'), { ultimaEjecucionMs: 5, ultimaEjecucionResultado: 'exitoso', actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(rref('cons'), { ultimaEjecucionMs: 5, creadoPor: U.cons2 }));
+  await assertFails(updateDoc(rref('cons2'), { ultimaEjecucionMs: 6, actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(rref('cons'), { estado: 'pausado', actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(rref('cons'), { estado: 'activo', actualizadoEn: serverTimestamp() }));
+  await assertFails(updateDoc(rref('cons'), { estado: 'retirado', actualizadoEn: serverTimestamp() }));
+  await assertSucceeds(updateDoc(rref('ger'), { estado: 'retirado', actualizadoEn: serverTimestamp() }));
+  await assertFails(deleteDoc(rref('ger')));
+});
+test('ti_config: folio de respaldos (+1) y configuración solo del administrador', async () => {
+  await sembrarRespaldo();
+  await assertSucceeds(setDoc(doc(db('cons'), 'ti_config', 'contadores'), { respaldos: 1 }));
+  await assertSucceeds(updateDoc(doc(db('cons'), 'ti_config', 'contadores'), { respaldos: 2 }));
+  await assertFails(updateDoc(doc(db('cons'), 'ti_config', 'contadores'), { respaldos: 9 }));
+  const cfg = { pruebaMaxDias: 180, actualizadoPor: U.ger, actualizadoEn: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(db('ger'), 'ti_config', 'respaldos'), cfg)); await assertFails(setDoc(doc(db('cons'), 'ti_config', 'respaldos'), Object.assign({}, cfg, { actualizadoPor: U.cons })));
+});
