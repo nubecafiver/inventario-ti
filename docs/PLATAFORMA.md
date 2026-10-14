@@ -23,7 +23,7 @@ Firebase puro: Authentication + Cloud Firestore, alojado donde ya estaba (GitHub
 | `tests/` | Pruebas (ver abajo). |
 | `demo/` | Maquetas con datos inventados usadas para elegir el estilo visual. No forman parte de la app. |
 
-Cambios en `index.html` (los únicos): `<link>` a `css/ti.css`; cuatro `<script src>` antes de `</body>`; el texto "Dashboard" ahora dice "Inicio". El menú y las vistas nuevas se agregan por JavaScript **al final** del menú para no alterar el orden de las secciones existentes (el modo campo depende de él).
+Cambios en `index.html` (los únicos): `<link>` a `css/ti.css`; cuatro `<script src>` antes de `</body>`; el texto "Dashboard" ahora dice "Inicio"; y tres textos de marca (título de la pestaña, inicio de sesión y subtítulo del menú). El menú y las vistas nuevas se montan por JavaScript tras iniciar sesión (ver "Estructura del menú").
 
 ## Modelo de datos (colecciones nuevas; el inventario no se duplica ni se modifica)
 | Ruta | Contenido | Notas |
@@ -51,6 +51,17 @@ Un usuario puede tener varios roles; los permisos se suman. Se validan en `fires
 | Solicitante | Sin acceso a procesos (reservado para tickets). |
 
 El inventario existente **no** cambió: sigue abierto a cualquier usuario autenticado, igual que con las reglas actuales (modo transitorio).
+
+## Estructura del menú
+CAFIVER TI es la plataforma; el **Inventario de equipos es un módulo dentro de ella**. El menú queda así (solo aparece lo que existe y lo que el rol permite):
+
+1. **Inicio** (hoy sigue siendo el dashboard del inventario; en la Fase 4 pasa a ser el resumen ejecutivo).
+2. **Procesos y procedimientos** (según rol).
+3. **Inventario de equipos** (grupo plegable, abierto por defecto, con memoria): Inventario, QR, Reparaciones, Celulares, Simulador, Licencias, Personal, Obsoletos y Etiquetas, con sus subtítulos "Operaciones" y "Control". Sus botones conservan los mismos `id` y `onclick` de siempre.
+4. *(Mesa de ayuda, Gestión de cambios, Proyectos, Proveedores y Respaldos aparecerán cuando existan.)*
+5. **Administración** (usuarios, roles y auditoría; según rol).
+
+Se reorganiza moviendo los botones existentes en el DOM (`TI.montar` en `js/ti-core.js`); no se reescribió el inventario. El **modo campo** (móvil) depende del orden de los subtítulos del menú: por eso se movieron los tres juntos, y una prueba compara contra la app original que en modo campo se ve exactamente lo mismo. La marca cambió de "InventarioTech / Asset Manager" a "CAFIVER TI" en la pestaña, el inicio de sesión y el menú (3 textos en `index.html`).
 
 ## Equipo y roles iniciales (decididos por la Dirección de TI)
 | Persona | Rol inicial |
@@ -103,7 +114,7 @@ Variables de entorno y secretos: **ninguno**. La configuración pública de Fire
 | Prueba | Resultado |
 |---|---|
 | `node --test tests/logica.test.js` — lógica pura | **21 de 21 correctas.** Permisos, flujo, segregación, versionado, indicadores, fechas. |
-| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **54 de 54 correctas.** Arranque, equipo inicial, roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
+| `node tests/integracion.js` — navegador con Firebase **simulado** en memoria | **69 de 69 correctas.** Arranque, equipo inicial, estructura del menú (incluido modo campo comparado con la app original), roles por interfaz, catálogo, creación y validación, aprobación, publicación, versiones, técnico, solicitante, 9 vistas del inventario, auditoría, cierre de sesión, XSS y ausencia de errores de JavaScript. |
 | `tests/reglas.test.js` — reglas con el emulador | **NO ejecutadas.** El entorno de desarrollo bloqueaba `registry.npmjs.org`, `gstatic.com` y `storage.googleapis.com`. Están escritas y listas para ejecutar donde haya internet. |
 
 La simulación **no aplica reglas de seguridad**, así que las pruebas de integración no demuestran que las reglas funcionen. Tampoco se probó contra el Firebase real.
@@ -121,5 +132,6 @@ La simulación **no aplica reglas de seguridad**, así que las pruebas de integr
 
 ## Seguimiento de cambios
 - 2026-10-14 — Fase 1 y primera versión de las Fases 2 y 3: `js/`, `css/`, `firestore.rules`, `tests/`, `docs/`; tres cambios en `index.html`.
+- 2026-10-14 — Menú: el Inventario de equipos pasa a ser un módulo (grupo) dentro de CAFIVER TI; marca actualizada.
 - 2026-10-14 — Equipo inicial: ramaya Administrador + Director; vlopez, aosorio, soportetecnico y dgomez Responsables de proceso; botón "Asignar roles iniciales al equipo".
 - 2026-10-14 — Reglas: se conoce la regla vigente (`docs/reglas-anteriores.txt`); `firestore.rules` pasa a conservarla para todo lo que no sea `ti_*`/`usuarios_ti`; guía `docs/PUBLICAR-REGLAS.md`.

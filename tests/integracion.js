@@ -2,7 +2,7 @@
    Verifican interfaz, flujos y compatibilidad con el inventario. NO prueban las reglas de seguridad (ver reglas.test.js).
    Uso: node tests/integracion.js   (requiere playwright; variable PLAYWRIGHT_MODULE para indicar su ruta) */
 'use strict';
-const fs = require('fs'), path = require('path');
+const fs = require('fs'), path = require('path'), { execSync } = require('child_process');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const RAIZ = path.resolve(__dirname, '..');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock-firebase.js'), 'utf8');
@@ -29,7 +29,9 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   });
   await page.goto('file://' + path.join(RAIZ, 'index.html'));
 
-  const login = async (email) => { await page.fill('#login-email', email); await page.fill('#login-pass', 'pw'); await page.click('#login-btn'); await page.waitForSelector('#app:not(.hidden)'); await page.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 }); };
+  const login = async (email) => { await page.fill('#login-email', email); await page.fill('#login-pass', 'pw'); await page.click('#login-btn'); await page.waitForSelector('#app:not(.hidden)'); await page.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 });
+    /* La app original abre el inicio al llegar la primera lectura de equipos; se espera para no competir con ella. */
+    await page.waitForFunction(() => getComputedStyle(document.getElementById('view-dashboard')).display !== 'none', null, { timeout: 10000 }); };
   const logout = async () => { await page.evaluate(() => doLogout()); await page.waitForSelector('#login-screen:not(.hidden)'); };
   const visible = (sel) => page.locator(sel).isVisible().catch(() => false);
   const ir = async (v) => { await page.evaluate((x) => switchView(x), v); await page.waitForTimeout(120); };
@@ -177,9 +179,11 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   await p2.addInitScript((u) => { window.__SEED_USERS = u; window.__SEED_STORE = {}; }, USERS);
   await p2.route('**/*', (route) => { const u = route.request().url(); if (u.startsWith('file:')) return route.continue(); if (u.includes('firebase-app-compat.js')) return route.fulfill({ contentType: 'application/javascript', body: MOCK }); if (u.includes('gstatic.com/firebasejs')) return route.fulfill({ contentType: 'application/javascript', body: '' }); return route.abort(); });
   await p2.goto('file://' + path.join(RAIZ, 'index.html'));
-  const login2 = async (email) => { await p2.fill('#login-email', email); await p2.fill('#login-pass', 'pw'); await p2.click('#login-btn'); await p2.waitForSelector('#app:not(.hidden)'); await p2.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 }); };
+  const login2 = async (email) => { await p2.fill('#login-email', email); await p2.fill('#login-pass', 'pw'); await p2.click('#login-btn'); await p2.waitForSelector('#app:not(.hidden)'); await p2.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 });
+    /* La app original abre el inicio al llegar la primera lectura de equipos; se espera para no competir con ella. */
+    await p2.waitForFunction(() => getComputedStyle(document.getElementById('view-dashboard')).display !== 'none', null, { timeout: 10000 }); };
   const logout2 = async () => { await p2.evaluate(() => doLogout()); await p2.waitForSelector('#login-screen:not(.hidden)'); };
-  await login2(ADMIN); await p2.evaluate(() => switchView('ti-admin')); await p2.click('#ad-boot'); await p2.waitForTimeout(400);
+  await login2(ADMIN); await p2.evaluate(() => switchView('ti-admin')); await p2.waitForSelector('#ad-boot', { timeout: 10000 }); await p2.click('#ad-boot'); await p2.waitForTimeout(400);
   await p2.evaluate(() => switchView('ti-admin')); await p2.waitForTimeout(300);
   const ur = () => p2.evaluate(() => { const o = {}; Object.keys(window.__MOCK.store).filter((k) => k.startsWith('usuarios_ti/')).forEach((k) => { o[k.slice(12)] = window.__MOCK.store[k].roles.join('+'); }); return o; });
   const r0 = await ur();
@@ -197,6 +201,75 @@ function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond, extra }
   await logout2(); await login2('soportetec@cafiver.com.mx');
   ok('T12 una cuenta sin registro no ve los módulos nuevos pero conserva el inventario', !(await p2.locator('#tnav-ti-procesos').isVisible()) && (await p2.locator('#tnav-inventario').isVisible()));
   await logout2();
+
+  /* ---------- T13: estructura del menú (Inventario de equipos es un módulo de la plataforma) ---------- */
+  const ORIG = ['inventario', 'qr', 'reparaciones', 'celulares', 'simulador', 'licencias', 'personal', 'obsoletos', 'etiquetas'];
+  const p3 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  p3.on('pageerror', (e) => errores.push(e.message)); p3.on('dialog', (d) => d.dismiss());
+  await p3.addInitScript((u) => { window.__SEED_USERS = u; window.__SEED_STORE = {}; }, USERS);
+  await p3.route('**/*', (route) => { const u = route.request().url(); if (u.startsWith('file:')) return route.continue(); if (u.includes('firebase-app-compat.js')) return route.fulfill({ contentType: 'application/javascript', body: MOCK }); if (u.includes('gstatic.com/firebasejs')) return route.fulfill({ contentType: 'application/javascript', body: '' }); return route.abort(); });
+  await p3.goto('file://' + path.join(RAIZ, 'index.html'));
+  const login3 = async (email) => { await p3.fill('#login-email', email); await p3.fill('#login-pass', 'pw'); await p3.click('#login-btn'); await p3.waitForSelector('#app:not(.hidden)'); await p3.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 });
+    /* La app original abre el inicio al llegar la primera lectura de equipos; se espera para no competir con ella. */
+    await p3.waitForFunction(() => getComputedStyle(document.getElementById('view-dashboard')).display !== 'none', null, { timeout: 10000 }); };
+  await login3(ADMIN); await p3.evaluate(() => switchView('ti-admin')); await p3.waitForSelector('#ad-boot', { timeout: 10000 }); await p3.click('#ad-boot'); await p3.waitForTimeout(400);
+  const orden = await p3.evaluate(() => [...document.querySelector('.tnav-nav-area').children].filter((e) => !e.classList.contains('hidden')).map((e) => e.id || e.className));
+  ok('T13 orden del menú: Inicio, Procesos, Inventario de equipos (grupo), Administración', JSON.stringify(orden) === JSON.stringify(['tnav-dashboard', 'tnav-ti-procesos', 'tnav-ti-inv', 'ti-grupo-inv', 'tnav-ti-admin']), orden);
+  const hijos = await p3.evaluate(() => [...document.querySelectorAll('#ti-grupo-inv .tnav')].map((e) => e.id.replace('tnav-', '')));
+  ok('T13 el grupo contiene exactamente las 9 opciones originales del inventario, con sus id', JSON.stringify(hijos) === JSON.stringify(ORIG), hijos);
+  const subt = await p3.evaluate(() => [...document.querySelectorAll('#ti-grupo-inv .tnav-section')].map((e) => e.textContent.trim()));
+  ok('T13 se conservan los subtítulos Principal, Operaciones y Control', JSON.stringify(subt) === JSON.stringify(['Principal', 'Operaciones', 'Control']), subt);
+  ok('T13 el menú nuevo ya no se llama "Gestión de TI" ni queda separado del inventario', (await p3.locator('#ti-sec-gestion').count()) === 0);
+  const marca = await p3.evaluate(() => ({ t: document.title, sub: document.querySelector('.proj-sub').textContent }));
+  ok('T13 marca: CAFIVER TI en la pestaña y en el menú (ya no "InventarioTech" ni "Asset Manager")', marca.t.includes('CAFIVER TI') && !/Asset/.test(marca.sub), marca);
+  // todas las vistas del inventario abren desde el grupo y resaltan la cabecera
+  const fallos = [];
+  for (const v of ORIG) { await p3.click('#tnav-' + v); await p3.waitForTimeout(80); if (!(await p3.locator('#view-' + v).isVisible())) fallos.push(v); }
+  ok('T13 las 9 vistas del inventario abren haciendo clic dentro del grupo', !fallos.length, fallos);
+  ok('T13 la cabecera del grupo se resalta cuando hay una opción activa', await p3.locator('#tnav-ti-inv.on-hijo').count() === 1);
+  await p3.click('#tnav-ti-procesos'); await p3.waitForTimeout(100);
+  ok('T13 al abrir Procesos la cabecera del inventario deja de estar resaltada', await p3.locator('#tnav-ti-inv.on-hijo').count() === 0);
+  // plegar con teclado y recordar
+  await p3.focus('#tnav-ti-inv'); await p3.keyboard.press('Enter');
+  ok('T13 plegar con teclado: aria-expanded=false y el grupo se oculta', (await p3.getAttribute('#tnav-ti-inv', 'aria-expanded')) === 'false' && !(await p3.locator('#ti-grupo-inv').isVisible()));
+  ok('T13 el estado plegado se recuerda', (await p3.evaluate(() => localStorage.getItem('ti_grupo_inv'))) === '0');
+  await p3.evaluate(() => switchView('reparaciones'));
+  ok('T13 al ir a una opción del inventario el grupo se despliega solo', await p3.locator('#ti-grupo-inv').isVisible());
+  await p3.focus('#tnav-ti-inv'); await p3.keyboard.press('Space');
+  ok('T13 la barra espaciadora también pliega', (await p3.getAttribute('#tnav-ti-inv', 'aria-expanded')) === 'false');
+  await p3.keyboard.press('Space');
+  // MODO CAMPO: comparación con la app ORIGINAL (antes de cualquier cambio de la plataforma)
+  const estadoCampo = async (pg) => pg.evaluate(() => {
+    document.body.classList.add('modo-campo');
+    const vis = (e) => { const r = e.getBoundingClientRect(), c = getComputedStyle(e); return c.display !== 'none' && c.visibility !== 'hidden' && (r.width > 0 || r.height > 0); };
+    const botones = [...document.querySelectorAll('.tnav[id^="tnav-"]')].filter((e) => !['tnav-ti-procesos', 'tnav-ti-admin', 'tnav-ti-inv'].includes(e.id) && vis(e)).map((e) => e.id).sort();
+    const etiquetas = [...document.querySelectorAll('.tnav-section')].filter(vis).map((e) => e.textContent.trim()).sort();
+    const nuevos = [...document.querySelectorAll('#tnav-ti-procesos,#tnav-ti-admin,#tnav-ti-inv')].filter(vis).map((e) => e.id);
+    document.body.classList.remove('modo-campo');
+    return { botones, etiquetas, nuevos };
+  });
+  const nuevoCampo = await estadoCampo(p3);
+  let base = null, baseCampo = null;
+  try {
+    const primero = execSync('git log --diff-filter=A --format=%H -- js/ti-core.js', { cwd: RAIZ }).toString().trim().split('\n').pop();
+    fs.writeFileSync(path.join(RAIZ, '.baseline-original.html'), execSync('git show ' + primero + '^:index.html', { cwd: RAIZ, maxBuffer: 1 << 28 }));
+    const p4 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    p4.on('dialog', (d) => d.dismiss());
+    await p4.addInitScript((u) => { window.__SEED_USERS = u; window.__SEED_STORE = {}; }, USERS);
+    await p4.route('**/*', (route) => { const u = route.request().url(); if (u.startsWith('file:')) return route.continue(); if (u.includes('firebase-app-compat.js')) return route.fulfill({ contentType: 'application/javascript', body: MOCK }); if (u.includes('gstatic.com/firebasejs')) return route.fulfill({ contentType: 'application/javascript', body: '' }); return route.abort(); });
+    await p4.goto('file://' + path.join(RAIZ, '.baseline-original.html'));
+    await p4.fill('#login-email', ADMIN); await p4.fill('#login-pass', 'pw'); await p4.click('#login-btn'); await p4.waitForSelector('#app:not(.hidden)'); await p4.waitForTimeout(300);
+    baseCampo = await estadoCampo(p4); await p4.close();
+  } catch (e) { base = 'no disponible: ' + e.message; } finally { try { fs.unlinkSync(path.join(RAIZ, '.baseline-original.html')); } catch (e) {} }
+  ok('T13 MODO CAMPO: se ve exactamente lo mismo que en la app original (botones y subtítulos)', baseCampo && JSON.stringify(baseCampo.botones) === JSON.stringify(nuevoCampo.botones) && JSON.stringify(baseCampo.etiquetas.filter((x) => x !== 'Principal')) === JSON.stringify(nuevoCampo.etiquetas.filter((x) => x !== 'Principal')), { base: baseCampo || base, nuevo: nuevoCampo });
+  ok('T13 MODO CAMPO: no aparece nada del menú nuevo (Procesos, Administración, cabecera del grupo)', nuevoCampo.nuevos.length === 0, nuevoCampo.nuevos);
+  // usuario sin rol: ve Inicio e Inventario de equipos como siempre
+  await p3.evaluate(() => doLogout()); await p3.waitForSelector('#login-screen:not(.hidden)'); await login3(SOL);
+  ok('T13 usuario sin rol: ve Inicio e Inventario de equipos, y nada de Procesos ni Administración', (await p3.locator('#tnav-dashboard').isVisible()) && (await p3.locator('#tnav-ti-inv').isVisible()) && (await p3.locator('#tnav-qr').isVisible()) && !(await p3.locator('#tnav-ti-procesos').isVisible()) && !(await p3.locator('#tnav-ti-admin').isVisible()));
+  await p3.screenshot({ path: SHOTS ? path.join(SHOTS, '7-menu-sin-rol.png') : '/dev/null' }).catch(() => {});
+  await p3.evaluate(() => doLogout()); await p3.waitForSelector('#login-screen:not(.hidden)'); await login3(ADMIN);
+  await p3.evaluate(() => switchView('ti-procesos')); await p3.waitForTimeout(250); if (SHOTS) await p3.screenshot({ path: path.join(SHOTS, '8-menu-procesos.png') });
+  await p3.evaluate(() => doLogout());
 
   ok('Sin errores de JavaScript en toda la sesión', errores.length === 0, errores.slice(0, 5));
   await browser.close();

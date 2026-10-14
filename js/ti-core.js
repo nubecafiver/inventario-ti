@@ -113,23 +113,51 @@
     var area = document.querySelector('.tnav-nav-area');
     var ref = document.getElementById('view-personal');
     if (!area || !ref) { console.warn('TI: no se encontró la estructura de la app para montar el menú'); return; }
-    var html = '<div class="tnav-section ti-nav hidden" id="ti-sec-gestion">Gestión de TI</div>' +
-      '<button class="tnav ti-nav hidden" id="tnav-ti-procesos" onclick="switchView(\'ti-procesos\')"><i class="ti ti-sitemap tnav-icon" aria-hidden="true"></i><span class="tnav-txt">Procesos y procedimientos</span></button>' +
-      '<div class="tnav-section ti-nav hidden" id="ti-sec-admin">Administración</div>' +
-      '<button class="tnav ti-nav hidden" id="tnav-ti-admin" onclick="switchView(\'ti-admin\')"><i class="ti ti-shield-lock tnav-icon" aria-hidden="true"></i><span class="tnav-txt">Usuarios, roles y auditoría</span></button>';
-    area.insertAdjacentHTML('beforeend', html);   /* al final: no altera el orden de las secciones existentes */
+    /* Estructura del menú: Inicio · Procesos y procedimientos · Inventario de equipos (grupo) · Administración.
+       El inventario es un módulo de la plataforma: sus botones y subtítulos existentes se MUEVEN dentro de un grupo,
+       sin cambiar ningún id ni onclick (switchView y todo el inventario siguen igual). Los tres subtítulos
+       (Principal, Operaciones, Control) se mueven juntos para que las reglas de "modo campo", que dependen de su
+       orden (:nth-of-type), sigan funcionando. */
+    var inicio = document.getElementById('tnav-dashboard');
+    var grupo = document.createElement('div'); grupo.className = 'ti-grupo'; grupo.id = 'ti-grupo-inv';
+    Array.prototype.slice.call(area.children).forEach(function (n) { if (n !== inicio) grupo.appendChild(n); });
+    var cabeza = document.createElement('button');
+    cabeza.className = 'tnav ti-grupo-h'; cabeza.id = 'tnav-ti-inv'; cabeza.setAttribute('aria-controls', 'ti-grupo-inv'); cabeza.setAttribute('aria-expanded', 'true');
+    cabeza.innerHTML = '<i class="ti ti-devices-pc tnav-icon" aria-hidden="true"></i><span class="tnav-txt">Inventario de equipos</span><i class="ti ti-chevron-down ti-chev" aria-hidden="true"></i>';
+    cabeza.onclick = function () { TI.plegarGrupo(!grupo.classList.contains('ti-plegado')); };
+    var procesos = document.createElement('button');
+    procesos.className = 'tnav ti-nav hidden'; procesos.id = 'tnav-ti-procesos'; procesos.setAttribute('onclick', "switchView('ti-procesos')");
+    procesos.innerHTML = '<i class="ti ti-sitemap tnav-icon" aria-hidden="true"></i><span class="tnav-txt">Procesos y procedimientos</span>';
+    var admin = document.createElement('button');
+    admin.className = 'tnav ti-nav hidden'; admin.id = 'tnav-ti-admin'; admin.setAttribute('onclick', "switchView('ti-admin')");
+    admin.innerHTML = '<i class="ti ti-shield-lock tnav-icon" aria-hidden="true"></i><span class="tnav-txt">Administración</span>';
+    if (inicio) area.appendChild(inicio);
+    area.appendChild(procesos); area.appendChild(cabeza); area.appendChild(grupo); area.appendChild(admin);
+    var guardado = null; try { guardado = localStorage.getItem('ti_grupo_inv'); } catch (e) {}
+    TI.plegarGrupo(guardado === '0', true);
     Object.keys(TI.vistas).forEach(function (id) {
       var d = document.createElement('div');
       d.id = 'view-' + id; d.className = 'view-wrap ti-view hidden';
       ref.parentNode.insertBefore(d, ref.nextSibling);
     });
   };
+  /* Pliega o despliega el grupo "Inventario de equipos". El estado se recuerda (si el navegador lo permite). */
+  TI.plegarGrupo = function (plegar, sinGuardar) {
+    var g = document.getElementById('ti-grupo-inv'), h = document.getElementById('tnav-ti-inv'); if (!g || !h) return;
+    g.classList.toggle('ti-plegado', !!plegar); h.setAttribute('aria-expanded', String(!plegar));
+    if (!sinGuardar) { try { localStorage.setItem('ti_grupo_inv', plegar ? '0' : '1'); } catch (e) {} }
+  };
+  /* Resalta la cabecera si una opción del grupo está activa y lo despliega para que se vea dónde estás. */
+  TI.sincronizarGrupo = function () {
+    var g = document.getElementById('ti-grupo-inv'), h = document.getElementById('tnav-ti-inv'); if (!g || !h) return;
+    var activo = !!g.querySelector('.tnav.on'); h.classList.toggle('on-hijo', activo);
+    if (activo && g.classList.contains('ti-plegado')) TI.plegarGrupo(false, true);
+  };
   TI.actualizarMenu = function () {
     var u = TI.user, verProc = !!(u && (L.tiene(u, 'procesos.ver') || L.tiene(u, 'procesos.ver_publicados')));
     var verAdmin = !!(u && (L.tiene(u, 'usuarios.admin') || L.tiene(u, 'auditoria.ver') || TI.pendienteBootstrap));
     function mostrar(id, si) { var e = document.getElementById(id); if (e) e.classList.toggle('hidden', !si); }
-    mostrar('ti-sec-gestion', verProc); mostrar('tnav-ti-procesos', verProc);
-    mostrar('ti-sec-admin', verAdmin); mostrar('tnav-ti-admin', verAdmin);
+    mostrar('tnav-ti-procesos', verProc); mostrar('tnav-ti-admin', verAdmin);
   };
 
   var switchViewOriginal = window.switchView;
@@ -178,6 +206,9 @@
     Object.keys(TI.vistas).forEach(function (id) { var e = document.getElementById('view-' + id); if (e) { e.classList.add('hidden'); e.innerHTML = ''; } if (TI.vistas[id].destruir) TI.vistas[id].destruir(); });
     document.querySelectorAll('.ti-nav').forEach(function (e) { e.classList.add('hidden'); });
   };
+
+  var switchViewConGrupo = window.switchView;
+  window.switchView = function () { var r = switchViewConGrupo.apply(this, arguments); TI.sincronizarGrupo(); return r; };
 
   var enterAppOriginal = window.enterApp;
   window.enterApp = function () { enterAppOriginal.apply(this, arguments); TI.init(); };
