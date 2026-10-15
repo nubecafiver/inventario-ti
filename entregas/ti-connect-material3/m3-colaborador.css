@@ -1,0 +1,105 @@
+/* TI Connect — capa visual Material 3 SOLO para la vista del colaborador (#empView). No cambia lógica ni HTML. */
+#empView{
+  --m3-primary:#0E5C43; --m3-on-primary:#fff; --m3-primary-container:#B9EFD3; --m3-on-primary-container:#00210F;
+  --m3-secondary-container:#D2E8DA; --m3-on-secondary-container:#0C2016;
+  --m3-surface:#F6FAF6; --m3-surface-low:#EFF5F0; --m3-surface-high:#E4EBE5; --m3-surface-lowest:#FFFFFF;
+  --m3-on-surface:#171D19; --m3-on-surface-var:#404943; --m3-outline:#707972; --m3-outline-var:#BFC9C2;
+  font-family:Roboto,"Segoe UI",system-ui,-apple-system,sans-serif;
+}
+@media (max-width:520px){
+  #empView .screen,#empView #empMain{background:var(--m3-surface)}
+}
+/* ---- Top app bar ---- */
+#empView .ehead{background:var(--m3-surface);gap:14px;padding:12px 16px 10px;margin:0 0 8px}
+#empView .ehead .ava{width:40px;height:40px;background:var(--m3-primary-container);color:var(--m3-on-primary-container);font-size:15px;font-weight:500}
+#empView .ehead .hi .s{font-size:12px;color:var(--m3-on-surface-var);font-weight:500;letter-spacing:.4px}
+#empView .ehead .hi .n{font-size:22px;font-weight:400;letter-spacing:0;color:var(--m3-on-surface)}
+#empView .ehead .ib{width:48px;height:48px;border-radius:50%;background:transparent}
+#empView .ehead .ib:active{background:var(--m3-surface-high)}
+#empView .ehead .ib svg{fill:var(--m3-on-surface-var)}
+#empView .ehead .ib .dot{border-color:var(--m3-surface);background:#BA1A1A}
+#empView .pagetitle{font-size:28px;font-weight:400;letter-spacing:0;color:var(--m3-on-surface);padding:8px 0 16px}
+#empView .sec h3{font-size:16px;font-weight:500;letter-spacing:.15px;color:var(--m3-on-surface)}
+#empView .sec a{font-size:14px;font-weight:500;color:var(--m3-primary);padding:8px 12px;margin:-8px -12px;border-radius:20px}
+/* ---- Tarjeta principal "Reportar un problema" (tonal, 28 px) ---- */
+#empView .report-cta{background:var(--m3-primary-container);color:var(--m3-on-primary-container);border-radius:28px;padding:20px;box-shadow:none}
+#empView .report-cta .rc-i{background:var(--m3-primary);border-radius:16px;width:52px;height:52px}
+#empView .report-cta .rc-i svg{color:var(--m3-on-primary)}
+#empView .report-cta .rc-t{font-family:inherit;font-weight:500;font-size:18px;letter-spacing:0;color:var(--m3-on-primary-container)}
+#empView .report-cta .rc-d{color:var(--m3-on-primary-container);opacity:.8;font-size:13px}
+#empView .report-cta .rc-ar{color:var(--m3-on-primary-container)}
+/* ---- Tarjetas (rellenas, sin borde ni sombra pesada) ---- */
+#empView .card,#empView .act,#empView .composer,#empView .qc{background:var(--m3-surface-lowest);border:1px solid var(--m3-outline-var);border-radius:16px;box-shadow:none}
+#empView .act{padding:4px 12px}
+#empView .ai{border-bottom:1px solid var(--m3-outline-var);padding:12px 0}
+#empView .ai .aic,#empView .ticon{border-radius:12px;background:var(--m3-secondary-container)}
+#empView .ai .ab .ti,#empView .ttitle{font-size:15px;font-weight:500;color:var(--m3-on-surface);letter-spacing:.1px}
+#empView .ai .ab .mt,#empView .tmeta{font-size:12px;color:var(--m3-on-surface-var);letter-spacing:.4px}
+#empView .card.ticket{padding:14px 16px}
+#empView .ttype{border-radius:8px;background:var(--m3-surface-high);color:var(--m3-on-surface-var);font-size:11px;font-weight:500;letter-spacing:.5px}
+/* ---- Chips de filtro ---- */
+#empView .pill{border:1px solid var(--m3-outline);background:transparent;color:var(--m3-on-surface-var);border-radius:8px;font-size:13px;font-weight:500;padding:0 12px;height:32px;min-height:32px;line-height:1;display:inline-flex;align-items:center;letter-spacing:.1px}
+#empView .pill.active{background:var(--m3-secondary-container);color:var(--m3-on-secondary-container);border-color:transparent}
+#empView .pill.active::before{content:"✓";margin-right:6px;font-size:14px}
+#empView .epills{gap:8px}
+/* ---- Estados (chips pequeños) ---- */
+#empView .stat{border-radius:8px;font-size:11px;font-weight:500;letter-spacing:.5px;padding:4px 10px}
+/* ---- Campos de texto (outlined) ---- */
+#empView select,#empView textarea{background:var(--m3-surface-lowest);border:1px solid var(--m3-outline);border-radius:12px;padding:14px 16px;color:var(--m3-on-surface);font-size:16px}
+#empView select:focus,#empView textarea:focus{border:2px solid var(--m3-primary);padding:13px 15px}
+#empView .elabel{font-size:12px;font-weight:500;color:var(--m3-on-surface-var);letter-spacing:.4px}
+#empView .attach{border:1px dashed var(--m3-outline);border-radius:12px;background:var(--m3-surface-low);color:var(--m3-on-surface-var)}
+#empView .kb{background:var(--m3-secondary-container);border-radius:12px}
+#empView .kb span{color:var(--m3-on-secondary-container)}
+/* ---- Botones ---- */
+#empView .btn{background:var(--m3-primary);color:var(--m3-on-primary);border-radius:20px;height:48px;padding:0 24px;font-size:15px;font-weight:500;letter-spacing:.1px;box-shadow:none}
+#empView .btn:hover{background:#0a4d38}
+#empView .btn.sec,#empView #emp-logout2{background:transparent!important;color:var(--m3-primary)!important;border:1px solid var(--m3-outline)!important}
+#empView .btn.done{background:var(--m3-secondary-container);color:var(--m3-on-secondary-container)}
+/* ---- FAB (cuadrado redondeado, contenedor primario) ---- */
+#empView .efab{background:var(--m3-primary-container);color:var(--m3-on-primary-container);border-radius:16px;width:56px;height:56px;box-shadow:0 3px 8px rgba(0,0,0,.22)}
+#empView .efab svg{fill:var(--m3-on-primary-container)}
+/* ---- Barra de navegación inferior con indicador en pastilla ---- */
+#empView .tabbar{background:var(--m3-surface-low);border-top:none;padding:12px 8px 22px}
+#empView .tab{color:var(--m3-on-surface-var);gap:4px;padding-top:0}
+#empView .tab svg{width:24px;height:24px;box-sizing:content-box;padding:4px 20px;border-radius:16px;transition:background .2s}
+#empView .tab span{font-size:12px;font-weight:500;letter-spacing:.5px}
+#empView .tab.active{color:var(--m3-on-surface)}
+#empView .tab.active svg{background:var(--m3-secondary-container);fill:var(--m3-on-secondary-container)}
+#empView .home-ind{background:var(--m3-on-surface)}
+/* ---- Detalle y chat ---- */
+#empView .back-btn{background:transparent;width:48px;height:48px}
+#empView .back-btn svg{fill:var(--m3-on-surface)}
+#empView .detail-head .dt b{font-size:18px;font-weight:500;color:var(--m3-on-surface)}
+#empView .dmeta{background:var(--m3-surface-low);border:none;border-radius:16px}
+#empView .bubble{border-radius:18px;font-size:14px}
+#empView .bubble.them{background:var(--m3-surface-high);border:none;border-bottom-left-radius:6px;color:var(--m3-on-surface)}
+#empView .bubble.me{background:var(--m3-primary);border-bottom-right-radius:6px}
+#empView .bubble.sys{background:var(--m3-secondary-container);color:var(--m3-on-secondary-container)}
+#empView .msgbar input{background:var(--m3-surface-high);border:none;border-radius:28px;padding:14px 20px;font-size:16px}
+#empView .msgbar button{background:var(--m3-primary);width:48px;height:48px}
+/* ---- Avisos, muro, perfil ---- */
+#empView .notice{border-left:none;border-radius:16px}
+#empView .notice b{font-size:16px;font-weight:500}
+#empView .post-head .pa{border-radius:50%}
+#empView .rb.mine{background:var(--m3-secondary-container)}
+#empView .profile{background:var(--m3-primary-container);color:var(--m3-on-primary-container);border-radius:28px}
+#empView .profile .g{display:none}#empView .profile .pav{background:var(--m3-primary);color:#fff}
+/* ---- Diálogo (28 px, botón de texto) y snackbar ---- */
+#empView .overlay{background:rgba(23,29,25,.32)}
+#empView .modal{background:var(--m3-surface-low);border-radius:28px;padding:24px;text-align:left;max-width:312px}
+#empView .modal .mi{margin:0 0 16px;background:var(--m3-secondary-container)!important}
+#empView .modal h3{font-size:24px;font-weight:400;color:var(--m3-on-surface)}
+#empView .modal p{font-size:14px;color:var(--m3-on-surface-var);letter-spacing:.25px}
+#empView .modal .btn{width:auto;margin-left:auto;background:transparent;color:var(--m3-primary);height:40px;padding:0 12px}
+#empView .snack{background:#2C322E;color:#EEF2EC;border-radius:6px;font-weight:400;letter-spacing:.25px}
+#empView .sheet{background:var(--m3-surface-low)}
+
+/* Tarjeta de ticket: sin franja de color (el icono ya lleva la categoría) */
+#empView .card.ticket{padding-left:16px;border:1px solid var(--m3-outline-var);border-radius:16px}
+#empView .card.ticket::before{display:none}
+/* Botón "Activar notificaciones": tonal, sobre la barra inferior y sin tapar las pestañas (solo con la vista del colaborador abierta) */
+body:has(#empView:not(.hidden)) #push-fab{left:16px!important;right:auto!important;bottom:104px!important;background:#D2E8DA!important;color:#0C2016!important;border-radius:16px!important;padding:12px 18px!important;font-size:14px!important;font-weight:500!important;letter-spacing:.1px;box-shadow:0 1px 3px rgba(0,0,0,.25)!important}
+#empView button,#empView select,#empView textarea,#empView input{font-family:inherit}
+#empView .epills{flex-wrap:nowrap;overflow-x:auto}
+#empView .epills .pill{flex-shrink:0}
