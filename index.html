@@ -34172,21 +34172,6 @@ table.mts tr:hover td{background:#f9fafb;}
 
 <div id="toast"></div>
 
-<!-- MODAL DETALLE CELULAR -->
-<div id="overlay-cel-detail" class="hidden" onclick="if(event.target===this)closeCelDetail()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
-  <div class="modal-card" style="max-width:560px;width:100%;margin:auto;">
-    <div class="modal-hd">
-      <h3 id="cel-detail-title">Detalle del celular</h3>
-      <div style="display:flex;gap:6px;">
-        <button class="icon-btn" id="cel-edit-btn" title="Editar">&#9999;&#65039;</button>
-        <button class="icon-btn" id="cel-del-btn" title="Eliminar" style="color:#ea4335;">&#128465;</button>
-        <button class="icon-btn" onclick="closeCelDetail()">&#x2715;</button>
-      </div>
-    </div>
-    <div class="modal-body" id="cel-detail-body"></div>
-  </div>
-</div>
-
 <!-- MODAL CELULAR -->
 <div id="overlay-celular" class="hidden" onclick="if(event.target===this)closeFormCelular()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
   <div class="modal-card wide">
@@ -34249,7 +34234,7 @@ table.mts tr:hover td{background:#f9fafb;}
 
 <!-- MODAL DETALLE CELULAR -->
 <div id="overlay-cel-detail" class="hidden" onclick="if(event.target===this)closeCelDetail()" style="position:fixed;inset:0;background:rgba(15,20,35,.5);display:flex;align-items:flex-start;justify-content:center;z-index:400;padding:20px;overflow-y:auto;backdrop-filter:blur(2px);">
-  <div class="modal-card" style="max-width:560px;width:100%;margin:auto;">
+  <div class="modal-card" style="max-width:580px;width:100%;margin:auto;">
     <div class="modal-hd">
       <h3 id="cel-detail-title">Detalle del celular</h3>
       <div style="display:flex;gap:6px;">
@@ -34257,6 +34242,10 @@ table.mts tr:hover td{background:#f9fafb;}
         <button class="icon-btn" id="cel-del-btn" title="Eliminar" style="color:#ea4335;">&#128465;</button>
         <button class="icon-btn" onclick="closeCelDetail()">&#x2715;</button>
       </div>
+    </div>
+    <div style="display:flex;border-bottom:1px solid #e8eaed;overflow-x:auto;scrollbar-width:none;flex-shrink:0;background:#fff;">
+      <button id="cel-tab-info" class="dp-tab on" onclick="celTab('info')">📱 Info</button>
+      <button id="cel-tab-resguardo" class="dp-tab" onclick="celTab('resguardo')">📄 Resguardo</button>
     </div>
     <div class="modal-body" id="cel-detail-body"></div>
   </div>
@@ -36967,6 +36956,8 @@ function loadCelulares(){
   db.collection('celulares').onSnapshot(function(s){
     celulares=s.docs.map(function(d){return d.data();});
     if(curView==='celulares') renderCelulares();
+    // Refrescar tab resguardo si el modal está abierto
+    if(openCelId){var actTab=document.querySelector('#overlay-cel-detail .dp-tab.on');if(actTab&&actTab.id==='cel-tab-resguardo')celTab('resguardo');}
   },function(e){console.warn('cel:',e.message);});
 }
 
@@ -37053,12 +37044,15 @@ function deleteCelular(id){
 }
 
 // ── DETALLE CELULAR ─────────────────────────────────────────
+var openCelId=null;
 function openCelDetail(id){
   var cel=celulares.find(function(x){return x.id===id;});if(!cel)return;
   var d=document.getElementById('overlay-cel-detail');if(!d)return;
+  openCelId=id;
   document.getElementById('cel-detail-title').textContent=(cel.marca||'Celular')+' — '+(cel.modelo||'');
   document.getElementById('cel-edit-btn').onclick=function(){closeCelDetail();openFormCelular(id);};
   document.getElementById('cel-del-btn').onclick=function(){closeCelDetail();deleteCelular(id);};
+  celTab('info');
   function dr(k,v){return '<div class="dp-row"><div class="dp-key">'+k+'</div><div class="dp-val">'+(v||'—')+'</div></div>';}
   var scol=cel.status==='Asignado'?'#16a34a':cel.status==='Libre'?'#1d4ed8':cel.status==='En reparacion'?'#d97706':'#6b7280';
   var hist='';
@@ -37073,8 +37067,10 @@ function openCelDetail(id){
         +'</div>';
     });
   }
-  document.getElementById('cel-detail-body').innerHTML=
-    '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">'
+  // Guardar html de info para celTab
+  window._celInfoHTML=
+    '<div style="padding:12px;">'
+    +'<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">'
     +'<span style="background:'+scol+'22;color:'+scol+';padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;">'+(cel.status||'Asignado')+'</span>'
     +'<span style="background:#f1f5f9;color:#475569;padding:2px 10px;border-radius:20px;font-size:11px;">'+cel.id+'</span>'
     +'</div>'
@@ -37089,10 +37085,89 @@ function openCelDetail(id){
     +dr('Plaza',cel.plaza)+dr('Area',cel.area)
     +dr('Centro de costo',cel.centro_coste)+dr('Denominacion',cel.denominacion)
     +(cel.obs?'<div class="dp-sec-t">Observaciones</div><div style="font-size:12px;color:#374151;padding:6px 0;">'+cel.obs+'</div>':'')
-    +hist;
+    +hist
+    +'</div>';
   d.classList.remove('hidden');
 }
-function closeCelDetail(){var d=document.getElementById('overlay-cel-detail');if(d)d.classList.add('hidden');}
+function celTab(tab){
+  var tabs=['info','resguardo'];
+  tabs.forEach(function(t){
+    var el=document.getElementById('cel-tab-'+t);
+    if(el) el.classList.toggle('on',t===tab);
+  });
+  var body=document.getElementById('cel-detail-body');if(!body)return;
+  if(tab==='info'){
+    body.innerHTML=window._celInfoHTML||'';
+  } else if(tab==='resguardo'){
+    body.innerHTML=renderResguardoCelular(openCelId);
+  }
+}
+function closeCelDetail(){var d=document.getElementById('overlay-cel-detail');if(d)d.classList.add('hidden');openCelId=null;}
+
+function renderResguardoCelular(celId){
+  var cel=celulares.find(function(x){return x.id===celId;}); if(!cel) return '';
+  var docs=cel.resguardos||[];
+  var docsHTML=docs.length?docs.map(function(d,i){
+    var url=d.url||'';
+    var esPDF=url.indexOf('data:application/pdf')===0||url.toLowerCase().indexOf('.pdf')>=0;
+    var esImg=!esPDF&&(url.indexOf('data:image/')===0||/\.(jpg|jpeg|png|gif|webp)$/i.test(url));
+    return '<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">'
+      +'<span style="font-size:24px;">'+(esPDF?'📋':esImg?'🖼':'📄')+'</span>'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:12px;font-weight:500;color:#111827;">'+(d.nombre||'Resguardo '+(i+1))+'</div>'
+      +'<div style="font-size:10px;color:#9ca3af;">Subido: '+d.fecha+(d.por?' por '+d.por:'')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:4px;">'
+      +'<a href="'+url+'" target="_blank" class="btn btn-sm" style="font-size:11px;text-decoration:none;">👁 Ver</a>'
+      +'<button onclick="deleteResguardoCelular(\''+celId+'\','+i+')" class="btn btn-sm" style="font-size:11px;background:#fee2e2;color:#dc2626;border:none;cursor:pointer;">🗑</button>'
+      +'</div>'
+      +'</div>';
+  }).join('')
+  :'<div style="text-align:center;padding:20px;color:#9ca3af;"><div style="font-size:32px;margin-bottom:8px;">📋</div><div style="font-size:13px;margin-bottom:4px;">Sin resguardos subidos</div><div style="font-size:11px;">Sube el resguardo firmado por el empleado</div></div>';
+
+  return '<div style="padding:12px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+    +'<span style="font-size:12px;font-weight:500;color:#374151;">Resguardos firmados</span>'
+    +'<label class="btn btn-sm btn-blue" style="cursor:pointer;font-size:11px;">'
+    +'📎 Subir PDF/foto'
+    +'<input type="file" accept="image/*,.pdf" style="display:none;" onchange="subirResguardoCelular(\''+celId+'\',this)">'
+    +'</label>'
+    +'</div>'
+    +'<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#92400e;">💡 Puedes subir el PDF del resguardo firmado o una foto de él. Máximo 5 MB.</div>'
+    +docsHTML
+    +'</div>';
+}
+
+function subirResguardoCelular(celId, input){
+  var file=input.files[0]; if(!file) return;
+  if(file.size>5*1024*1024){toast('Archivo muy grande. Máximo 5 MB.');return;}
+  toast('⏳ Subiendo resguardo...');
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var dataUrl=ev.target.result;
+    var cel=celulares.find(function(x){return x.id===celId;}); if(!cel) return;
+    var resguardos=(cel.resguardos||[]).concat([{
+      url:dataUrl,
+      nombre:'Resguardo_'+celId+'_'+nowStr().replace(/[^0-9]/g,''),
+      fecha:nowStr(),
+      por:curUser?curUser.name:''
+    }]);
+    setSyncUI('saving','Guardando...');
+    db.collection('celulares').doc(celId).update({resguardos:resguardos})
+      .then(function(){setSyncUI('ok','En linea');toast('✅ Resguardo guardado');celTab('resguardo');})
+      .catch(function(err){setSyncUI('error','Error');toast('Error: '+err.message);});
+  };
+  reader.readAsDataURL(file);
+}
+
+function deleteResguardoCelular(celId, idx){
+  if(!confirm('¿Eliminar este resguardo?')) return;
+  var cel=celulares.find(function(x){return x.id===celId;}); if(!cel) return;
+  var resguardos=(cel.resguardos||[]).filter(function(_,i){return i!==idx;});
+  db.collection('celulares').doc(celId).update({resguardos:resguardos})
+    .then(function(){toast('Resguardo eliminado');celTab('resguardo');})
+    .catch(function(err){toast('Error: '+err.message);});
+}
 
 // ── RENDER CELULARES ────────────────────────────────────────
 var celFilter={q:'',marca:'',plaza:'',areas:[],status:''};
