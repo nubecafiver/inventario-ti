@@ -15,7 +15,7 @@ const URL_APP = 'file://' + path.join(RAIZ, 'ti', 'index.html');
 const resultados = [];
 function ok(nombre, cond, extra) { resultados.push({ nombre, ok: !!cond }); console.log((cond ? 'OK   ' : 'FALLA') + ' ' + nombre + (cond ? '' : '  → ' + JSON.stringify(extra))); }
 
-async function abrir(browser, errores, semilla) {
+async function abrir(browser, errores, semilla, opciones) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   page.on('pageerror', (e) => errores.push(e.message)); page.on('dialog', (d) => d.dismiss());
   await page.addInitScript((a) => { window.__SEED_USERS = a.u; window.__SEED_STORE = a.s || {}; window.__xss = undefined; }, { u: USERS, s: semilla || {} });
@@ -27,6 +27,7 @@ async function abrir(browser, errores, semilla) {
     return route.abort();
   });
   await page.goto(URL_APP);
+  if (!(opciones && opciones.respetarOcultos)) await page.evaluate(() => { TI.MODULOS_OCULTOS.length = 0; });
   return {
     page,
     login: async (email) => { await page.fill('#login-email', email); await page.fill('#login-pass', 'pw'); await page.click('#login-btn'); await page.waitForSelector('#app:not(.hidden)'); await page.waitForFunction(() => window.TI && window.TI.ready, null, { timeout: 5000 }); await page.waitForFunction(() => document.querySelector('.ti-view:not(.hidden)'), null, { timeout: 5000 }); },
@@ -735,6 +736,16 @@ async function abrir(browser, errores, semilla) {
   await Z.cerrarModal(); await Z.logout(); await Z.login(SOL); ok('T20 el solicitante no ve Respaldos', !(await Z.visible('#tnav-ti-respaldos')));
   await Z.logout(); await Z.page.close();
 
+  // T21 Mesa de ayuda oculta por defecto (los tickets se atienden en TI Connect); esta sesión NO apaga la bandera
+  const semH = {}; [[ADMIN, ['gerente']], [SOL, ['solicitante']]].forEach(([e, r]) => { semH['usuarios_ti/' + e] = { email: e, nombre: e.split('@')[0], roles: r, activo: true }; });
+  const H = await abrir(browser, errores, semH, { respetarOcultos: true }), ph = H.page;
+  await H.login(ADMIN); await H.espera(300);
+  ok('T21 por defecto la bandera oculta la Mesa de ayuda', (await ph.evaluate(() => TI.MODULOS_OCULTOS.indexOf('ti-tickets') !== -1 && !TI.moduloVisible('ti-tickets'))));
+  ok('T21 el menú del Gerente no muestra "Mesa de ayuda"', !(await H.visible('#tnav-ti-tickets')));
+  ok('T21 el Inicio del Gerente no tiene sección de tickets ni acceso a la Mesa de ayuda', (await ph.locator('#s-tk').count()) === 0 && !((await ph.locator('#view-ti-inicio').textContent()) || '').includes('Mesa de ayuda'));
+  ok('T21 el resto del menú sigue visible (Procesos, Cambios, Proveedores, Respaldos, Administración)', await H.visible('#tnav-ti-procesos') && await H.visible('#tnav-ti-cambios') && await H.visible('#tnav-ti-proveedores') && await H.visible('#tnav-ti-respaldos') && await H.visible('#tnav-ti-admin'), [await H.visible('#tnav-ti-procesos'), await H.visible('#tnav-ti-cambios'), await H.visible('#tnav-ti-proveedores'), await H.visible('#tnav-ti-respaldos'), await H.visible('#tnav-ti-admin')]);
+  await H.logout(); await H.login(SOL); await H.espera(200);
+  ok('T21 el solicitante tampoco ve la Mesa de ayuda', !(await H.visible('#tnav-ti-tickets')));
   ok('Sin errores de JavaScript en toda la sesión', errores.length === 0, errores.slice(0, 5));
   await browser.close();
   const fallas = resultados.filter((r) => !r.ok);

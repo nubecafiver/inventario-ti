@@ -27,7 +27,7 @@
     var u = TI.user, verProc = !!(u && (L.tiene(u, 'procesos.ver') || L.tiene(u, 'procesos.ver_publicados')));
     var verAdmin = !!(u && (L.tiene(u, 'usuarios.admin') || L.tiene(u, 'auditoria.ver')) || TI.pendienteBootstrap);
     document.getElementById('tnav-ti-procesos').classList.toggle('hidden', !verProc);
-    document.getElementById('tnav-ti-tickets').classList.toggle('hidden', !(u && (L.tiene(u, 'tickets.crear') || L.tiene(u, 'tickets.ver_propios') || L.tiene(u, 'tickets.ver_todos'))));
+    document.getElementById('tnav-ti-tickets').classList.toggle('hidden', !(TI.moduloVisible('ti-tickets') && u && (L.tiene(u, 'tickets.crear') || L.tiene(u, 'tickets.ver_propios') || L.tiene(u, 'tickets.ver_todos'))));
     document.getElementById('tnav-ti-cambios').classList.toggle('hidden', !(u && (L.tiene(u, 'cambios.crear') || L.tiene(u, 'cambios.ver_propios') || L.tiene(u, 'cambios.ver_todos'))));
     document.getElementById('tnav-ti-proveedores').classList.toggle('hidden', !(u && (L.tiene(u, 'contratos.crear') || L.tiene(u, 'contratos.ver_propios') || L.tiene(u, 'contratos.ver_todos') || L.tiene(u, 'proveedores.crear'))));
     document.getElementById('tnav-ti-respaldos').classList.toggle('hidden', !(u && (L.tiene(u, 'respaldos.crear') || L.tiene(u, 'respaldos.ver_propios') || L.tiene(u, 'respaldos.ver_todos'))));

@@ -17,7 +17,7 @@
         if (TI.datosProcesos) { TI.datosProcesos.asegurar(); TI.datosProcesos.alCambiar(repintarSiVisible); }
       }
       if (TI.user && L.tiene(TI.user, 'inventario.resumen')) leerResumen();
-      if (TI.user && TI.datosTickets && (L.tiene(TI.user, 'tickets.ver_propios') || L.tiene(TI.user, 'tickets.ver_todos'))) { TI.datosTickets.asegurar(); TI.datosTickets.alCambiar(repintarSiVisible); }
+      if (TI.moduloVisible('ti-tickets') && TI.user && TI.datosTickets && (L.tiene(TI.user, 'tickets.ver_propios') || L.tiene(TI.user, 'tickets.ver_todos'))) { TI.datosTickets.asegurar(); TI.datosTickets.alCambiar(repintarSiVisible); }
       if (TI.user && TI.datosCambios && (L.tiene(TI.user, 'cambios.ver_todos'))) { TI.datosCambios.asegurar(); TI.datosCambios.alCambiar(repintarSiVisible); }
       if (TI.user && TI.datosContratos && L.tiene(TI.user, 'contratos.ver_todos')) { TI.datosContratos.asegurar(); TI.datosContratos.alCambiar(repintarSiVisible); }
       if (TI.user && TI.datosRespaldos && L.tiene(TI.user, 'respaldos.ver_todos')) { TI.datosRespaldos.asegurar(); TI.datosRespaldos.alCambiar(repintarSiVisible); }
@@ -94,7 +94,8 @@
     else if (TI.pendienteBootstrap) h += '<div class="ti-note warn"><b>Configuración inicial pendiente.</b> Abre Administración y crea tu registro de administrador.</div>';
 
     if (verProcesos) h += seccionProcesos();
-    if (u && L.tiene(u, 'tickets.ver_todos')) h += seccionTickets();
+    if (!TI.moduloVisible('ti-tickets')) { /* oculto: los tickets se atienden en TI Connect */ }
+    else if (u && L.tiene(u, 'tickets.ver_todos')) h += seccionTickets();
     else if (u && L.tiene(u, 'tickets.ver_propios')) h += seccionMisTickets();
     if (u && L.tiene(u, 'cambios.ver_todos')) h += seccionCambios();
     if (u && L.tiene(u, 'contratos.ver_todos')) h += seccionContratos();
@@ -243,7 +244,7 @@
   function seccionAccesos(u, verProc) {
     var h = '<section class="ti-seccion" aria-labelledby="s-acc"><h2 class="ti-h2" id="s-acc">Accesos</h2><div class="ti-cards">';
     if (verProc) h += '<div class="ti-mod"><h2><i class="ti ti-sitemap" aria-hidden="true"></i>Procesos y procedimientos</h2><p>' + (L.tiene(u, 'procesos.ver') ? 'Documenta, revisa, aprueba y publica los procedimientos del departamento de TI.' : 'Consulta los procedimientos publicados vigentes.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-procesos">Abrir</button></div>';
-    if (u && (L.tiene(u, 'tickets.crear') || L.tiene(u, 'tickets.ver_todos'))) h += '<div class="ti-mod"><h2><i class="ti ti-headset" aria-hidden="true"></i>Mesa de ayuda</h2><p>' + (L.tiene(u, 'tickets.ver_todos') ? 'Atiende incidentes y solicitudes, con prioridad y SLA.' : 'Reporta un problema o pide un servicio y consulta su avance.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-tickets">Abrir</button></div>';
+    if (TI.moduloVisible('ti-tickets') && u && (L.tiene(u, 'tickets.crear') || L.tiene(u, 'tickets.ver_todos'))) h += '<div class="ti-mod"><h2><i class="ti ti-headset" aria-hidden="true"></i>Mesa de ayuda</h2><p>' + (L.tiene(u, 'tickets.ver_todos') ? 'Atiende incidentes y solicitudes, con prioridad y SLA.' : 'Reporta un problema o pide un servicio y consulta su avance.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-tickets">Abrir</button></div>';
     if (u && (L.tiene(u, 'cambios.crear') || L.tiene(u, 'cambios.ver_todos'))) h += '<div class="ti-mod"><h2><i class="ti ti-git-pull-request" aria-hidden="true"></i>Gestión de cambios</h2><p>' + (L.tiene(u, 'cambios.ver_todos') ? 'Revisa, aprueba y da seguimiento a los cambios, con riesgo, reversa y ventana.' : 'Solicita cambios y da seguimiento a los que implementas.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-cambios">Abrir</button></div>';
     if (u && (L.tiene(u, 'contratos.crear') || L.tiene(u, 'contratos.ver_todos'))) h += '<div class="ti-mod"><h2><i class="ti ti-building-store" aria-hidden="true"></i>Proveedores y contratos</h2><p>' + (L.tiene(u, 'contratos.ver_todos') ? 'Proveedores, contratos, vigencias y montos, con aviso de vencimiento.' : 'Tus proveedores y contratos.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-proveedores">Abrir</button></div>';
     if (u && (L.tiene(u, 'respaldos.crear') || L.tiene(u, 'respaldos.ver_todos'))) h += '<div class="ti-mod"><h2><i class="ti ti-database-export" aria-hidden="true"></i>Respaldos</h2><p>' + (L.tiene(u, 'respaldos.ver_todos') ? 'Control de respaldos, ejecuciones y pruebas de restauración.' : 'Tus trabajos de respaldo.') + '</p><button class="btn btn-blue btn-sm" data-ir="ti-respaldos">Abrir</button></div>';
