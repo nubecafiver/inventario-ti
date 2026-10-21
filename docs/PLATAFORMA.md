@@ -270,3 +270,6 @@ La simulación **no aplica reglas de seguridad**, así que las pruebas de integr
 - 2026-10-14 — **Corrección de rumbo:** la plataforma pasa a ser una app independiente en `ti/`; `index.html` (inventario) se restauró idéntico a la rama principal y ya no se modifica. El inventario es un módulo que se abre desde la plataforma.
 - 2026-10-14 — Equipo inicial: ramaya Administrador + Director; vlopez, aosorio, soportetecnico y dgomez Responsables de proceso; botón "Asignar roles iniciales al equipo".
 - 2026-10-14 — Reglas: se conoce la regla vigente (`docs/reglas-anteriores.txt`); `firestore.rules` pasa a conservarla para todo lo que no sea `ti_*`/`usuarios_ti`; guía `docs/PUBLICAR-REGLAS.md`.
+
+## Mesa de ayuda oculta (decisión de la Gerencia)
+Los tickets se atienden en TI Connect (app móvil, otro proyecto de Firebase). Para no tener dos sistemas de tickets, el módulo **Mesa de ayuda** de esta plataforma está oculto del menú y del Inicio mediante `TI.MODULOS_OCULTOS = ['ti-tickets']` en `ti/js/ti-core.js`. El código, las reglas y las pruebas del módulo siguen ahí. Para mostrarlo de nuevo, quita `'ti-tickets'` de esa lista. Prueba: T21 en `tests/integracion.js`.

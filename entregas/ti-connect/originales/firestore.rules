@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function role()     { return request.auth.token.role; }      // 'colaborador' | 'consultor' | 'director'
+    function emp()      { return request.auth.token.emp; }        // número de empleado
+    function agentId()  { return request.auth.token.agentId; }    // id del consultor (p. ej. 'CR')
+    function isDirector() { return signedIn() && role() == 'director'; }
+    function isConsultor(){ return signedIn() && role() == 'consultor'; }
+    function isStaff()    { return isDirector() || isConsultor(); }
+
+    // PADRÓN: cada quien lee su ficha; el staff lee todas. Escritura solo por Admin SDK/Functions.
+    match /employees/{id} {
+      allow read:  if signedIn() && (isStaff() || id == emp() || id == string(emp()));
+      allow write: if false;
+    }
+
+    // TICKETS
+    match /tickets/{id} {
+      // Bolsa común: el staff ve los SIN asignar; cada consultor ve lo suyo; el dueño ve los propios
+      allow read:   if isDirector()
+                    || (isConsultor() && (resource.data.assignedTo == null || resource.data.assignedTo == agentId()))
+                    || (signedIn() && resource.data.ownerEmp == emp());
+      // Cualquiera autenticado levanta tickets a su nombre, en 'abierto'
+      allow create: if signedIn()
+                    && request.resource.data.ownerEmp == emp()
+                    && request.resource.data.estado == 'abierto';
+      // Director: todo. Consultor: tomar (null->propio), regresar (propio->null) y cerrar; nunca asigna a otro.
+      allow update: if isDirector()
+                    || (isConsultor()
+                        && (resource.data.assignedTo == null || resource.data.assignedTo == agentId())
+                        && (request.resource.data.assignedTo == null || request.resource.data.assignedTo == agentId()));
+      allow delete: if false;
+
+      // CONVERSACIÓN del ticket
+      match /messages/{mid} {
+        function ticket() { return get(/databases/$(database)/documents/tickets/$(id)).data; }
+        allow read:   if isDirector()
+                      || (isConsultor() && (ticket().assignedTo == null || ticket().assignedTo == agentId()))
+                      || (signedIn() && ticket().ownerEmp == emp());
+        // El staff responde como 'tech' o nota 'sys'; el dueño escribe como 'user'
+        allow create: if (isStaff() && (request.resource.data.from == 'tech' || request.resource.data.from == 'sys'))
+                      || (signedIn() && ticket().ownerEmp == emp() && request.resource.data.from == 'user');
+        allow update, delete: if false;
+      }
+    }
+
+    // MURO (red social interna)
+    match /posts/{id} {
+      allow read:   if signedIn();
+      // El staff publica cualquier tipo; el colaborador solo 'post' a su nombre (límite 1/día se valida en Functions)
+      allow create: if isStaff()
+                    || (signedIn() && request.resource.data.authorEmp == emp() && request.resource.data.kind == 'post');
+      // Cualquiera puede reaccionar: solo se permite cambiar el campo 'reactions'
+      allow update: if isStaff()
+                    || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
+      allow delete: if isDirector();
+
+      // Hilo de comentarios: leer todos; crear cualquier rol a su nombre; moderar el director
+      match /comments/{cid} {
+        allow read:   if signedIn();
+        allow create: if signedIn() && request.resource.data.authorEmp == emp();
+        allow update, delete: if isDirector();
+      }
+    }
+
+    // AVISOS / COMUNICADOS (publica el director; todos leen)
+    match /avisos/{id} {
+      allow read:   if signedIn();
+      allow create, update, delete: if isStaff();
+      // confirmaciones de lectura por usuario
+      match /reads/{uid} {
+        allow read:   if signedIn() && (isStaff() || uid == request.auth.uid);
+        allow create: if signedIn() && uid == request.auth.uid;
+      }
+    }
+
+    // BASE DE CONOCIMIENTO (lee todo el mundo; edita el staff)
+    match /kb/{id} {
+      allow read:  if signedIn();
+      allow write: if isStaff();
+    }
+
+    // TOKENS de notificaciones push: cada usuario administra los suyos; solo el backend los lee
+    match /fcmTokens/{token} {
+      allow read:   if false;
+      allow create, update: if signedIn() && request.resource.data.emp == emp();
+      allow delete: if signedIn() && resource.data.emp == emp();
+    }
+  }
+}

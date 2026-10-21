@@ -23,7 +23,7 @@
       S.error = ''; pintar();
       if (S.detalle && S.detalle.modal && document.body.contains(S.detalle.modal.el)) pintarDetalle(S.detalle);
       oyentes.forEach(function (f) { try { f(); } catch (e) {} });
-    }, function (err) { S.error = err.code === 'permission-denied' ? 'permiso' : err.message; pintar(); oyentes.forEach(function (f) { try { f(); } catch (e) {} }); });
+    }, function (err) { S.error = err.code === 'permission-denied' ? 'permiso' : TI.errTxt(err); pintar(); oyentes.forEach(function (f) { try { f(); } catch (e) {} }); });
     TI.unsubs.push(unsub);
   }
   function porId(id) { return S.lista.filter(function (p) { return p.id === id; })[0]; }
@@ -124,7 +124,7 @@
     q.get().then(function (s) {
       D.versiones = s.docs.map(function (d) { return d.data(); }).sort(function (a, b) { return a.numero - b.numero; });
       pintarDetalle(D);
-    }).catch(function (e) { TI.msg('No se pudo abrir el proceso: ' + e.message); });
+    }).catch(function (e) { TI.msg('No se pudo abrir el proceso: ' + TI.errTxt(e)); });
     var p = porId(id);
     D.modal = TI.modal(p ? p.nombre : id, '<div class="ti-empty">Cargando…</div>', { ancho: true });
   }
@@ -203,7 +203,7 @@
   }
   function cargarHistorial(D) {
     refP(D.id).collection('historial').orderBy('fecha', 'desc').limit(50).get().then(function (s) { D.historial = s.docs.map(function (d) { return d.data(); }); pintarDetalle(D); })
-      .catch(function (e) { D.historial = []; TI.msg('No se pudo leer el historial: ' + e.message); pintarDetalle(D); });
+      .catch(function (e) { D.historial = []; TI.msg('No se pudo leer el historial: ' + TI.errTxt(e)); pintarDetalle(D); });
   }
 
   /* ===== Acciones de estado (transacción) ===== */
@@ -234,7 +234,7 @@
       });
     }).catch(function (e) {
       if (e.detalle) { TI.msg('El borrador está incompleto: completa objetivo, alcance y al menos una actividad.'); var p = porId(id), v = (D.versiones || []).filter(function (x) { return x.numero === p.versionTrabajo; })[0]; D.modal.cerrar(); abrirEditor(p, v, true); return; }
-      TI.msg('No se pudo completar: ' + e.message);
+      TI.msg('No se pudo completar: ' + TI.errTxt(e));
     });
   }
 
@@ -306,7 +306,7 @@
       var btn = m.q('#e-save'); btn.disabled = true; btn.textContent = 'Guardando…';
       var op = nuevo ? crearProceso(cabecera, c) : guardarBorrador(p, v, cabecera, c);
       op.then(function (id) { m.cerrar(); TI.msg('Borrador guardado'); if (nuevo && id) abrirDetalle(id); })
-        .catch(function (e) { btn.disabled = false; btn.textContent = 'Guardar borrador'; TI.msg('No se pudo guardar: ' + e.message); });
+        .catch(function (e) { btn.disabled = false; btn.textContent = 'Guardar borrador'; TI.msg('No se pudo guardar: ' + TI.errTxt(e)); });
     };
   }
   function datosCabecera(cab) { return { nombre: cab.nombre, categoria: cab.categoria, responsable: cab.responsable, participantes: cab.participantes, periodoRevisionMeses: cab.periodoRevisionMeses }; }
@@ -344,7 +344,7 @@
       batch.update(pRef, Object.assign({}, cambios, { actualizadoEn: ts }));
       batch.set(pRef.collection('historial').doc(), { fecha: ts, usuario: TI.user.email, accion: 'responsables', version: p.versionTrabajo, detalle: 'Responsable: ' + cambios.responsable + '; participantes: ' + (cambios.participantes.join(', ') || 'ninguno'), motivo: '' });
       TI.auditar(batch, { accion: 'cambio_responsables', tipo: 'proceso', id: p.id, detalle: (p.codigo || p.id) + ' responsable ' + cambios.responsable });
-      batch.commit().then(function () { m.cerrar(); TI.msg('Responsables actualizados'); if (D) { D.historial = null; } }).catch(function (e) { TI.msg('No se pudo guardar: ' + e.message); });
+      batch.commit().then(function () { m.cerrar(); TI.msg('Responsables actualizados'); if (D) { D.historial = null; } }).catch(function (e) { TI.msg('No se pudo guardar: ' + TI.errTxt(e)); });
     };
   }
 
@@ -360,7 +360,7 @@
       var hechos = 0;
       tandas.reduce(function (prev, tanda) { return prev.then(function () { return cargarTanda(tanda).then(function () { hechos += tanda.length; }); }); }, Promise.resolve())
         .then(function () { TI.msg('Catálogo cargado: ' + hechos + ' borradores'); })
-        .catch(function (e) { TI.msg('Se cargaron ' + hechos + ' de ' + faltan.length + '. Error: ' + e.message + '. Puedes repetir la carga: no se duplican los ya creados.'); });
+        .catch(function (e) { TI.msg('Se cargaron ' + hechos + ' de ' + faltan.length + '. Error: ' + TI.errTxt(e) + '. Puedes repetir la carga: no se duplican los ya creados.'); });
     });
   }
   function cargarTanda(tanda) {

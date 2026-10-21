@@ -401,3 +401,15 @@ test('ti_config: folio de respaldos (+1) y configuración solo del administrador
   const cfg = { pruebaMaxDias: 180, actualizadoPor: U.ger, actualizadoEn: serverTimestamp() };
   await assertSucceeds(setDoc(doc(db('ger'), 'ti_config', 'respaldos'), cfg)); await assertFails(setDoc(doc(db('cons'), 'ti_config', 'respaldos'), Object.assign({}, cfg, { actualizadoPor: U.cons })));
 });
+
+test('historial: no se puede escribir suelto (sin una escritura del documento padre en el mismo lote)', async () => {
+  await sembrarTicket();
+  const h = () => doc(collection(db('sol'), 'ti_tickets', 'TCK-0001', 'historial'));
+  // Sin tocar el ticket: rechazado aunque el usuario esté activo y se firme como él mismo.
+  await assertFails(setDoc(h(), { fecha: serverTimestamp(), usuario: U.sol, accion: 'falso', detalle: 'x', motivo: '' }));
+  // Junto con una acción permitida del solicitante (cancelar su ticket nuevo): aceptado.
+  const b = writeBatch(db('sol'));
+  b.update(tref('sol'), { estado: 'cancelado', esperas: [], actualizadoEn: serverTimestamp() });
+  b.set(h(), { fecha: serverTimestamp(), usuario: U.sol, accion: 'cancelar', detalle: 'x', motivo: '' });
+  await assertSucceeds(b.commit());
+});

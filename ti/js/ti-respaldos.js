@@ -24,7 +24,7 @@
     if (S.cargado) return; S.cargado = true;
     db.collection('ti_config').doc('respaldos').get().then(function (d) { S.config = d.exists ? d.data() : null; pintar(); avisar(); }).catch(function () {});
     function ante(k) { return function (snap) { S[k] = aMapa(snap); S.error = ''; pintar(); if (S.detalle && S.detalle.modal && document.body.contains(S.detalle.modal.el)) pintarDetalle(S.detalle); avisar(); }; }
-    function falla(err) { S.error = err.code === 'permission-denied' ? 'permiso' : err.message; pintar(); avisar(); }
+    function falla(err) { S.error = err.code === 'permission-denied' ? 'permiso' : TI.errTxt(err); pintar(); avisar(); }
     var col = db.collection('ti_respaldos');
     if (TI.puede('respaldos.ver_todos')) TI.unsubs.push(col.where('estado', 'in', ['activo', 'pausado']).onSnapshot(ante('a'), falla));
     else { TI.unsubs.push(col.where('creadoPor', '==', TI.user.email).onSnapshot(ante('a'), falla)); TI.unsubs.push(col.where('responsable', '==', TI.user.email).onSnapshot(ante('b'), falla)); }
@@ -117,7 +117,7 @@
       var err = L.validarRespaldo(x); m.qa('[data-e]').forEach(function (e) { e.textContent = err[e.dataset.e] || ''; });
       if (Object.keys(err).length) { TI.msg('Hay ' + Object.keys(err).length + ' campo(s) por corregir.'); var p = m.q('.ti-err:not(:empty)'); if (p) { var f = p.parentElement.querySelector('input,textarea,select'); if (f) f.focus(); } return; }
       var btn = m.q('#r-ok'); btn.disabled = true;
-      (nuevo ? crear(x) : guardar(t, x)).then(function (id) { m.cerrar(); TI.msg('Trabajo guardado'); abrir(id); }).catch(function (e) { btn.disabled = false; TI.msg('No se pudo guardar: ' + e.message); });
+      (nuevo ? crear(x) : guardar(t, x)).then(function (id) { m.cerrar(); TI.msg('Trabajo guardado'); abrir(id); }).catch(function (e) { btn.disabled = false; TI.msg('No se pudo guardar: ' + TI.errTxt(e)); });
     };
   }
   function crear(x) {
@@ -147,10 +147,10 @@
     ref(id).get().then(function (s) {
       if (!s.exists) { D.modal.cerrar(); TI.msg('El trabajo no existe o no tienes acceso.'); return; }
       var x = s.data(); x.id = id; if (!porId(id) && L.puedeVerRespaldo(TI.user, x)) S.b[id] = x; pintarDetalle(D);
-    }).catch(function (e) { D.modal.cerrar(); TI.msg('No se pudo abrir el trabajo: ' + e.message); });
+    }).catch(function (e) { D.modal.cerrar(); TI.msg('No se pudo abrir el trabajo: ' + TI.errTxt(e)); });
   }
   function cargarSub(D, nombreSub, campo) {
-    ref(D.id).collection(nombreSub).orderBy('fechaMs', 'desc').limit(60).get().then(function (s) { D[campo] = s.docs.map(function (d) { return d.data(); }); pintarDetalle(D); }).catch(function (e) { D[campo] = []; TI.msg('No se pudo leer: ' + e.message); pintarDetalle(D); });
+    ref(D.id).collection(nombreSub).orderBy('fechaMs', 'desc').limit(60).get().then(function (s) { D[campo] = s.docs.map(function (d) { return d.data(); }); pintarDetalle(D); }).catch(function (e) { D[campo] = []; TI.msg('No se pudo leer: ' + TI.errTxt(e)); pintarDetalle(D); });
   }
   function tablaRegistros(arr, tipo) {
     if (!arr.length) return '<div class="ti-empty">' + (tipo === 'prueba' ? 'Aún no se ha registrado ninguna prueba de restauración.' : 'Aún no se ha registrado ninguna ejecución.') + '</div>';
@@ -218,7 +218,7 @@
       }).then(function () {
         m.cerrar(); TI.msg('Registrado');
         ref(t.id).get().then(function (s) { if (s.exists) { var x = s.data(); x.id = t.id; ['a', 'b'].forEach(function (k) { if (S[k][t.id]) S[k][t.id] = x; }); if (!porId(t.id)) S.b[t.id] = x; } D[esP ? 'pruebas' : 'ejecuciones'] = null; D.tab = esP ? 'pruebas' : 'ejecuciones'; pintarDetalle(D); pintar(); });
-      }).catch(function (e) { btn.disabled = false; TI.msg('No se pudo registrar: ' + e.message); });
+      }).catch(function (e) { btn.disabled = false; TI.msg('No se pudo registrar: ' + TI.errTxt(e)); });
     };
   }
 
@@ -234,7 +234,7 @@
           TI.auditar(tx, { accion: 'respaldo_' + id, tipo: 'respaldo', id: t.id, detalle: t.id + ': ' + r.historial.detalle, motivo: r.historial.motivo });
         });
       }).then(function () { TI.msg('Listo: ' + a.label); ref(t.id).get().then(function (s) { if (s.exists) { var x = s.data(); x.id = t.id; ['a', 'b'].forEach(function (k) { if (S[k][t.id]) S[k][t.id] = x; }); } D.historial = null; pintarDetalle(D); pintar(); }); })
-        .catch(function (e) { TI.msg('No se pudo completar: ' + e.message); });
+        .catch(function (e) { TI.msg('No se pudo completar: ' + TI.errTxt(e)); });
     }
     if (!(a.requiere || []).length) { ir({}); return; }
     var m = TI.modal(a.label, '<div class="ti-f"><label for="ac-motivo">Motivo *</label><textarea id="ac-motivo" class="fi" rows="3" maxlength="2000"></textarea></div><div class="ti-err" id="ac-e" role="alert"></div>', { pieHtml: '<button class="btn" id="ac-c">Cancelar</button><button class="btn btn-blue" id="ac-ok">Continuar</button>', enfocar: '#ac-motivo' });
@@ -250,8 +250,8 @@
         var v = parseInt(el.querySelector('#rs-max').value, 10); if (!(v >= 1 && v <= 1000)) { el.querySelector('#rs-max-e').textContent = 'Escribe un número de días entre 1 y 1000.'; return; }
         var b = db.batch(), ts = TI.serverTs(), datos = { pruebaMaxDias: v, actualizadoPor: TI.user.email, actualizadoEn: ts };
         b.set(db.collection('ti_config').doc('respaldos'), datos); TI.auditar(b, { accion: 'configurar_respaldos', tipo: 'config', id: 'respaldos', detalle: 'Vigencia de pruebas de restauración: ' + v + ' días' });
-        b.commit().then(function () { S.config = datos; TI.msg('Configuración guardada'); avisar(); }).catch(function (e) { TI.msg('No se pudo guardar: ' + e.message); });
+        b.commit().then(function () { S.config = datos; TI.msg('Configuración guardada'); avisar(); }).catch(function (e) { TI.msg('No se pudo guardar: ' + TI.errTxt(e)); });
       };
-    }).catch(function (e) { el.innerHTML = '<div class="ti-note err">No se pudo leer la configuración: ' + esc(e.message) + '</div>'; });
+    }).catch(function (e) { el.innerHTML = '<div class="ti-note err">No se pudo leer la configuración: ' + esc(TI.errTxt(e)) + '</div>'; });
   };
 })();

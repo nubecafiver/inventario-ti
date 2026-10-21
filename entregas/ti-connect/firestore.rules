@@ -1,0 +1,116 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function role()     { return request.auth.token.role; }      // 'colaborador' | 'consultor' | 'director'
+    function emp()      { return request.auth.token.emp; }        // número de empleado
+    function agentId()  { return request.auth.token.agentId; }    // id del consultor (p. ej. 'CR')
+    function isDirector() { return signedIn() && role() == 'director'; }
+    function isConsultor(){ return signedIn() && role() == 'consultor'; }
+    function isStaff()    { return isDirector() || isConsultor(); }
+
+    // PADRÓN: cada quien lee su ficha; el staff lee todas. Escritura solo por Admin SDK/Functions.
+    match /employees/{id} {
+      allow read:  if signedIn() && (isStaff() || id == emp() || id == string(emp()));
+      allow write: if false;
+    }
+
+    // TICKETS
+    match /tickets/{id} {
+      // Bolsa común: el staff ve los SIN asignar; cada consultor ve lo suyo; el dueño ve los propios
+      allow read:   if isDirector()
+                    || (isConsultor() && (resource.data.assignedTo == null || resource.data.assignedTo == agentId()))
+                    || (signedIn() && resource.data.ownerEmp == emp());
+      // Cualquiera autenticado levanta tickets a su nombre, en 'abierto'
+      // Se validan los campos que escribe la app (createTicket en ti-connect-data.js): ni más ni menos, con tipos y tamaños razonables.
+      allow create: if signedIn()
+                    && request.resource.data.ownerEmp == emp()
+                    && request.resource.data.estado == 'abierto'
+                    && request.resource.data.assignedTo == null
+                    && request.resource.data.rk == false
+                    && request.resource.data.keys().hasOnly(['folio', 'title', 'area', 'categoria', 'subcategoria', 'tipo', 'prioridad', 'estado', 'ownerEmp', 'ownerName', 'assignedTo', 'rk', 'createdAt', 'updatedAt'])
+                    && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200
+                    && request.resource.data.folio is string && request.resource.data.folio.size() <= 30
+                    && request.resource.data.prioridad is string && request.resource.data.prioridad.size() <= 30
+                    && request.resource.data.categoria is string && request.resource.data.categoria.size() <= 100
+                    && request.resource.data.ownerName is string && request.resource.data.ownerName.size() <= 120
+                    && request.resource.data.createdAt == request.time;
+      // Director: todo. Consultor: tomar (null->propio), regresar (propio->null) y cerrar; nunca asigna a otro.
+      allow update: if isDirector()
+                    || (isConsultor()
+                        && (resource.data.assignedTo == null || resource.data.assignedTo == agentId())
+                        && (request.resource.data.assignedTo == null || request.resource.data.assignedTo == agentId())
+                        // Solo los campos que cambia la app (tomar, regresar, cambiar estado); no puede tocar el dueño, el título ni la prioridad.
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assignedTo', 'estado', 'rk', 'updatedAt']));
+      allow delete: if false;
+
+      // CONVERSACIÓN del ticket
+      match /messages/{mid} {
+        function ticket() { return get(/databases/$(database)/documents/tickets/$(id)).data; }
+        allow read:   if isDirector()
+                      || (isConsultor() && (ticket().assignedTo == null || ticket().assignedTo == agentId()))
+                      || (signedIn() && ticket().ownerEmp == emp());
+        // El staff responde como 'tech' o nota 'sys'; el dueño escribe como 'user'
+        allow create: if (isStaff() && (request.resource.data.from == 'tech' || request.resource.data.from == 'sys'))
+                      || (signedIn() && ticket().ownerEmp == emp() && request.resource.data.from == 'user');
+        allow update, delete: if false;
+      }
+    }
+
+    // MURO (red social interna)
+    match /posts/{id} {
+      allow read:   if signedIn();
+      // El staff publica cualquier tipo; el colaborador solo 'post' a su nombre (límite 1/día se valida en Functions)
+      // authorRole debe ser el del token (así el límite de 1 publicación/día de la Function no se puede evadir declarando otro rol).
+      allow create: if signedIn() && request.resource.data.authorRole == role()
+                    && (isStaff()
+                        || (request.resource.data.authorEmp == emp() && request.resource.data.kind == 'post'));
+      // Cualquiera puede reaccionar: solo se permite cambiar el campo 'reactions'
+      allow update: if isStaff()
+                    || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
+      allow delete: if isDirector();
+
+      // Hilo de comentarios: leer todos; crear cualquier rol a su nombre; moderar el director
+      match /comments/{cid} {
+        allow read:   if signedIn();
+        allow create: if signedIn() && request.resource.data.authorEmp == emp() && request.resource.data.authorRole == role();
+        allow update, delete: if isDirector();
+      }
+    }
+
+    // AVISOS / COMUNICADOS (publica el director; todos leen)
+    match /avisos/{id} {
+      allow read:   if signedIn();
+      allow create, update, delete: if isStaff();
+      // confirmaciones de lectura por usuario
+      match /reads/{uid} {
+        allow read:   if signedIn() && (isStaff() || uid == request.auth.uid);
+        allow create: if signedIn() && uid == request.auth.uid;
+      }
+    }
+
+    // BASE DE CONOCIMIENTO (lee todo el mundo; edita el staff)
+    match /kb/{id} {
+      allow read:  if signedIn();
+      allow write: if isStaff();
+    }
+
+    // TOKENS de notificaciones push: cada usuario administra los suyos; solo el backend los lee
+    match /fcmTokens/{token} {
+      allow read:   if false;
+      // El rol y el agentId del token de notificaciones salen de la sesión (no de lo que mande el cliente), el documento se llama como el token
+      // y solo el dueño lo borra.
+      allow create: if signedIn() && request.resource.data.emp == emp()
+                    && request.resource.data.role == role()
+                    && request.resource.data.agentId == request.auth.token.get('agentId', null)
+                    && request.resource.data.token == token;
+      // (Se permite re-registrar un token que estaba a nombre de otra persona porque un mismo teléfono puede cambiar de usuario; el token es secreto y largo.)
+      allow update: if signedIn() && request.resource.data.emp == emp()
+                    && request.resource.data.role == role()
+                    && request.resource.data.agentId == request.auth.token.get('agentId', null)
+                    && request.resource.data.token == token;
+      allow delete: if signedIn() && resource.data.emp == emp();
+    }
+  }
+}

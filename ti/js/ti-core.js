@@ -11,6 +11,10 @@
   /* Roles del primer ingreso (decisión de la Dirección de TI): quien arranca la plataforma es el Gerente de TI.
      Debe coincidir con la regla de creación de usuarios_ti en firestore.rules. */
   TI.ARRANQUE_ROLES = ['gerente'];
+  /* Módulos que existen pero no se muestran. Hoy los tickets se atienden en TI Connect (app móvil, otro proyecto de Firebase), así que la
+     Mesa de ayuda de esta plataforma se oculta para no tener dos sistemas de tickets. Para volver a mostrarla, quita 'ti-tickets' de la lista. */
+  TI.MODULOS_OCULTOS = ['ti-tickets'];
+  TI.moduloVisible = function (vista) { return TI.MODULOS_OCULTOS.indexOf(vista) === -1; };
   /* Equipo inicial: cada persona entra como Consultor de TI (crea y edita sus procedimientos y atiende los tickets asignados; el Gerente aprueba).
      Los roles se pueden cambiar después en Administración. El nombre solo se rellena si la app ya lo conoce (USER_DIR). */
   TI.EQUIPO_INICIAL = [
@@ -40,6 +44,21 @@
     if (c && c.nombre) return c.nombre;
     if (window.USER_DIR && USER_DIR[email]) return USER_DIR[email].name;
     return email;
+  };
+  // Mensaje de error comprensible para la persona usuaria (los de Firebase vienen en inglés y con códigos técnicos).
+  TI.errTxt = function (e) {
+    var c = (e && e.code) || '', m = (e && e.message) || String(e || '');
+    var t = {
+      'permission-denied': 'No tienes permiso para esta acción (o las reglas de seguridad aún no se publican).',
+      'unavailable': 'Sin conexión con el servidor. Revisa tu internet y vuelve a intentar.',
+      'deadline-exceeded': 'El servidor tardó demasiado en responder. Vuelve a intentar.',
+      'resource-exhausted': 'Se alcanzó el límite de uso de Firebase. Avisa a la Gerencia de TI.',
+      'unauthenticated': 'Tu sesión expiró. Cierra sesión y vuelve a entrar.',
+      'aborted': 'Otra persona modificó el registro al mismo tiempo. Vuelve a intentar.',
+      'failed-precondition': 'Falta un índice o la operación no es válida en este momento.',
+      'not-found': 'El registro ya no existe.'
+    };
+    return t[String(c).replace('firestore/', '')] || m;
   };
   TI.msg = function (m) {
     var t = document.getElementById('ti-toast');

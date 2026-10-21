@@ -35,7 +35,7 @@
     if (S.cargado) return; S.cargado = true;
     TI.cargarConfigTickets().then(function () { pintar(); avisar(); });
     function ante(clave) { return function (snap) { S[clave] = aMapa(snap); S.error = ''; recomponer(); pintar(); if (S.detalle && S.detalle.modal && document.body.contains(S.detalle.modal.el)) pintarDetalle(S.detalle); avisar(); }; }
-    function falla(err) { S.error = err.code === 'permission-denied' ? 'permiso' : err.message; pintar(); avisar(); }
+    function falla(err) { S.error = err.code === 'permission-denied' ? 'permiso' : TI.errTxt(err); pintar(); avisar(); }
     var col = db.collection('ti_tickets');
     if (!TI.puede('tickets.ver_todos') && TI.puede('tickets.atender')) {
       /* Consultor: lo asignado a él, lo que creó y lo nuevo sin responsable (para tomarlo). Tres consultas acotadas. */
@@ -208,7 +208,7 @@
         }
         return crear(d, idAct);
       }).then(function (id) { if (id) { m.cerrar(); TI.msg('Ticket ' + id + ' creado'); abrirDetalle(id); } else { btn.disabled = false; btn.textContent = 'Crear ticket'; } })
-        .catch(function (e) { btn.disabled = false; btn.textContent = 'Crear ticket'; TI.msg('No se pudo crear: ' + e.message); });
+        .catch(function (e) { btn.disabled = false; btn.textContent = 'Crear ticket'; TI.msg('No se pudo crear: ' + TI.errTxt(e)); });
     };
   }
   /* Una sola lectura (o dos): por ID del documento y, si no existe, por número de activo fijo. No copia datos del equipo. */
@@ -220,7 +220,7 @@
     return db.collection('equipos').doc(valor).get().then(function (d) {
       if (d.exists) return muestra(d);
       return db.collection('equipos').where('af', '==', valor).limit(1).get().then(function (s) { if (!s.empty) return muestra(s.docs[0]); infoEl.textContent = 'No se encontró ese equipo en el inventario.'; return ''; });
-    }).catch(function (e) { infoEl.textContent = 'No se pudo consultar el inventario: ' + e.message; return ''; });
+    }).catch(function (e) { infoEl.textContent = 'No se pudo consultar el inventario: ' + TI.errTxt(e); return ''; });
   }
   function crear(d, activoId) {
     var cRef = db.collection('ti_config').doc('contadores'), ahora = Date.now();
@@ -251,16 +251,16 @@
       if (!snap.exists) { D.modal.cerrar(); TI.msg('El ticket no existe o no tienes acceso.'); return; }
       var x = snap.data(); x.id = id; D.ticket = x; if (!porId(id)) { if (L.puedeVerTicket(TI.user, x)) { S.propios[id] = x; recomponer(); } }
       cargarComentarios(D);
-    }).catch(function (e) { D.modal.cerrar(); TI.msg('No se pudo abrir el ticket: ' + e.message); });
+    }).catch(function (e) { D.modal.cerrar(); TI.msg('No se pudo abrir el ticket: ' + TI.errTxt(e)); });
   }
   function cargarComentarios(D) {
     var base = refT(D.id).collection('comentarios'), q = L.esTI(TI.user) ? base : base.where('interno', '==', false);
     q.get().then(function (s) { D.comentarios = s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; }).sort(function (a, b) { return (a.fechaMs || 0) - (b.fechaMs || 0); }); pintarDetalle(D); })
-      .catch(function (e) { D.comentarios = []; TI.msg('No se pudo leer la conversación: ' + e.message); pintarDetalle(D); });
+      .catch(function (e) { D.comentarios = []; TI.msg('No se pudo leer la conversación: ' + TI.errTxt(e)); pintarDetalle(D); });
   }
   function cargarHistorial(D) {
     refT(D.id).collection('historial').orderBy('fecha', 'desc').limit(60).get().then(function (s) { D.historial = s.docs.map(function (d) { return d.data(); }); pintarDetalle(D); })
-      .catch(function (e) { D.historial = []; TI.msg('No se pudo leer el historial: ' + e.message); pintarDetalle(D); });
+      .catch(function (e) { D.historial = []; TI.msg('No se pudo leer el historial: ' + TI.errTxt(e)); pintarDetalle(D); });
   }
   function pintarDetalle(D) {
     var m = D.modal; if (!m || !document.body.contains(m.el)) return;
@@ -381,7 +381,7 @@
         if (s.exists) { var x = s.data(); x.id = id; [S.abiertos, S.recientes, S.propios].forEach(function (o) { if (o[id]) o[id] = x; }); if (!porId(id)) S.propios[id] = x; recomponer(); }
         D.historial = null; cargarComentarios(D); pintar();
       });
-    }).catch(function (e) { TI.msg('No se pudo completar: ' + e.message); });
+    }).catch(function (e) { TI.msg('No se pudo completar: ' + TI.errTxt(e)); });
   }
 
   /* ===== Configuración (la usa Administración › Mesa de ayuda) ===== */
@@ -437,6 +437,6 @@
     b.set(ref, datos);
     TI.auditar(b, { accion: 'configurar_mesa_ayuda', tipo: 'config', id: 'tickets', detalle: C.categorias.length + ' categorías · ' + Object.keys(C.sla).length + ' SLA · ' + (C.horario ? 'horario ' + C.horario.inicio + '–' + C.horario.fin : 'sin horario (24×7)') });
     b.commit().then(function () { S.config = L.normalizarConfigTickets(datos); TI.configTickets = S.config; TI.msg('Configuración guardada'); pintarConfig(el, JSON.parse(JSON.stringify(S.config))); avisar(); })
-      .catch(function (e) { TI.msg('No se pudo guardar: ' + e.message); });
+      .catch(function (e) { TI.msg('No se pudo guardar: ' + TI.errTxt(e)); });
   }
 })();

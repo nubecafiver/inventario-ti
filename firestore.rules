@@ -243,7 +243,8 @@ service cloud.firestore {
       }
       match /historial/{h} {
         allow read: if equipoTI() || (esConsultor() && (get(rutaTicket(id)).data.responsable == correo()));
-        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time
+                      && getAfter(rutaTicket(id)).data.actualizadoEn == request.time; // solo junto con una escritura autorizada del documento padre
         allow update, delete: if false;
       }
     }
@@ -287,7 +288,8 @@ service cloud.firestore {
 
       match /historial/{h} {
         allow read: if esAdmin() || esDirector();
-        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time
+                      && getAfter(rutaCambio(id)).data.actualizadoEn == request.time; // solo junto con una escritura autorizada del documento padre
         allow update, delete: if false;
       }
     }
@@ -308,7 +310,8 @@ service cloud.firestore {
       allow delete: if false;
       match /historial/{h} {
         allow read: if esAdmin() || esDirector();
-        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time
+                      && getAfter(/databases/$(database)/documents/ti_proveedores/$(id)).data.actualizadoEn == request.time; // solo junto con una escritura autorizada del documento padre
         allow update, delete: if false;
       }
     }
@@ -334,7 +337,8 @@ service cloud.firestore {
       allow delete: if false;
       match /historial/{h} {
         allow read: if esAdmin() || esDirector();
-        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time
+                      && getAfter(/databases/$(database)/documents/ti_contratos/$(id)).data.actualizadoEn == request.time; // solo junto con una escritura autorizada del documento padre
         allow update, delete: if false;
       }
     }
@@ -378,7 +382,8 @@ service cloud.firestore {
       }
       match /historial/{h} {
         allow read: if esAdmin() || esDirector();
-        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time;
+        allow create: if activo() && request.resource.data.usuario == correo() && request.resource.data.fecha == request.time
+                      && getAfter(rutaRespaldo(id)).data.actualizadoEn == request.time; // solo junto con una escritura autorizada del documento padre
         allow update, delete: if false;
       }
     }

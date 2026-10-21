@@ -1,0 +1,27 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Archivos de la base de conocimiento: lee todo usuario autenticado; sube/edita el staff
+    match /kb/{allPaths=**} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && (request.auth.token.role == 'director' || request.auth.token.role == 'consultor');
+    }
+    // Evidencias de tickets: la app actual no sube nada aquí. Se deja solo para el staff hasta que exista esa función
+    // (entonces se ata al dueño del ticket consultando Firestore).
+    match /tickets/{ticketId}/{allPaths=**} {
+      allow read, write: if request.auth != null
+                         && (request.auth.token.role == 'director' || request.auth.token.role == 'consultor');
+    }
+    // Imágenes del muro: la app sube a posts/{número de empleado}/{archivo}. Lee todo usuario autenticado;
+    // cada quien sube solo a su carpeta, solo imágenes y de hasta 10 MB (la app no reduce las fotos). Nadie sobrescribe lo ya subido.
+    match /posts/{emp}/{fileName} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && emp == string(request.auth.token.emp)
+                    && request.resource.size < 10 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+      allow update, delete: if false;
+    }
+  }
+}
