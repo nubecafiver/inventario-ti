@@ -114,7 +114,45 @@ FORM get_sets.
         ls_pc   LIKE LINE OF gr_pc,
         ls_acct LIKE LINE OF gr_acct.
 
-  PERFORM set_to_range USING iv_class TYPE c iv_name TYPE c iv_sub TYPE c
+  PERFORM set_to_range USING '0106' p_pcgrp p_kokrs CHANGING lt_pc.
+  PERFORM set_to_range USING '0H'   p_acgrp p_ktopl CHANGING lt_acct.
+
+  LOOP AT lt_pc INTO ls_rng.
+    CLEAR ls_pc.
+    ls_pc-sign   = ls_rng-sign.
+    ls_pc-option = ls_rng-option.
+    ls_pc-low    = ls_rng-low.
+    ls_pc-high   = ls_rng-high.
+    IF ls_pc-low CO '0123456789 '.   "CeBe numérico: formato interno
+      PERFORM alpha_in CHANGING ls_pc-low.
+      IF ls_pc-high IS NOT INITIAL.
+        PERFORM alpha_in CHANGING ls_pc-high.
+      ENDIF.
+    ENDIF.
+    APPEND ls_pc TO gr_pc.
+  ENDLOOP.
+
+  LOOP AT lt_acct INTO ls_rng.
+    CLEAR ls_acct.
+    ls_acct-sign   = ls_rng-sign.
+    ls_acct-option = ls_rng-option.
+    ls_acct-low    = ls_rng-low.
+    ls_acct-high   = ls_rng-high.
+    IF ls_acct-low CO '0123456789 '.   "cuenta numérica: formato interno
+      PERFORM alpha_in CHANGING ls_acct-low.
+      IF ls_acct-high IS NOT INITIAL.
+        PERFORM alpha_in CHANGING ls_acct-high.
+      ENDIF.
+    ENDIF.
+    APPEND ls_acct TO gr_acct.
+  ENDLOOP.
+
+  IF gr_pc IS INITIAL OR gr_acct IS INITIAL.
+    MESSAGE 'No se pudieron expandir los grupos (revise GS03)' TYPE 'E'.
+  ENDIF.
+ENDFORM.
+
+FORM set_to_range USING iv_class TYPE c iv_name TYPE c iv_sub TYPE c
                   CHANGING ct_range TYPE ty_rng_t.
   DATA: lt_todo  TYPE STANDARD TABLE OF ty_todo,
         ls_todo  TYPE ty_todo,
