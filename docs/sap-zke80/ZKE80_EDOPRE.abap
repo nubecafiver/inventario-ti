@@ -273,7 +273,8 @@ FORM build_output.
         lv_per   TYPE n LENGTH 3,
         lv_lastc TYPE glpct-rprctr,
         lv_lastt TYPE cepct-ltext,
-        lv_ktext TYPE cepct-ktext.
+        lv_ktext TYPE cepct-ktext,
+        lv_datbi TYPE cepct-datbi.
   FIELD-SYMBOLS: <ls_g> TYPE glpct, <lv_v> TYPE any.
 
   LOOP AT gt_glpct ASSIGNING <ls_g>.
@@ -315,7 +316,7 @@ FORM build_output.
       IF ls_out-rprctr <> lv_lastc.
         lv_lastc = ls_out-rprctr.
         CLEAR: lv_lastt, lv_ktext.
-        SELECT ltext ktext FROM cepct INTO (lv_lastt, lv_ktext)
+        SELECT ltext ktext datbi FROM cepct INTO (lv_lastt, lv_ktext, lv_datbi)
           UP TO 1 ROWS
           WHERE spras = sy-langu
             AND prctr = ls_out-rprctr
