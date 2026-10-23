@@ -26,6 +26,12 @@ TYPES: BEGIN OF ty_rng,
        ty_rng_t TYPE STANDARD TABLE OF ty_rng WITH DEFAULT KEY,
        ty_str_t TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
 
+TYPES: BEGIN OF ty_todo,
+         setclass TYPE setleaf-setclass,
+         subclass TYPE setleaf-subclass,
+         setname  TYPE setleaf-setname,
+       END OF ty_todo.
+
 DATA: gt_out   TYPE STANDARD TABLE OF ty_out,
       gt_glpct TYPE STANDARD TABLE OF glpct,
       gr_pc    TYPE RANGE OF glpct-rprctr,
@@ -99,7 +105,7 @@ ENDFORM.
 
 *&---------------------------------------------------------------------*
 *& Expande los grupos (GS03): CeBe clase 0106, cuentas clase 0H.
-*& VERIFICAR en GS03 la clase del grupo EDOPRE y el subconjunto.
+*& Si la clase no coincide, busca el grupo solo por nombre.
 *&---------------------------------------------------------------------*
 FORM get_sets.
   DATA: lt_pc   TYPE ty_rng_t,
@@ -108,94 +114,94 @@ FORM get_sets.
         ls_pc   LIKE LINE OF gr_pc,
         ls_acct LIKE LINE OF gr_acct.
 
-  PERFORM set_to_range USING '0106' p_pcgrp p_kokrs ''      CHANGING lt_pc.
-  PERFORM set_to_range USING '0H'   p_acgrp ''      p_ktopl CHANGING lt_acct.
-
-  LOOP AT lt_pc INTO ls_rng.
-    CLEAR ls_pc.
-    ls_pc-sign   = ls_rng-sign.
-    ls_pc-option = ls_rng-option.
-    ls_pc-low    = ls_rng-low.
-    ls_pc-high   = ls_rng-high.
-    IF ls_pc-low CO '0123456789 '.   "CeBe numérico: formato interno
-      PERFORM alpha_in CHANGING ls_pc-low.
-      IF ls_pc-high IS NOT INITIAL.
-        PERFORM alpha_in CHANGING ls_pc-high.
-      ENDIF.
-    ENDIF.
-    APPEND ls_pc TO gr_pc.
-  ENDLOOP.
-
-  LOOP AT lt_acct INTO ls_rng.
-    CLEAR ls_acct.
-    ls_acct-sign   = ls_rng-sign.
-    ls_acct-option = ls_rng-option.
-    ls_acct-low    = ls_rng-low.
-    ls_acct-high   = ls_rng-high.
-    IF ls_acct-low CO '0123456789 '.   "cuenta numérica: formato interno
-      PERFORM alpha_in CHANGING ls_acct-low.
-      IF ls_acct-high IS NOT INITIAL.
-        PERFORM alpha_in CHANGING ls_acct-high.
-      ENDIF.
-    ENDIF.
-    APPEND ls_acct TO gr_acct.
-  ENDLOOP.
-
-  IF gr_pc IS INITIAL OR gr_acct IS INITIAL.
-    MESSAGE 'No se pudieron expandir los grupos (revise GS03)' TYPE 'E'.
-  ENDIF.
-ENDFORM.
-
-FORM set_to_range USING iv_class TYPE c iv_name TYPE c
-                        iv_kokrs TYPE c iv_ktopl TYPE c
+  PERFORM set_to_range USING iv_class TYPE c iv_name TYPE c iv_sub TYPE c
                   CHANGING ct_range TYPE ty_rng_t.
-  DATA: lv_setid  TYPE sethier-setid,
-        lt_values TYPE STANDARD TABLE OF rgsbv,
-        ls_range  TYPE ty_rng.
-  FIELD-SYMBOLS: <ls_val> TYPE rgsbv, <lv_f> TYPE any.
+  DATA: lt_todo  TYPE STANDARD TABLE OF ty_todo,
+        ls_todo  TYPE ty_todo,
+        ls_chk   TYPE ty_todo,
+        lt_leaf  TYPE STANDARD TABLE OF setleaf,
+        ls_leaf  TYPE setleaf,
+        lt_node  TYPE STANDARD TABLE OF setnode,
+        ls_node  TYPE setnode,
+        ls_range TYPE ty_rng,
+        lv_idx   TYPE i,
+        lv_lin   TYPE i.
 
-  CALL FUNCTION 'G_SET_ENCRYPT_SETID'
-    EXPORTING
-      setclass  = iv_class
-      shortname = iv_name
-      kokrs     = iv_kokrs
-      ktopl     = iv_ktopl
-    IMPORTING
-      setid     = lv_setid.
+  CLEAR ls_todo.
+  ls_todo-setclass = iv_class.
+  ls_todo-subclass = iv_sub.
+  ls_todo-setname  = iv_name.
 
-  CALL FUNCTION 'G_SET_GET_ALL_VALUES'
-    EXPORTING
-      setnr      = lv_setid
-    TABLES
-      set_values = lt_values
-    EXCEPTIONS
-      OTHERS     = 1.
+  " Localiza el grupo: primero con clase y subclase, luego solo clase,
+  " luego solo por nombre (por si la clase real es otra).
+  SELECT SINGLE setclass subclass FROM setheader
+    INTO (ls_chk-setclass, ls_chk-subclass)
+    WHERE setclass = iv_class AND subclass = iv_sub AND setname = iv_name.
   IF sy-subrc <> 0.
-    RETURN.
+    SELECT SINGLE setclass subclass FROM setheader
+      INTO (ls_chk-setclass, ls_chk-subclass)
+      WHERE setclass = iv_class AND setname = iv_name.
+    IF sy-subrc <> 0.
+      SELECT SINGLE setclass subclass FROM setheader
+        INTO (ls_chk-setclass, ls_chk-subclass)
+        WHERE setname = iv_name.
+    ENDIF.
+    IF sy-subrc = 0.
+      ls_todo-setclass = ls_chk-setclass.
+      ls_todo-subclass = ls_chk-subclass.
+    ENDIF.
   ENDIF.
+  APPEND ls_todo TO lt_todo.
 
-  LOOP AT lt_values ASSIGNING <ls_val>.
-    CLEAR ls_range.
-    ls_range-sign = 'I'.
-    " Nombres de campo de RGSBV: ajustar VFROM/VTO ó FROM/TO según SE11
-    ASSIGN COMPONENT 'VFROM' OF STRUCTURE <ls_val> TO <lv_f>.
-    IF sy-subrc <> 0.
-      ASSIGN COMPONENT 'FROM' OF STRUCTURE <ls_val> TO <lv_f>.
+  " Expande el grupo y sus subgrupos
+  lv_idx = 1.
+  DO.
+    DESCRIBE TABLE lt_todo LINES lv_lin.
+    IF lv_idx > lv_lin.
+      EXIT.
     ENDIF.
-    ls_range-low = <lv_f>.
-    ASSIGN COMPONENT 'VTO' OF STRUCTURE <ls_val> TO <lv_f>.
-    IF sy-subrc <> 0.
-      ASSIGN COMPONENT 'TO' OF STRUCTURE <ls_val> TO <lv_f>.
-    ENDIF.
-    ls_range-high = <lv_f>.
-    IF ls_range-high IS INITIAL OR ls_range-high = ls_range-low.
-      ls_range-option = 'EQ'.
-      CLEAR ls_range-high.
-    ELSE.
-      ls_range-option = 'BT'.
-    ENDIF.
-    APPEND ls_range TO ct_range.
-  ENDLOOP.
+    READ TABLE lt_todo INTO ls_todo INDEX lv_idx.
+    lv_idx = lv_idx + 1.
+
+    SELECT * FROM setleaf INTO TABLE lt_leaf
+      WHERE setclass = ls_todo-setclass
+        AND subclass = ls_todo-subclass
+        AND setname  = ls_todo-setname.
+    LOOP AT lt_leaf INTO ls_leaf.
+      CLEAR ls_range.
+      ls_range-sign = ls_leaf-valsign.
+      IF ls_range-sign IS INITIAL.
+        ls_range-sign = 'I'.
+      ENDIF.
+      ls_range-low  = ls_leaf-valfrom.
+      ls_range-high = ls_leaf-valto.
+      IF ls_range-high IS INITIAL OR ls_range-high = ls_range-low.
+        ls_range-option = 'EQ'.
+        CLEAR ls_range-high.
+      ELSE.
+        ls_range-option = 'BT'.
+      ENDIF.
+      APPEND ls_range TO ct_range.
+    ENDLOOP.
+
+    SELECT * FROM setnode INTO TABLE lt_node
+      WHERE setclass = ls_todo-setclass
+        AND subclass = ls_todo-subclass
+        AND setname  = ls_todo-setname.
+    LOOP AT lt_node INTO ls_node.
+      CLEAR ls_chk.
+      ls_chk-setclass = ls_node-subsetcls.
+      ls_chk-subclass = ls_node-subsetscope.
+      ls_chk-setname  = ls_node-subsetname.
+      READ TABLE lt_todo TRANSPORTING NO FIELDS
+        WITH KEY setclass = ls_chk-setclass
+                 subclass = ls_chk-subclass
+                 setname  = ls_chk-setname.
+      IF sy-subrc <> 0.
+        APPEND ls_chk TO lt_todo.
+      ENDIF.
+    ENDLOOP.
+  ENDDO.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
