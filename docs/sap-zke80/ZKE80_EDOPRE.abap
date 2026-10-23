@@ -229,7 +229,7 @@ FORM set_to_range USING iv_class TYPE c iv_name TYPE c iv_sub TYPE c
     LOOP AT lt_node INTO ls_node.
       CLEAR ls_chk.
       ls_chk-setclass = ls_node-subsetcls.
-      ls_chk-subclass = ls_node-subsetscope.
+      ls_chk-subclass = ls_todo-subclass.   "el subgrupo hereda la subclase
       ls_chk-setname  = ls_node-subsetname.
       READ TABLE lt_todo TRANSPORTING NO FIELDS
         WITH KEY setclass = ls_chk-setclass
