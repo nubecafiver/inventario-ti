@@ -3,6 +3,7 @@
 *& Clon de KE80 (EC-PCA, informe Z8-PCA001G / grupo EDOPRE):
 *& Plan / Real / Desviación por grupo de CeBe y grupo de cuentas,
 *& con ALV y exportación a CSV.
+*& Sintaxis compatible con ABAP 7.0 (sin plantillas de texto).
 *&---------------------------------------------------------------------*
 REPORT zke80_edopre.
 
@@ -22,14 +23,15 @@ TYPES: BEGIN OF ty_rng,
          low    TYPE c LENGTH 24,
          high   TYPE c LENGTH 24,
        END OF ty_rng,
-       ty_rng_t TYPE STANDARD TABLE OF ty_rng WITH DEFAULT KEY.
+       ty_rng_t TYPE STANDARD TABLE OF ty_rng WITH DEFAULT KEY,
+       ty_str_t TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
 
 DATA: gt_out   TYPE STANDARD TABLE OF ty_out,
       gt_glpct TYPE STANDARD TABLE OF glpct,
       gr_pc    TYPE RANGE OF glpct-rprctr,
       gr_acct  TYPE RANGE OF glpct-racct.
 
-SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
 PARAMETERS: p_perf  TYPE n LENGTH 3 DEFAULT '009' OBLIGATORY,   "De período
             p_pert  TYPE n LENGTH 3 DEFAULT '009' OBLIGATORY,   "A período
             p_ryear TYPE glpct-ryear DEFAULT sy-datum(4) OBLIGATORY, "Ejercicio
@@ -40,13 +42,13 @@ PARAMETERS: p_perf  TYPE n LENGTH 3 DEFAULT '009' OBLIGATORY,   "De período
             p_ktopl TYPE ska1-ktopl  OBLIGATORY.                "Plan de cuentas
 SELECTION-SCREEN END OF BLOCK b1.
 
-SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-002.
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE text-002.
 PARAMETERS: p_pcgrp TYPE c LENGTH 24 DEFAULT 'VAQUERO' OBLIGATORY, "Grupo de CeBe
             p_acgrp TYPE c LENGTH 24 DEFAULT 'EDOPRE'  OBLIGATORY, "Gpo.ctas.resultados
             p_bypc  AS CHECKBOX.                                   "Desglosar por CeBe
 SELECTION-SCREEN END OF BLOCK b2.
 
-SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE TEXT-003.
+SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE text-003.
 PARAMETERS: p_alv  AS CHECKBOX DEFAULT 'X',
             p_file TYPE string LOWER CASE,     "CSV en PC (primer plano)
             p_srv  TYPE string LOWER CASE.     "CSV en servidor (fondo)
@@ -54,9 +56,14 @@ SELECTION-SCREEN END OF BLOCK b3.
 
 AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
   DATA: lv_name TYPE string, lv_path TYPE string, lv_full TYPE string.
-  cl_gui_frontend_services=>file_save_dialog(
-    EXPORTING default_extension = 'csv' default_file_name = 'ke80_edopre.csv'
-    CHANGING  filename = lv_name path = lv_path fullpath = lv_full ).
+  CALL METHOD cl_gui_frontend_services=>file_save_dialog
+    EXPORTING
+      default_extension = 'csv'
+      default_file_name = 'ke80_edopre.csv'
+    CHANGING
+      filename          = lv_name
+      path              = lv_path
+      fullpath          = lv_full.
   IF lv_full IS NOT INITIAL.
     p_file = lv_full.
   ENDIF.
@@ -66,7 +73,7 @@ START-OF-SELECTION.
   PERFORM get_data.
   PERFORM build_output.
   IF gt_out IS INITIAL.
-    MESSAGE 'Sin datos para la selección' TYPE 'S' DISPLAY LIKE 'W'.
+    MESSAGE 'Sin datos para la selección' TYPE 'S'.
     RETURN.
   ENDIF.
   IF p_file IS NOT INITIAL.
@@ -75,9 +82,20 @@ START-OF-SELECTION.
   IF p_srv IS NOT INITIAL.
     PERFORM export_csv_server.
   ENDIF.
-  IF p_alv = abap_true.
+  IF p_alv = 'X'.
     PERFORM show_alv.
   ENDIF.
+
+*&---------------------------------------------------------------------*
+*& Conversión ALPHA (ceros a la izquierda) sobre un campo char
+*&---------------------------------------------------------------------*
+FORM alpha_in CHANGING cv_val TYPE c.
+  CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+    EXPORTING
+      input  = cv_val
+    IMPORTING
+      output = cv_val.
+ENDFORM.
 
 *&---------------------------------------------------------------------*
 *& Expande los grupos (GS03): CeBe clase 0106, cuentas clase 0H.
@@ -100,8 +118,10 @@ FORM get_sets.
     ls_pc-low    = ls_rng-low.
     ls_pc-high   = ls_rng-high.
     IF ls_pc-low CO '0123456789 '.   "CeBe numérico: formato interno
-      ls_pc-low = |{ ls_pc-low ALPHA = IN }|.
-      IF ls_pc-high IS NOT INITIAL. ls_pc-high = |{ ls_pc-high ALPHA = IN }|. ENDIF.
+      PERFORM alpha_in CHANGING ls_pc-low.
+      IF ls_pc-high IS NOT INITIAL.
+        PERFORM alpha_in CHANGING ls_pc-high.
+      ENDIF.
     ENDIF.
     APPEND ls_pc TO gr_pc.
   ENDLOOP.
@@ -113,8 +133,10 @@ FORM get_sets.
     ls_acct-low    = ls_rng-low.
     ls_acct-high   = ls_rng-high.
     IF ls_acct-low CO '0123456789 '.   "cuenta numérica: formato interno
-      ls_acct-low = |{ ls_acct-low ALPHA = IN }|.
-      IF ls_acct-high IS NOT INITIAL. ls_acct-high = |{ ls_acct-high ALPHA = IN }|. ENDIF.
+      PERFORM alpha_in CHANGING ls_acct-low.
+      IF ls_acct-high IS NOT INITIAL.
+        PERFORM alpha_in CHANGING ls_acct-high.
+      ENDIF.
     ENDIF.
     APPEND ls_acct TO gr_acct.
   ENDLOOP.
@@ -133,30 +155,42 @@ FORM set_to_range USING iv_class TYPE c iv_name TYPE c
   FIELD-SYMBOLS: <ls_val> TYPE rgsbv, <lv_f> TYPE any.
 
   CALL FUNCTION 'G_SET_ENCRYPT_SETID'
-    EXPORTING setclass  = iv_class
-              shortname = iv_name
-              kokrs     = iv_kokrs
-              ktopl     = iv_ktopl
-    IMPORTING setid     = lv_setid.
+    EXPORTING
+      setclass  = iv_class
+      shortname = iv_name
+      kokrs     = iv_kokrs
+      ktopl     = iv_ktopl
+    IMPORTING
+      setid     = lv_setid.
 
   CALL FUNCTION 'G_SET_GET_ALL_VALUES'
-    EXPORTING setnr      = lv_setid
-    TABLES    set_values = lt_values
-    EXCEPTIONS OTHERS    = 1.
-  IF sy-subrc <> 0. RETURN. ENDIF.
+    EXPORTING
+      setnr      = lv_setid
+    TABLES
+      set_values = lt_values
+    EXCEPTIONS
+      OTHERS     = 1.
+  IF sy-subrc <> 0.
+    RETURN.
+  ENDIF.
 
   LOOP AT lt_values ASSIGNING <ls_val>.
     CLEAR ls_range.
     ls_range-sign = 'I'.
     " Nombres de campo de RGSBV: ajustar VFROM/VTO ó FROM/TO según SE11
     ASSIGN COMPONENT 'VFROM' OF STRUCTURE <ls_val> TO <lv_f>.
-    IF sy-subrc <> 0. ASSIGN COMPONENT 'FROM' OF STRUCTURE <ls_val> TO <lv_f>. ENDIF.
+    IF sy-subrc <> 0.
+      ASSIGN COMPONENT 'FROM' OF STRUCTURE <ls_val> TO <lv_f>.
+    ENDIF.
     ls_range-low = <lv_f>.
     ASSIGN COMPONENT 'VTO' OF STRUCTURE <ls_val> TO <lv_f>.
-    IF sy-subrc <> 0. ASSIGN COMPONENT 'TO' OF STRUCTURE <ls_val> TO <lv_f>. ENDIF.
+    IF sy-subrc <> 0.
+      ASSIGN COMPONENT 'TO' OF STRUCTURE <ls_val> TO <lv_f>.
+    ENDIF.
     ls_range-high = <lv_f>.
     IF ls_range-high IS INITIAL OR ls_range-high = ls_range-low.
-      ls_range-option = 'EQ'. CLEAR ls_range-high.
+      ls_range-option = 'EQ'.
+      CLEAR ls_range-high.
     ELSE.
       ls_range-option = 'BT'.
     ENDIF.
@@ -169,7 +203,13 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 FORM get_data.
   DATA lv_rvers TYPE glpct-rvers.
-  lv_rvers = |{ p_rvers ALPHA = IN }|.
+  lv_rvers = p_rvers.
+  CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+    EXPORTING
+      input  = lv_rvers
+    IMPORTING
+      output = lv_rvers.
+
   SELECT * FROM glpct INTO TABLE gt_glpct
     WHERE rldnr  = p_rldnr
       AND rrcty IN (0, 1)
@@ -181,8 +221,11 @@ FORM get_data.
 ENDFORM.
 
 FORM build_output.
-  DATA: ls_out TYPE ty_out, lv_idx TYPE n LENGTH 2, lv_fn TYPE string,
-        lv_amt TYPE p LENGTH 15 DECIMALS 2, lv_per TYPE n LENGTH 3.
+  DATA: ls_out TYPE ty_out,
+        lv_idx TYPE n LENGTH 2,
+        lv_fn  TYPE string,
+        lv_amt TYPE p LENGTH 15 DECIMALS 2,
+        lv_per TYPE n LENGTH 3.
   FIELD-SYMBOLS: <ls_g> TYPE glpct, <lv_v> TYPE any.
 
   LOOP AT gt_glpct ASSIGNING <ls_g>.
@@ -190,14 +233,22 @@ FORM build_output.
     lv_per = p_perf.
     WHILE lv_per <= p_pert AND lv_per <= 16.
       lv_idx = lv_per.
-      lv_fn  = |HSL{ lv_idx }|.
+      CONCATENATE 'HSL' lv_idx INTO lv_fn.
       ASSIGN COMPONENT lv_fn OF STRUCTURE <ls_g> TO <lv_v>.
-      IF sy-subrc = 0. lv_amt = lv_amt + <lv_v>. ENDIF.
+      IF sy-subrc = 0.
+        lv_amt = lv_amt + <lv_v>.
+      ENDIF.
       lv_per = lv_per + 1.
     ENDWHILE.
-    IF p_bypc = abap_true. ls_out-rprctr = <ls_g>-rprctr. ENDIF.
+    IF p_bypc = 'X'.
+      ls_out-rprctr = <ls_g>-rprctr.
+    ENDIF.
     ls_out-racct = <ls_g>-racct.
-    IF <ls_g>-rrcty = '1'. ls_out-plan = lv_amt. ELSE. ls_out-real = lv_amt. ENDIF.
+    IF <ls_g>-rrcty = '1'.
+      ls_out-plan = lv_amt.
+    ELSE.
+      ls_out-real = lv_amt.
+    ENDIF.
     COLLECT ls_out INTO gt_out.
   ENDLOOP.
 
@@ -214,39 +265,70 @@ FORM build_output.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
-FORM build_csv CHANGING ct_csv TYPE string_table.
-  DATA: ls_out TYPE ty_out, lv_line TYPE string.
+*& Importe a texto con punto decimal y signo al frente (para CSV)
+*&---------------------------------------------------------------------*
+FORM fmt_amt USING iv_amt TYPE p CHANGING cv_txt TYPE string.
+  DATA lv_c TYPE c LENGTH 30.
+  lv_c = iv_amt.
+  CONDENSE lv_c NO-GAPS.
+  IF lv_c CS '-'.
+    REPLACE '-' WITH '' INTO lv_c.
+    CONCATENATE '-' lv_c INTO lv_c.
+  ENDIF.
+  cv_txt = lv_c.
+ENDFORM.
+
+FORM build_csv CHANGING ct_csv TYPE ty_str_t.
+  DATA: ls_out  TYPE ty_out,
+        lv_line TYPE string,
+        lv_plan TYPE string,
+        lv_real TYPE string,
+        lv_desv TYPE string,
+        lv_pct  TYPE string.
+
   APPEND 'CeBe;Cuenta;Descripcion;Plan;Real;Desviacion;Desv%' TO ct_csv.
   LOOP AT gt_out INTO ls_out.
-    lv_line = |{ ls_out-rprctr };{ ls_out-racct };{ ls_out-txt20 };| &&
-              |{ ls_out-plan NUMBER = RAW DECIMALS = 2 };| &&
-              |{ ls_out-real NUMBER = RAW DECIMALS = 2 };| &&
-              |{ ls_out-desv NUMBER = RAW DECIMALS = 2 };| &&
-              |{ ls_out-desvp NUMBER = RAW DECIMALS = 2 }|.
+    PERFORM fmt_amt USING ls_out-plan  CHANGING lv_plan.
+    PERFORM fmt_amt USING ls_out-real  CHANGING lv_real.
+    PERFORM fmt_amt USING ls_out-desv  CHANGING lv_desv.
+    PERFORM fmt_amt USING ls_out-desvp CHANGING lv_pct.
+    CONCATENATE ls_out-rprctr ls_out-racct ls_out-txt20
+                lv_plan lv_real lv_desv lv_pct
+           INTO lv_line SEPARATED BY ';'.
     APPEND lv_line TO ct_csv.
   ENDLOOP.
 ENDFORM.
 
 FORM export_csv_pc.
-  DATA lt_csv TYPE string_table.
+  DATA: lt_csv TYPE ty_str_t,
+        lv_msg TYPE string.
   PERFORM build_csv CHANGING lt_csv.
-  cl_gui_frontend_services=>gui_download(
-    EXPORTING filename = p_file codepage = '4110' write_bom = abap_true
-    CHANGING  data_tab = lt_csv
-    EXCEPTIONS OTHERS = 1 ).
+  CALL METHOD cl_gui_frontend_services=>gui_download
+    EXPORTING
+      filename = p_file
+      codepage = '4110'
+    CHANGING
+      data_tab = lt_csv
+    EXCEPTIONS
+      OTHERS   = 1.
   IF sy-subrc = 0.
-    MESSAGE |CSV generado: { p_file }| TYPE 'S'.
+    CONCATENATE 'CSV generado:' p_file INTO lv_msg SEPARATED BY space.
+    MESSAGE lv_msg TYPE 'S'.
   ELSE.
-    MESSAGE 'Error al descargar el CSV' TYPE 'W'.
+    MESSAGE 'Error al descargar el CSV' TYPE 'S'.
   ENDIF.
 ENDFORM.
 
 FORM export_csv_server.
-  DATA: lt_csv TYPE string_table, lv_line TYPE string.
+  DATA: lt_csv  TYPE ty_str_t,
+        lv_line TYPE string,
+        lv_msg  TYPE string.
   PERFORM build_csv CHANGING lt_csv.
   OPEN DATASET p_srv FOR OUTPUT IN TEXT MODE ENCODING UTF-8.
   IF sy-subrc <> 0.
-    MESSAGE |No se pudo abrir { p_srv } en el servidor| TYPE 'W'. RETURN.
+    CONCATENATE 'No se pudo abrir' p_srv INTO lv_msg SEPARATED BY space.
+    MESSAGE lv_msg TYPE 'S'.
+    RETURN.
   ENDIF.
   LOOP AT lt_csv INTO lv_line.
     TRANSFER lv_line TO p_srv.
@@ -255,17 +337,28 @@ FORM export_csv_server.
 ENDFORM.
 
 FORM show_alv.
-  DATA lo_alv TYPE REF TO cl_salv_table.
+  DATA: lo_alv  TYPE REF TO cl_salv_table,
+        lo_cols TYPE REF TO cl_salv_columns_table,
+        lo_col  TYPE REF TO cl_salv_column,
+        lo_func TYPE REF TO cl_salv_functions_list.
+
   TRY.
       cl_salv_table=>factory( IMPORTING r_salv_table = lo_alv
                               CHANGING  t_table      = gt_out ).
-      lo_alv->get_functions( )->set_all( abap_true ).
-      lo_alv->get_columns( )->set_optimize( abap_true ).
-      lo_alv->get_columns( )->get_column( 'PLAN'  )->set_short_text( 'Plan' ).
-      lo_alv->get_columns( )->get_column( 'REAL'  )->set_short_text( 'Real' ).
-      lo_alv->get_columns( )->get_column( 'DESV'  )->set_short_text( 'Desv.' ).
-      lo_alv->get_columns( )->get_column( 'DESVP' )->set_short_text( 'Desv.%' ).
+      lo_func = lo_alv->get_functions( ).
+      lo_func->set_all( abap_true ).
+      lo_cols = lo_alv->get_columns( ).
+      lo_cols->set_optimize( abap_true ).
+      lo_col = lo_cols->get_column( 'PLAN' ).
+      lo_col->set_short_text( 'Plan' ).
+      lo_col = lo_cols->get_column( 'REAL' ).
+      lo_col->set_short_text( 'Real' ).
+      lo_col = lo_cols->get_column( 'DESV' ).
+      lo_col->set_short_text( 'Desv.' ).
+      lo_col = lo_cols->get_column( 'DESVP' ).
+      lo_col->set_short_text( 'Desv.%' ).
       lo_alv->display( ).
     CATCH cx_salv_msg cx_salv_not_found.
+      MESSAGE 'No se pudo mostrar el ALV' TYPE 'S'.
   ENDTRY.
 ENDFORM.
