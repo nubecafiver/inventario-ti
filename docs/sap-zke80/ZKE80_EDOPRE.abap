@@ -16,6 +16,14 @@ TYPES: BEGIN OF ty_out,
          desvp  TYPE p LENGTH 9  DECIMALS 2,
        END OF ty_out.
 
+TYPES: BEGIN OF ty_rng,
+         sign   TYPE c LENGTH 1,
+         option TYPE c LENGTH 2,
+         low    TYPE c LENGTH 24,
+         high   TYPE c LENGTH 24,
+       END OF ty_rng,
+       ty_rng_t TYPE STANDARD TABLE OF ty_rng WITH DEFAULT KEY.
+
 DATA: gt_out   TYPE STANDARD TABLE OF ty_out,
       gt_glpct TYPE STANDARD TABLE OF glpct,
       gr_pc    TYPE RANGE OF glpct-rprctr,
@@ -76,8 +84,41 @@ START-OF-SELECTION.
 *& VERIFICAR en GS03 la clase del grupo EDOPRE y el subconjunto.
 *&---------------------------------------------------------------------*
 FORM get_sets.
-  PERFORM set_to_range USING '0106' p_pcgrp p_kokrs ''      CHANGING gr_pc.
-  PERFORM set_to_range USING '0H'   p_acgrp ''      p_ktopl CHANGING gr_acct.
+  DATA: lt_pc   TYPE ty_rng_t,
+        lt_acct TYPE ty_rng_t,
+        ls_rng  TYPE ty_rng,
+        ls_pc   LIKE LINE OF gr_pc,
+        ls_acct LIKE LINE OF gr_acct.
+
+  PERFORM set_to_range USING '0106' p_pcgrp p_kokrs ''      CHANGING lt_pc.
+  PERFORM set_to_range USING '0H'   p_acgrp ''      p_ktopl CHANGING lt_acct.
+
+  LOOP AT lt_pc INTO ls_rng.
+    CLEAR ls_pc.
+    ls_pc-sign   = ls_rng-sign.
+    ls_pc-option = ls_rng-option.
+    ls_pc-low    = ls_rng-low.
+    ls_pc-high   = ls_rng-high.
+    IF ls_pc-low CO '0123456789 '.   "CeBe numérico: formato interno
+      ls_pc-low = |{ ls_pc-low ALPHA = IN }|.
+      IF ls_pc-high IS NOT INITIAL. ls_pc-high = |{ ls_pc-high ALPHA = IN }|. ENDIF.
+    ENDIF.
+    APPEND ls_pc TO gr_pc.
+  ENDLOOP.
+
+  LOOP AT lt_acct INTO ls_rng.
+    CLEAR ls_acct.
+    ls_acct-sign   = ls_rng-sign.
+    ls_acct-option = ls_rng-option.
+    ls_acct-low    = ls_rng-low.
+    ls_acct-high   = ls_rng-high.
+    IF ls_acct-low CO '0123456789 '.   "cuenta numérica: formato interno
+      ls_acct-low = |{ ls_acct-low ALPHA = IN }|.
+      IF ls_acct-high IS NOT INITIAL. ls_acct-high = |{ ls_acct-high ALPHA = IN }|. ENDIF.
+    ENDIF.
+    APPEND ls_acct TO gr_acct.
+  ENDLOOP.
+
   IF gr_pc IS INITIAL OR gr_acct IS INITIAL.
     MESSAGE 'No se pudieron expandir los grupos (revise GS03)' TYPE 'E'.
   ENDIF.
@@ -85,12 +126,11 @@ ENDFORM.
 
 FORM set_to_range USING iv_class TYPE c iv_name TYPE c
                         iv_kokrs TYPE c iv_ktopl TYPE c
-                  CHANGING ct_range TYPE STANDARD TABLE.
+                  CHANGING ct_range TYPE ty_rng_t.
   DATA: lv_setid  TYPE sethier-setid,
         lt_values TYPE STANDARD TABLE OF rgsbv,
-        ls_range  LIKE LINE OF ct_range.
-  FIELD-SYMBOLS: <lv_from> TYPE any, <lv_to> TYPE any,
-                 <ls_val>  TYPE rgsbv, <lv_f> TYPE any.
+        ls_range  TYPE ty_rng.
+  FIELD-SYMBOLS: <ls_val> TYPE rgsbv, <lv_f> TYPE any.
 
   CALL FUNCTION 'G_SET_ENCRYPT_SETID'
     EXPORTING setclass  = iv_class
@@ -107,26 +147,18 @@ FORM set_to_range USING iv_class TYPE c iv_name TYPE c
 
   LOOP AT lt_values ASSIGNING <ls_val>.
     CLEAR ls_range.
-    ASSIGN COMPONENT 'SIGN'   OF STRUCTURE ls_range TO <lv_f>. <lv_f> = 'I'.
-    ASSIGN COMPONENT 'OPTION' OF STRUCTURE ls_range TO <lv_f>.
-    ASSIGN COMPONENT 'LOW'    OF STRUCTURE ls_range TO <lv_from>.
-    ASSIGN COMPONENT 'HIGH'   OF STRUCTURE ls_range TO <lv_to>.
+    ls_range-sign = 'I'.
     " Nombres de campo de RGSBV: ajustar VFROM/VTO ó FROM/TO según SE11
     ASSIGN COMPONENT 'VFROM' OF STRUCTURE <ls_val> TO <lv_f>.
     IF sy-subrc <> 0. ASSIGN COMPONENT 'FROM' OF STRUCTURE <ls_val> TO <lv_f>. ENDIF.
-    <lv_from> = <lv_f>.
+    ls_range-low = <lv_f>.
     ASSIGN COMPONENT 'VTO' OF STRUCTURE <ls_val> TO <lv_f>.
     IF sy-subrc <> 0. ASSIGN COMPONENT 'TO' OF STRUCTURE <ls_val> TO <lv_f>. ENDIF.
-    <lv_to> = <lv_f>.
-    ASSIGN COMPONENT 'OPTION' OF STRUCTURE ls_range TO <lv_f>.
-    IF <lv_to> IS INITIAL OR <lv_to> = <lv_from>.
-      <lv_f> = 'EQ'. CLEAR <lv_to>.
+    ls_range-high = <lv_f>.
+    IF ls_range-high IS INITIAL OR ls_range-high = ls_range-low.
+      ls_range-option = 'EQ'. CLEAR ls_range-high.
     ELSE.
-      <lv_f> = 'BT'.
-    ENDIF.
-    IF <lv_from> CO '0123456789 '.   "CeBe / cuentas numéricas: formato interno
-      <lv_from> = |{ <lv_from> ALPHA = IN }|.
-      IF <lv_to> IS NOT INITIAL. <lv_to> = |{ <lv_to> ALPHA = IN }|. ENDIF.
+      ls_range-option = 'BT'.
     ENDIF.
     APPEND ls_range TO ct_range.
   ENDLOOP.
