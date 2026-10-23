@@ -9,6 +9,7 @@ REPORT zke80_edopre.
 
 TYPES: BEGIN OF ty_out,
          rprctr TYPE glpct-rprctr,
+         ptxt   TYPE cepct-ltext,
          racct  TYPE glpct-racct,
          txt20  TYPE skat-txt20,
          plan   TYPE p LENGTH 15 DECIMALS 2,
@@ -265,11 +266,14 @@ FORM get_data.
 ENDFORM.
 
 FORM build_output.
-  DATA: ls_out TYPE ty_out,
-        lv_idx TYPE n LENGTH 2,
-        lv_fn  TYPE string,
-        lv_amt TYPE p LENGTH 15 DECIMALS 2,
-        lv_per TYPE n LENGTH 3.
+  DATA: ls_out   TYPE ty_out,
+        lv_idx   TYPE n LENGTH 2,
+        lv_fn    TYPE string,
+        lv_amt   TYPE p LENGTH 15 DECIMALS 2,
+        lv_per   TYPE n LENGTH 3,
+        lv_lastc TYPE glpct-rprctr,
+        lv_lastt TYPE cepct-ltext,
+        lv_ktext TYPE cepct-ktext.
   FIELD-SYMBOLS: <ls_g> TYPE glpct, <lv_v> TYPE any.
 
   LOOP AT gt_glpct ASSIGNING <ls_g>.
@@ -296,6 +300,8 @@ FORM build_output.
     COLLECT ls_out INTO gt_out.
   ENDLOOP.
 
+  SORT gt_out BY rprctr racct.
+
   LOOP AT gt_out INTO ls_out.
     ls_out-desv = ls_out-real - ls_out-plan.
     IF ls_out-plan <> 0.
@@ -303,9 +309,27 @@ FORM build_output.
     ENDIF.
     SELECT SINGLE txt20 FROM skat INTO ls_out-txt20
       WHERE spras = sy-langu AND ktopl = p_ktopl AND saknr = ls_out-racct.
+
+    " Descripción del CeBe (CEPCT): última vigencia; se reutiliza por CeBe
+    IF ls_out-rprctr IS NOT INITIAL.
+      IF ls_out-rprctr <> lv_lastc.
+        lv_lastc = ls_out-rprctr.
+        CLEAR: lv_lastt, lv_ktext.
+        SELECT ltext ktext FROM cepct INTO (lv_lastt, lv_ktext)
+          UP TO 1 ROWS
+          WHERE spras = sy-langu
+            AND prctr = ls_out-rprctr
+            AND kokrs = p_kokrs
+          ORDER BY datbi DESCENDING.
+        ENDSELECT.
+        IF lv_lastt IS INITIAL.
+          lv_lastt = lv_ktext.
+        ENDIF.
+      ENDIF.
+      ls_out-ptxt = lv_lastt.
+    ENDIF.
     MODIFY gt_out FROM ls_out.
   ENDLOOP.
-  SORT gt_out BY rprctr racct.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
@@ -325,18 +349,24 @@ ENDFORM.
 FORM build_csv CHANGING ct_csv TYPE ty_str_t.
   DATA: ls_out  TYPE ty_out,
         lv_line TYPE string,
+        lv_ptxt TYPE string,
+        lv_ctxt TYPE string,
         lv_plan TYPE string,
         lv_real TYPE string,
         lv_desv TYPE string,
         lv_pct  TYPE string.
 
-  APPEND 'CeBe;Cuenta;Descripcion;Plan;Real;Desviacion;Desv%' TO ct_csv.
+  APPEND 'CeBe;Descripcion CeBe;Cuenta;Descripcion;Plan;Real;Desviacion;Desv%' TO ct_csv.
   LOOP AT gt_out INTO ls_out.
     PERFORM fmt_amt USING ls_out-plan  CHANGING lv_plan.
     PERFORM fmt_amt USING ls_out-real  CHANGING lv_real.
     PERFORM fmt_amt USING ls_out-desv  CHANGING lv_desv.
     PERFORM fmt_amt USING ls_out-desvp CHANGING lv_pct.
-    CONCATENATE ls_out-rprctr ls_out-racct ls_out-txt20
+    lv_ptxt = ls_out-ptxt.
+    lv_ctxt = ls_out-txt20.
+    REPLACE ALL OCCURRENCES OF ';' IN lv_ptxt WITH ','.
+    REPLACE ALL OCCURRENCES OF ';' IN lv_ctxt WITH ','.
+    CONCATENATE ls_out-rprctr lv_ptxt ls_out-racct lv_ctxt
                 lv_plan lv_real lv_desv lv_pct
            INTO lv_line SEPARATED BY ';'.
     APPEND lv_line TO ct_csv.
@@ -393,6 +423,10 @@ FORM show_alv.
       lo_func->set_all( abap_true ).
       lo_cols = lo_alv->get_columns( ).
       lo_cols->set_optimize( abap_true ).
+      lo_col = lo_cols->get_column( 'PTXT' ).
+      lo_col->set_short_text( 'Desc.CeBe' ).
+      lo_col->set_medium_text( 'Descripción CeBe' ).
+      lo_col->set_long_text( 'Descripción CeBe' ).
       lo_col = lo_cols->get_column( 'PLAN' ).
       lo_col->set_short_text( 'Plan' ).
       lo_col = lo_cols->get_column( 'REAL' ).
