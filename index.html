@@ -4979,7 +4979,7 @@ function repResumen(){
     var col=tipoColors[i%tipoColors.length];
     return '<div style="margin-bottom:9px;">'
       +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">'
-      +'<span style="cursor:pointer;color:#374151;" onclick="repActivo=\'inventario_gen\';repFiltros={estado:\'\',tipo:\''+t+'\',plaza:\'\',area:\'\',asignacion:\'\'};renderReportes();">'+t+'</span>'
+      +'<span style="cursor:pointer;color:#374151;" onclick="repActivo=\'inventario_gen\';repFiltros.estado=\'\';repFiltros.tipo=\''+t+'\';repFiltros.plaza=\'\';repFiltros.area=\'\';repFiltros.asignacion=\'\';repFiltros.q=\'\';renderReportes();">'+t+'</span>'
       +'<span style="color:#6b7280;">'+byTipo[t]+'</span></div>'
       +repBarH(byTipo[t],total,col)+'</div>';
   }).join('');
@@ -4988,7 +4988,7 @@ function repResumen(){
   var plazaChart=plazaKeys.map(function(p){
     return '<div style="margin-bottom:9px;">'
       +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">'
-      +'<span style="cursor:pointer;color:#374151;" onclick="repActivo=\'inventario_gen\';repFiltros={estado:\'\',tipo:\'\',plaza:\''+p+'\',area:\'\',asignacion:\'\'};renderReportes();">'+p+'</span>'
+      +'<span style="cursor:pointer;color:#374151;" onclick="repActivo=\'inventario_gen\';repFiltros.estado=\'\';repFiltros.tipo=\'\';repFiltros.plaza=\''+p+'\';repFiltros.area=\'\';repFiltros.asignacion=\'\';repFiltros.q=\'\';renderReportes();">'+p+'</span>'
       +'<span style="color:#6b7280;">'+byPlaza[p]+'</span></div>'
       +repBarH(byPlaza[p],total,'#0891b2')+'</div>';
   }).join('');
@@ -5003,7 +5003,7 @@ function repResumen(){
   var estChart=estRows.map(function(r){
     return '<div style="margin-bottom:9px;">'
       +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">'
-      +'<span style="cursor:pointer;color:'+r.c+';" onclick="repActivo=\'inventario_gen\';repFiltros={estado:\''+r.l+'\',tipo:\'\',plaza:\'\',area:\'\',asignacion:\'\'};renderReportes();">'+r.l+'</span>'
+      +'<span style="cursor:pointer;color:'+r.c+';" onclick="repActivo=\'inventario_gen\';repFiltros.estado=\''+r.l+'\';repFiltros.tipo=\'\';repFiltros.plaza=\'\';repFiltros.area=\'\';repFiltros.asignacion=\'\';repFiltros.q=\'\';renderReportes();">'+r.l+'</span>'
       +'<span style="color:#6b7280;">'+r.v+'</span></div>'
       +repBarH(r.v,total,r.c)+'</div>';
   }).join('');
