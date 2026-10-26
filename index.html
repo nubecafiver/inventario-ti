@@ -697,6 +697,10 @@ table.mts tr:hover td{background:#f9fafb;}
         <i class="ti ti-tag tnav-icon" aria-hidden="true"></i>
         <span class="tnav-txt">Etiquetas</span>
       </button>
+      <button class="tnav" id="tnav-reportes" onclick="switchView('reportes')">
+        <i class="ti ti-chart-bar tnav-icon" aria-hidden="true"></i>
+        <span class="tnav-txt">Reportes</span>
+      </button>
     </div>
     <div class="sb-footer">
       <div class="sb-user-row">
@@ -733,6 +737,7 @@ table.mts tr:hover td{background:#f9fafb;}
   <div id="view-qr"           class="hidden" style="flex:1;overflow:auto;background:#eef2f7;"></div>
   <div id="view-reparaciones" class="view-wrap hidden"></div>
   <div id="view-etiquetas" class="hidden" style="flex:1;overflow:auto;background:#e8eaed;"></div>
+  <div id="view-reportes" class="hidden" style="flex:1;overflow:auto;background:#f8f9fa;"></div>
   <div id="view-celulares" class="view-wrap hidden" style="padding:0;"></div>
   <div id="view-simulador" class="view-wrap hidden"></div>
   <div id="view-obsoletos" class="view-wrap hidden" style="padding:0;"></div>
@@ -1561,7 +1566,7 @@ function switchView(v){
   var db=document.getElementById('view-dashboard');
   if(db) db.style.display=(v==='dashboard')?'block':'none';
   // El resto usa clase hidden
-  ['inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos'].forEach(function(x){
+  ['inventario','qr','reparaciones','etiquetas','celulares','simulador','personal','licencias','obsoletos','reportes'].forEach(function(x){
     var el=document.getElementById('view-'+x);
     if(el) el.classList.toggle('hidden',x!==v);
     var b=document.getElementById('tnav-'+x);if(b)b.classList.toggle('on',x===v);
@@ -1577,7 +1582,7 @@ function switchView(v){
   if(v==='personal')renderPersonal();
   if(v==='licencias')renderLicencias();
   if(v==='obsoletos')renderObsoletos();
-  if(v==='obsoletos')renderObsoletos();
+  if(v==='reportes')renderReportes();
 }
 
 // DASHBOARD
@@ -4833,6 +4838,464 @@ function limpiarBusquedaInv(){
   var elc=document.getElementById('inv-search-cards');
   if(elc) elc.value='';
   renderInventario();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  REPORTES
+// ═══════════════════════════════════════════════════════════════
+var repActivo = 'resumen';
+var repFiltros = {estado:'', tipo:'', plaza:'', area:'', asignacion:'', q:''};
+
+function renderReportes(){
+  var w=document.getElementById('view-reportes'); if(!w) return;
+  var reportes=[
+    {id:'resumen',         icon:'📊', label:'Resumen Ejecutivo'},
+    {id:'inventario_gen',  icon:'🗂️',  label:'Inventario General'},
+    {id:'por_area',        icon:'🏢', label:'Por Área / Plaza'},
+    {id:'vida',            icon:'⏳', label:'Vida Útil'},
+    {id:'reparaciones_rep',icon:'🔧', label:'Reparaciones'},
+    {id:'licencias_rep',   icon:'🔑', label:'Licencias'},
+    {id:'sin_equipo',      icon:'👤', label:'Personal'}
+  ];
+  var tabs=reportes.map(function(r){
+    var act=repActivo===r.id;
+    return '<button onclick="repActivo=\''+r.id+'\';renderReportes();" style="display:flex;align-items:center;gap:6px;padding:9px 16px;border:none;border-bottom:'+(act?'2px solid #1d4ed8':'2px solid transparent')+';background:transparent;cursor:pointer;font-size:12px;font-weight:'+(act?'600':'400')+';color:'+(act?'#1d4ed8':'#6b7280')+';white-space:nowrap;">'
+      +r.icon+' '+r.label+'</button>';
+  }).join('');
+
+  var body='';
+  if(repActivo==='resumen')              body=repResumen();
+  else if(repActivo==='inventario_gen')  body=repInventarioGen();
+  else if(repActivo==='por_area')        body=repPorArea();
+  else if(repActivo==='vida')            body=repVidaUtil();
+  else if(repActivo==='reparaciones_rep')body=repReparaciones();
+  else if(repActivo==='licencias_rep')   body=repLicencias();
+  else if(repActivo==='sin_equipo')      body=repSinEquipo();
+
+  w.innerHTML=
+    '<div style="padding:20px 24px 0;">'
+    +'<h2 style="margin:0 0 4px;font-size:18px;font-weight:700;color:#111827;">📋 Reportes</h2>'
+    +'<p style="margin:0 0 16px;font-size:12px;color:#9ca3af;">Generados en tiempo real con los datos actuales del sistema</p>'
+    +'<div style="display:flex;border-bottom:1px solid #e5e7eb;overflow-x:auto;scrollbar-width:none;gap:2px;">'+tabs+'</div>'
+    +'</div>'
+    +'<div style="padding:20px 24px;">'+body+'</div>';
+}
+
+/* ── helpers ── */
+function repCard(title, value, sub, color){
+  return '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;min-width:140px;flex:1;">'
+    +'<div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;">'+title+'</div>'
+    +'<div style="font-size:28px;font-weight:700;color:'+(color||'#111827')+';margin:6px 0 2px;">'+value+'</div>'
+    +'<div style="font-size:11px;color:#9ca3af;">'+sub+'</div>'
+    +'</div>';
+}
+function repTable(cols, rows, csvName){
+  var thead=cols.map(function(c){return '<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap;">'+c+'</th>';}).join('');
+  var tbody=rows.map(function(row,i){
+    var bg=i%2===0?'#fff':'#f9fafb';
+    return '<tr style="background:'+bg+';">'+row.map(function(cell){return '<td style="padding:8px 12px;font-size:12px;color:#374151;border-bottom:1px solid #f3f4f6;">'+cell+'</td>';}).join('')+'</tr>';
+  }).join('');
+  var csv='<button onclick="('+repExportCSV.toString()+')(\''+csvName+'\','+JSON.stringify(cols)+','+JSON.stringify(rows)+')" style="float:right;padding:5px 12px;border-radius:6px;border:1px solid #d1d5db;background:#fff;font-size:11px;cursor:pointer;color:#374151;">⬇ Exportar CSV</button>';
+  return '<div style="margin-bottom:6px;">'+csv+'<div style="clear:both;"></div></div>'
+    +'<div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px;">'
+    +'<table style="width:100%;border-collapse:collapse;">'
+    +'<thead style="background:#f9fafb;"><tr>'+thead+'</tr></thead>'
+    +'<tbody>'+tbody+'</tbody>'
+    +'</table></div>';
+}
+function repExportCSV(name, cols, rows){
+  var lines=[cols.join(',')].concat(rows.map(function(r){return r.map(function(c){return '"'+(String(c).replace(/"/g,'""'))+'";'}).join(',');}));
+  var blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name+'.csv';a.click();
+}
+function repBarH(val, max, color){
+  var pct=max>0?Math.round(val/max*100):0;
+  return '<div style="display:flex;align-items:center;gap:6px;">'
+    +'<div style="flex:1;height:8px;background:#f3f4f6;border-radius:4px;overflow:hidden;">'
+    +'<div style="width:'+pct+'%;height:100%;background:'+(color||'#1d4ed8')+';border-radius:4px;"></div>'
+    +'</div><span style="font-size:11px;color:#6b7280;min-width:24px;text-align:right;">'+val+'</span></div>';
+}
+
+/* ── 1. RESUMEN EJECUTIVO ── */
+function repResumen(){
+  var total=equipos.length;
+  // — por estado exacto
+  var cBueno    = equipos.filter(function(e){return e.estado==='Bueno';}).length;
+  var cRegular  = equipos.filter(function(e){return e.estado==='Regular';}).length;
+  var cMalo     = equipos.filter(function(e){return e.estado==='Malo';}).length;
+  var cBaja     = equipos.filter(function(e){return e.estado==='Baja';}).length;
+  var cObsoleto = equipos.filter(function(e){return e.estado==='Obsoleto';}).length;
+  // — asignación
+  var cConResp  = equipos.filter(function(e){return e.responsable&&e.responsable.trim();}).length;
+  var cSinResp  = total - cConResp;
+  // — vida útil
+  var cPorVencer= equipos.filter(function(e){return vidaClass(calcAnios(e.fecha))==='rojo';}).length;
+  // — costos
+  var totalRepCosto=reparaciones.reduce(function(a,r){return a+(parseFloat(r.costo)||0);},0);
+  var totalLicCosto=licencias.reduce(function(a,l){return a+(parseFloat(l.costo_anual)||0);},0);
+  var licVencer=licencias.filter(function(l){
+    if(!l.vencimiento)return false;
+    var d=Math.round((new Date(l.vencimiento)-new Date())/(1000*60*60*24));
+    return d>=0&&d<=90;
+  }).length;
+
+  // — por tipo
+  var byTipo={};
+  equipos.forEach(function(e){ var t=e.tipo||'Sin tipo'; byTipo[t]=(byTipo[t]||0)+1; });
+  // — por plaza
+  var byPlaza={};
+  equipos.forEach(function(e){ var p=e.plaza||'Sin plaza'; byPlaza[p]=(byPlaza[p]||0)+1; });
+
+  function cardClickable(title, value, sub, color, filtKey, filtVal){
+    var onclick='repActivo=\'inventario_gen\';repFiltros.estado=\'\';repFiltros.tipo=\'\';repFiltros.plaza=\'\';repFiltros.area=\'\';repFiltros.asignacion=\'\';repFiltros.'+filtKey+'=\''+filtVal+'\';renderReportes();';
+    return '<div onclick="'+onclick+'" style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;min-width:130px;flex:1;cursor:pointer;transition:box-shadow .15s;" onmouseover="this.style.boxShadow=\'0 4px 14px rgba(0,0,0,.08)\'" onmouseout="this.style.boxShadow=\'none\'">'
+      +'<div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;">'+title+'</div>'
+      +'<div style="font-size:26px;font-weight:700;color:'+(color||'#111827')+';margin:5px 0 2px;">'+value+'</div>'
+      +'<div style="font-size:10px;color:#9ca3af;">'+sub+'</div>'
+      +'<div style="font-size:9px;color:#1d4ed8;margin-top:4px;">Ver listado →</div>'
+      +'</div>';
+  }
+
+  var tipoColors=['#1d4ed8','#7c3aed','#0891b2','#059669','#d97706','#dc2626'];
+  var tipoKeys=Object.keys(byTipo).sort(function(a,b){return byTipo[b]-byTipo[a];});
+  var tipoChart=tipoKeys.map(function(t,i){
+    var col=tipoColors[i%tipoColors.length];
+    return '<div style="margin-bottom:9px;">'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">'
+      +'<span style="cursor:pointer;color:#374151;" onclick="repActivo=\'inventario_gen\';repFiltros={estado:\'\',tipo:\''+t+'\',plaza:\'\',area:\'\',asignacion:\'\'};renderReportes();">'+t+'</span>'
+      +'<span style="color:#6b7280;">'+byTipo[t]+'</span></div>'
+      +repBarH(byTipo[t],total,col)+'</div>';
+  }).join('');
+
+  var plazaKeys=Object.keys(byPlaza).sort(function(a,b){return byPlaza[b]-byPlaza[a];});
+  var plazaChart=plazaKeys.map(function(p){
+    return '<div style="margin-bottom:9px;">'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">'
+      +'<span style="cursor:pointer;color:#374151;" onclick="repActivo=\'inventario_gen\';repFiltros={estado:\'\',tipo:\'\',plaza:\''+p+'\',area:\'\',asignacion:\'\'};renderReportes();">'+p+'</span>'
+      +'<span style="color:#6b7280;">'+byPlaza[p]+'</span></div>'
+      +repBarH(byPlaza[p],total,'#0891b2')+'</div>';
+  }).join('');
+
+  var estRows=[
+    {l:'Bueno',    v:cBueno,    c:'#16a34a'},
+    {l:'Regular',  v:cRegular,  c:'#d97706'},
+    {l:'Malo',     v:cMalo,     c:'#dc2626'},
+    {l:'Baja',     v:cBaja,     c:'#6b7280'},
+    {l:'Obsoleto', v:cObsoleto, c:'#9ca3af'}
+  ];
+  var estChart=estRows.map(function(r){
+    return '<div style="margin-bottom:9px;">'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">'
+      +'<span style="cursor:pointer;color:'+r.c+';" onclick="repActivo=\'inventario_gen\';repFiltros={estado:\''+r.l+'\',tipo:\'\',plaza:\'\',area:\'\',asignacion:\'\'};renderReportes();">'+r.l+'</span>'
+      +'<span style="color:#6b7280;">'+r.v+'</span></div>'
+      +repBarH(r.v,total,r.c)+'</div>';
+  }).join('');
+
+  return ''
+    // ── fila 1: estado
+    +'<div style="margin-bottom:6px;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.5px;">Estado de equipos — clic para ver listado</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;">'
+    +repCard('Total',total,'equipos','#111827')
+    +cardClickable('Bueno',    cBueno,    cBueno+'  equipos en buen estado',    '#16a34a','estado','Bueno')
+    +cardClickable('Regular',  cRegular,  cRegular+' equipos en estado regular','#d97706','estado','Regular')
+    +cardClickable('Malo',     cMalo,     cMalo+'   equipos en mal estado',     '#dc2626','estado','Malo')
+    +cardClickable('Baja',     cBaja,     cBaja+'   equipos dados de baja',     '#6b7280','estado','Baja')
+    +cardClickable('Obsoleto', cObsoleto, cObsoleto+' equipos obsoletos',       '#9ca3af','estado','Obsoleto')
+    +'</div>'
+    // ── fila 2: asignación
+    +'<div style="margin-bottom:6px;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.5px;">Asignación</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;">'
+    +cardClickable('Con asignación', cConResp, Math.round(cConResp/total*100||0)+'% del inventario', '#1d4ed8','asignacion','con')
+    +cardClickable('Sin asignación', cSinResp, 'pendientes por asignar', '#ea580c','asignacion','sin')
+    +cardClickable('Por reemplazar', cPorVencer, 'vida útil > 4 años', '#dc2626','estado','Baja')
+    +repCard('Lic. por vencer', licVencer, 'en próximos 90 días', '#d97706')
+    +'</div>'
+    // ── fila 3: gráficas
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">'
+    +'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;">'
+    +'<h3 style="margin:0 0 12px;font-size:12px;font-weight:600;color:#111827;">Por Tipo <span style="font-size:10px;font-weight:400;color:#9ca3af;">(clic = filtrar)</span></h3>'
+    +tipoChart+'</div>'
+    +'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;">'
+    +'<h3 style="margin:0 0 12px;font-size:12px;font-weight:600;color:#111827;">Por Estado <span style="font-size:10px;font-weight:400;color:#9ca3af;">(clic = filtrar)</span></h3>'
+    +estChart+'</div>'
+    +'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;">'
+    +'<h3 style="margin:0 0 12px;font-size:12px;font-weight:600;color:#111827;">Por Plaza <span style="font-size:10px;font-weight:400;color:#9ca3af;">(clic = filtrar)</span></h3>'
+    +plazaChart
+    +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid #f3f4f6;font-size:11px;color:#6b7280;">Gasto licencias/año<br><b style="font-size:16px;color:#1d4ed8;">'+fmt$(totalLicCosto)+'</b></div>'
+    +'</div></div>';
+}
+
+/* ── INVENTARIO GENERAL (tabla filtrable) ── */
+function repInventarioGen(){
+  var estados=['Bueno','Regular','Malo','Baja','Obsoleto'];
+  var tipos=[...new Set(equipos.map(function(e){return e.tipo;}).filter(Boolean))].sort();
+  var plazas=[...new Set(equipos.map(function(e){return e.plaza;}).filter(Boolean))].sort();
+  var areas=[...new Set(equipos.map(function(e){return e.area;}).filter(Boolean))].sort();
+
+  var data=equipos.filter(function(e){
+    if(repFiltros.estado && e.estado!==repFiltros.estado) return false;
+    if(repFiltros.tipo   && e.tipo!==repFiltros.tipo)     return false;
+    if(repFiltros.plaza  && e.plaza!==repFiltros.plaza)   return false;
+    if(repFiltros.area   && e.area!==repFiltros.area)     return false;
+    if(repFiltros.asignacion==='con' && (!e.responsable||!e.responsable.trim())) return false;
+    if(repFiltros.asignacion==='sin' && e.responsable&&e.responsable.trim())     return false;
+    if(repFiltros.q){
+      var q=repFiltros.q.toLowerCase();
+      if(!((e.nombre||'')+(e.marca||'')+(e.modelo||'')+(e.af||'')+(e.serie||'')+(e.area||'')+(e.responsable||'')).toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+  data.sort(function(a,b){return (a.area||'').localeCompare(b.area||'');});
+
+  var hayFiltro=repFiltros.estado||repFiltros.tipo||repFiltros.plaza||repFiltros.area||repFiltros.asignacion||repFiltros.q;
+  var limpiaBtn=hayFiltro?'<button onclick="repFiltros={estado:\'\',tipo:\'\',plaza:\'\',area:\'\',asignacion:\'\',q:\'\'};renderReportes();" style="padding:5px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;font-size:11px;cursor:pointer;">✕ Limpiar filtros</button>':'';
+
+  function selFil(key,opts,label){
+    var cur=repFiltros[key]||'';
+    return '<select onchange="repFiltros.'+key+'=this.value;renderReportes();" style="padding:5px 8px;border-radius:6px;border:1px solid #e5e7eb;font-size:11px;background:#fff;color:#374151;">'
+      +'<option value="">'+label+'</option>'
+      +opts.map(function(o){return '<option value="'+o+'"'+(cur===o?' selected':'')+'>'+o+'</option>';}).join('')
+      +'</select>';
+  }
+
+  var estColMap={Bueno:'#16a34a',Regular:'#d97706',Malo:'#dc2626',Baja:'#6b7280',Obsoleto:'#9ca3af'};
+  var rows=data.map(function(e){
+    var ec=estColMap[e.estado]||'#6b7280';
+    var estadoPillH='<span style="background:'+ec+'22;color:'+ec+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;">'+e.estado+'</span>';
+    var asig=e.responsable&&e.responsable.trim()
+      ?'<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;">Asignado</span>'
+      :'<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;">Sin asignar</span>';
+    var vc=vidaClass(calcAnios(e.fecha));
+    var vidaH=vc==='rojo'?'<span style="color:#dc2626;font-size:10px;">🔴 '+calcAnios(e.fecha).toFixed(1)+'a</span>'
+      :vc==='amarillo'?'<span style="color:#d97706;font-size:10px;">🟡 '+calcAnios(e.fecha).toFixed(1)+'a</span>'
+      :'<span style="color:#16a34a;font-size:10px;">🟢 '+calcAnios(e.fecha).toFixed(1)+'a</span>';
+    return [
+      e.af||'—',
+      e.tipo||'—',
+      '<b>'+e.marca+'</b> <span style="color:#9ca3af;font-size:10px;">'+e.modelo+'</span>',
+      e.nombre||'—',
+      e.area||'—',
+      e.plaza||'—',
+      e.responsable||'<span style="color:#9ca3af;">—</span>',
+      estadoPillH,
+      asig,
+      e.fecha?vidaH:'—',
+      e.serie||'—'
+    ];
+  });
+  // CSV plano (sin HTML)
+  var csvRows=data.map(function(e){
+    return [e.af||'',e.tipo||'',e.marca+' '+e.modelo,e.nombre||'',e.area||'',e.plaza||'',e.responsable||'',e.estado||'',e.responsable?'Asignado':'Sin asignar',e.fecha||'',e.serie||''];
+  });
+
+  return '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;">'
+    +selFil('estado',estados,'Todos los estados')
+    +selFil('tipo',tipos,'Todos los tipos')
+    +selFil('plaza',plazas,'Todas las plazas')
+    +selFil('area',areas,'Todas las áreas')
+    +'<select onchange="repFiltros.asignacion=this.value;renderReportes();" style="padding:5px 8px;border-radius:6px;border:1px solid #e5e7eb;font-size:11px;background:#fff;color:#374151;">'
+    +'<option value="">Asignación (todos)</option>'
+    +'<option value="con"'+(repFiltros.asignacion==='con'?' selected':'')+'>Con asignación</option>'
+    +'<option value="sin"'+(repFiltros.asignacion==='sin'?' selected':'')+'>Sin asignación</option>'
+    +'</select>'
+    +'<input type="text" placeholder="🔍 Buscar..." value="'+(repFiltros.q||'')+'" oninput="repFiltros.q=this.value;renderReportes();" style="padding:5px 8px;border-radius:6px;border:1px solid #e5e7eb;font-size:11px;width:160px;">'
+    +limpiaBtn
+    +'<span style="margin-left:auto;font-size:12px;font-weight:600;color:#374151;">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
+    +'</div>'
+    +(function(){var csv='<button onclick="('+repExportCSV.toString()+')(\'inventario_'+Date.now()+'\','+JSON.stringify(['N°AF','Tipo','Marca Modelo','Nombre','Área','Plaza','Responsable','Estado','Asignación','F.Alta','Serie'])+','+JSON.stringify(csvRows)+')" style="float:right;padding:5px 12px;border-radius:6px;border:1px solid #d1d5db;background:#fff;font-size:11px;cursor:pointer;color:#374151;margin-bottom:6px;">⬇ Exportar CSV</button>';return csv;})()
+    +'<div style="clear:both;"></div>'
+    +'<div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px;">'
+    +'<table style="width:100%;border-collapse:collapse;">'
+    +'<thead style="background:#f9fafb;position:sticky;top:0;"><tr>'
+    +['N° AF','Tipo','Marca / Modelo','Nombre equipo','Área','Plaza','Responsable','Estado','Asignación','Vida útil','Serie'].map(function(c){
+      return '<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap;">'+c+'</th>';
+    }).join('')
+    +'</tr></thead><tbody>'
+    +(rows.length?rows.map(function(row,i){
+      return '<tr style="background:'+(i%2===0?'#fff':'#f9fafb')+';">'+row.map(function(cell){
+        return '<td style="padding:7px 10px;font-size:11px;color:#374151;border-bottom:1px solid #f3f4f6;white-space:nowrap;">'+cell+'</td>';
+      }).join('')+'</tr>';
+    }).join('')
+    :'<tr><td colspan="11" style="text-align:center;padding:40px;color:#9ca3af;">Sin resultados con los filtros actuales</td></tr>')
+    +'</tbody></table></div>';
+}
+
+/* ── 2. INVENTARIO POR ÁREA ── */
+function repPorArea(){
+  var areas={};
+  equipos.forEach(function(e){
+    var a=e.area||'Sin área';
+    if(!areas[a]) areas[a]={total:0,bueno:0,malo:0,rojo:0,reps:0,costoRep:0};
+    areas[a].total++;
+    if(e.estado==='Bueno') areas[a].bueno++;
+    if(e.estado==='Malo'||e.estado==='Regular') areas[a].malo++;
+    if(vidaClass(calcAnios(e.fecha))==='rojo') areas[a].rojo++;
+  });
+  reparaciones.forEach(function(r){
+    var eq=equipos.find(function(e){return e.id===r.equipo_id;});
+    if(!eq) return;
+    var a=eq.area||'Sin área';
+    if(areas[a]){areas[a].reps++;areas[a].costoRep+=(parseFloat(r.costo)||0);}
+  });
+  var rows=Object.keys(areas).sort(function(a,b){return areas[b].total-areas[a].total;}).map(function(a){
+    var d=areas[a];
+    var pct=Math.round(d.bueno/d.total*100||0);
+    var bar='<div style="display:flex;align-items:center;gap:4px;">'
+      +'<div style="width:60px;height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden;">'
+      +'<div style="width:'+pct+'%;height:100%;background:#16a34a;border-radius:3px;"></div></div>'
+      +'<span style="font-size:10px;color:#6b7280;">'+pct+'%</span></div>';
+    return [a, d.total, bar, d.malo, d.rojo, d.reps, fmt$(d.costoRep)];
+  });
+  return '<h3 style="margin:0 0 12px;font-size:14px;font-weight:600;color:#111827;">Distribución de equipos por área</h3>'
+    +repTable(['Área','Total','Estado OK','En mal estado','Por reemplazar','Reparaciones','Costo reparaciones'],rows,'inventario_por_area');
+}
+
+/* ── 3. VIDA ÚTIL ── */
+function repVidaUtil(){
+  var hoy=new Date();
+  var rows=equipos.filter(function(e){return e.fecha;}).map(function(e){
+    var anios=calcAnios(e.fecha)||0;
+    var vc=vidaClass(anios);
+    var estado=vc==='rojo'?'🔴 Para reemplazar':vc==='amarillo'?'🟡 Por vencer':'🟢 En tiempo';
+    var color=vc==='rojo'?'#fef2f2':vc==='amarillo'?'#fffbeb':'#f0fdf4';
+    return {e:e,anios:anios,estado:estado,vc:vc,color:color};
+  }).sort(function(a,b){return b.anios-a.anios;});
+  var rojos=rows.filter(function(r){return r.vc==='rojo';}).length;
+  var amarillos=rows.filter(function(r){return r.vc==='amarillo';}).length;
+  var tableRows=rows.map(function(r){
+    return [
+      r.e.af||'—',
+      r.e.tipo||'—',
+      '<b>'+r.e.marca+'</b> '+r.e.modelo,
+      r.e.area||'—',
+      r.e.plaza||'—',
+      r.e.responsable||'—',
+      r.e.fecha||'—',
+      r.anios.toFixed(1)+' años',
+      r.estado
+    ];
+  });
+  return '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">'
+    +repCard('Para Reemplazar',rojos,'>4 años de uso','#dc2626')
+    +repCard('Por Vencer',amarillos,'3-4 años de uso','#d97706')
+    +repCard('En Tiempo',rows.length-rojos-amarillos,'<3 años de uso','#16a34a')
+    +'</div>'
+    +'<h3 style="margin:0 0 12px;font-size:14px;font-weight:600;color:#111827;">Equipos por antigüedad (más viejos primero)</h3>'
+    +repTable(['N° Activo','Tipo','Equipo','Área','Plaza','Responsable','F. Alta','Antigüedad','Estado'],tableRows,'vida_util');
+}
+
+/* ── 4. REPARACIONES ── */
+function repReparaciones(){
+  if(!reparaciones.length) return '<div style="text-align:center;padding:60px;color:#9ca3af;">No hay registros de reparaciones</div>';
+  var totalCosto=reparaciones.reduce(function(a,r){return a+(parseFloat(r.costo)||0);},0);
+  var porArea={};
+  reparaciones.forEach(function(r){
+    var eq=equipos.find(function(e){return e.id===r.equipo_id;});
+    var a=eq?(eq.area||'Sin área'):'Sin área';
+    if(!porArea[a]){porArea[a]={count:0,costo:0};}
+    porArea[a].count++;porArea[a].costo+=(parseFloat(r.costo)||0);
+  });
+  var topArea=Object.keys(porArea).sort(function(a,b){return porArea[b].costo-porArea[a].costo;});
+  var maxCosto=topArea.length?porArea[topArea[0]].costo:1;
+  var areaChart=topArea.map(function(a){
+    var d=porArea[a];
+    return '<div style="margin-bottom:10px;">'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">'
+      +'<span>'+a+'</span><span style="color:#6b7280;">'+d.count+' rep. · '+fmt$(d.costo)+'</span></div>'
+      +repBarH(Math.round(d.costo),Math.round(maxCosto),'#7c3aed')
+      +'</div>';
+  }).join('');
+  var rows=reparaciones.slice().sort(function(a,b){return (parseFloat(b.costo)||0)-(parseFloat(a.costo)||0);}).map(function(r){
+    var eq=equipos.find(function(e){return e.id===r.equipo_id;});
+    return [
+      r.fecha||'—',
+      eq?(eq.af||eq.id):'—',
+      eq?(eq.marca+' '+eq.modelo):'—',
+      eq?(eq.area||'—'):'—',
+      r.falla||'—',
+      r.tecnico||'—',
+      fmt$(r.costo||0)
+    ];
+  });
+  return '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">'
+    +repCard('Total Reparaciones',reparaciones.length,'registros','#7c3aed')
+    +repCard('Costo Total',fmt$(totalCosto),'acumulado','#dc2626')
+    +repCard('Costo Promedio',fmt$(totalCosto/reparaciones.length||0),'por reparación','#d97706')
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">'
+    +'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;">'
+    +'<h3 style="margin:0 0 12px;font-size:13px;font-weight:600;">Costo por Área</h3>'+areaChart+'</div>'
+    +'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;">'
+    +'<h3 style="margin:0 0 12px;font-size:13px;font-weight:600;">Top Fallas</h3>'
+    +(function(){
+      var ff={};reparaciones.forEach(function(r){var k=(r.falla||'Sin descripción').slice(0,30);ff[k]=(ff[k]||0)+1;});
+      return Object.keys(ff).sort(function(a,b){return ff[b]-ff[a];}).slice(0,8).map(function(k){
+        return '<div style="margin-bottom:8px;">'+repBarH(ff[k],reparaciones.length,'#f59e0b')+'<div style="font-size:10px;color:#6b7280;margin-top:2px;">'+k+'</div></div>';
+      }).join('');
+    })()
+    +'</div></div>'
+    +'<h3 style="margin:0 0 12px;font-size:14px;font-weight:600;">Detalle de reparaciones (mayor costo primero)</h3>'
+    +repTable(['Fecha','N° Activo','Equipo','Área','Falla','Técnico','Costo'],rows,'reparaciones');
+}
+
+/* ── 5. LICENCIAS ── */
+function repLicencias(){
+  if(!licencias.length) return '<div style="text-align:center;padding:60px;color:#9ca3af;">No hay licencias registradas</div>';
+  var hoy=new Date();
+  var totalCosto=licencias.reduce(function(a,l){return a+(parseFloat(l.costo_anual)||0);},0);
+  var vencidas=licencias.filter(function(l){return l.vencimiento&&new Date(l.vencimiento)<hoy;}).length;
+  var por90=licencias.filter(function(l){
+    if(!l.vencimiento)return false;
+    var d=Math.round((new Date(l.vencimiento)-hoy)/(1000*60*60*24));
+    return d>=0&&d<=90;
+  }).length;
+  var rows=licencias.slice().sort(function(a,b){
+    var da=a.vencimiento?new Date(a.vencimiento):new Date('2099-01-01');
+    var db=b.vencimiento?new Date(b.vencimiento):new Date('2099-01-01');
+    return da-db;
+  }).map(function(l){
+    var dias=l.vencimiento?Math.round((new Date(l.vencimiento)-hoy)/(1000*60*60*24)):null;
+    var alerta=dias===null?'—':dias<0?'🔴 Vencida':dias<=30?'🔴 '+dias+'d':dias<=90?'🟡 '+dias+'d':'🟢 '+dias+'d';
+    return [l.nombre||'—',l.categoria||'—',l.proveedor||'—',l.cantidad||1,l.vencimiento||'Sin fecha',alerta,fmt$(l.costo_anual||0)];
+  });
+  return '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">'
+    +repCard('Total Licencias',licencias.length,'registradas','#111827')
+    +repCard('Vencidas',vencidas,'requieren renovación','#dc2626')
+    +repCard('Por Vencer',por90,'en próximos 90 días','#d97706')
+    +repCard('Gasto Anual',fmt$(totalCosto),'costo total/año','#1d4ed8')
+    +'</div>'
+    +'<h3 style="margin:0 0 12px;font-size:14px;font-weight:600;">Licencias por fecha de vencimiento</h3>'
+    +repTable(['Nombre','Categoría','Proveedor','Cantidad','Vencimiento','Estado','Costo/año'],rows,'licencias');
+}
+
+/* ── 6. PERSONAL SIN EQUIPO ── */
+function repSinEquipo(){
+  var asignados={};
+  equipos.forEach(function(e){
+    if(!e.responsable)return;
+    var m=findPersonal(e.responsable);
+    if(m) asignados[m.id]=(asignados[m.id]||0)+1;
+  });
+  var sinEq=personal.filter(function(p){return !asignados[p.id];});
+  var conEq=personal.filter(function(p){return !!asignados[p.id];});
+  var rows=sinEq.map(function(p){
+    return [
+      p.numero||'—',
+      p.nombre_completo||p.nombre||'—',
+      p.puesto||'—',
+      p.departamento||'—',
+      p.direccion||'—',
+      p.estado||'Activo'
+    ];
+  }).sort(function(a,b){return a[3]<b[3]?-1:1;});
+  return '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">'
+    +repCard('Total Personal',personal.length,'empleados','#111827')
+    +repCard('Con Equipo',conEq.length,Math.round(conEq.length/personal.length*100||0)+'% del total','#16a34a')
+    +repCard('Sin Equipo',sinEq.length,'pendientes por asignar','#dc2626')
+    +'</div>'
+    +'<h3 style="margin:0 0 12px;font-size:14px;font-weight:600;">Empleados sin equipo asignado ('+sinEq.length+')</h3>'
+    +(rows.length?repTable(['N° Empleado','Nombre','Puesto','Departamento','Dirección','Estado'],rows,'personal_sin_equipo')
+      :'<div style="text-align:center;padding:40px;color:#16a34a;font-size:14px;">✅ Todo el personal tiene equipo asignado</div>');
 }
 </script>
 
