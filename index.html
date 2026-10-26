@@ -5119,7 +5119,11 @@ function repInventarioGen(){
     +limpiaBtn
     +'<span style="margin-left:auto;font-size:12px;font-weight:600;color:#374151;">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
     +'</div>'
-    +(function(){var csv='<button onclick="('+repExportCSV.toString()+')(\'inventario_'+Date.now()+'\','+JSON.stringify(['N°AF','Tipo','Marca Modelo','Nombre','Área','Plaza','Responsable','Estado','Asignación','F.Alta','Serie'])+','+JSON.stringify(csvRows)+')" style="float:right;padding:5px 12px;border-radius:6px;border:1px solid #d1d5db;background:#fff;font-size:11px;cursor:pointer;color:#374151;margin-bottom:6px;">⬇ Exportar CSV</button>';return csv;})()
+    +(function(){
+      var invKey='inventario_gen_'+Date.now();
+      window._repCSVStore[invKey]={name:'inventario_general',cols:['N°AF','Tipo','Marca Modelo','Nombre','Área','Plaza','Responsable','Estado','Asignación','F.Alta','Serie'],rows:csvRows};
+      return '<button onclick="repExportCSV(\''+invKey+'\')" style="float:right;padding:5px 12px;border-radius:6px;border:1px solid #d1d5db;background:#fff;font-size:11px;cursor:pointer;color:#374151;margin-bottom:6px;">⬇ Exportar CSV</button>';
+    })()
     +'<div style="clear:both;"></div>'
     +'<div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px;">'
     +'<table style="width:100%;border-collapse:collapse;">'
