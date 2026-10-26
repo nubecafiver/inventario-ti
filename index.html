@@ -4889,13 +4889,31 @@ function repCard(title, value, sub, color){
     +'<div style="font-size:11px;color:#9ca3af;">'+sub+'</div>'
     +'</div>';
 }
-function repTable(cols, rows, csvName){
+// Almacén temporal para datos CSV (evita serializar HTML en onclick)
+window._repCSVStore = {};
+function repExportCSV(key){
+  var d=window._repCSVStore[key]; if(!d) return;
+  var lines=[d.cols.join(',')].concat(d.rows.map(function(r){
+    return r.map(function(c){
+      // Quitar etiquetas HTML si quedaron
+      var txt=String(c).replace(/<[^>]*>/g,'').replace(/"/g,'""');
+      return '"'+txt+'"';
+    }).join(',');
+  }));
+  var blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=d.name+'.csv';a.click();
+}
+// rows = filas para mostrar (puede tener HTML); csvRows = filas limpias para CSV (texto plano)
+function repTable(cols, htmlRows, csvName, csvRows){
+  var plain = csvRows || htmlRows; // si no se pasan csvRows, usa htmlRows (las limpias de HTML las hace repExportCSV)
+  var key = csvName+'_'+Date.now();
+  window._repCSVStore[key] = {name: csvName, cols: cols, rows: plain};
   var thead=cols.map(function(c){return '<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;white-space:nowrap;">'+c+'</th>';}).join('');
-  var tbody=rows.map(function(row,i){
+  var tbody=htmlRows.map(function(row,i){
     var bg=i%2===0?'#fff':'#f9fafb';
     return '<tr style="background:'+bg+';">'+row.map(function(cell){return '<td style="padding:8px 12px;font-size:12px;color:#374151;border-bottom:1px solid #f3f4f6;">'+cell+'</td>';}).join('')+'</tr>';
   }).join('');
-  var csv='<button onclick="('+repExportCSV.toString()+')(\''+csvName+'\','+JSON.stringify(cols)+','+JSON.stringify(rows)+')" style="float:right;padding:5px 12px;border-radius:6px;border:1px solid #d1d5db;background:#fff;font-size:11px;cursor:pointer;color:#374151;">⬇ Exportar CSV</button>';
+  var csv='<button onclick="repExportCSV(\''+key+'\')" style="float:right;padding:5px 12px;border-radius:6px;border:1px solid #d1d5db;background:#fff;font-size:11px;cursor:pointer;color:#374151;">⬇ Exportar CSV</button>';
   return '<div style="margin-bottom:6px;">'+csv+'<div style="clear:both;"></div></div>'
     +'<div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px;">'
     +'<table style="width:100%;border-collapse:collapse;">'
@@ -4903,10 +4921,9 @@ function repTable(cols, rows, csvName){
     +'<tbody>'+tbody+'</tbody>'
     +'</table></div>';
 }
-function repExportCSV(name, cols, rows){
-  var lines=[cols.join(',')].concat(rows.map(function(r){return r.map(function(c){return '"'+(String(c).replace(/"/g,'""'))+'";'}).join(',');}));
-  var blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name+'.csv';a.click();
+function repLimpiarFiltros(){
+  repFiltros={estado:'',tipo:'',plaza:'',area:'',asignacion:'',q:''};
+  renderReportes();
 }
 function repBarH(val, max, color){
   var pct=max>0?Math.round(val/max*100):0;
@@ -5048,7 +5065,7 @@ function repInventarioGen(){
   data.sort(function(a,b){return (a.area||'').localeCompare(b.area||'');});
 
   var hayFiltro=repFiltros.estado||repFiltros.tipo||repFiltros.plaza||repFiltros.area||repFiltros.asignacion||repFiltros.q;
-  var limpiaBtn=hayFiltro?'<button onclick="repFiltros={estado:\'\',tipo:\'\',plaza:\'\',area:\'\',asignacion:\'\',q:\'\'};renderReportes();" style="padding:5px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;font-size:11px;cursor:pointer;">✕ Limpiar filtros</button>':'';
+  var limpiaBtn=hayFiltro?'<button onclick="repLimpiarFiltros();" style="padding:5px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fef2f2;color:#dc2626;font-size:11px;cursor:pointer;">✕ Limpiar filtros</button>':'';
 
   function selFil(key,opts,label){
     var cur=repFiltros[key]||'';
@@ -5137,7 +5154,9 @@ function repPorArea(){
     var a=eq.area||'Sin área';
     if(areas[a]){areas[a].reps++;areas[a].costoRep+=(parseFloat(r.costo)||0);}
   });
-  var rows=Object.keys(areas).sort(function(a,b){return areas[b].total-areas[a].total;}).map(function(a){
+  var cols=['Área','Total','Estado OK (%)','En mal estado','Por reemplazar','Reparaciones','Costo reparaciones'];
+  var claves=Object.keys(areas).sort(function(a,b){return areas[b].total-areas[a].total;});
+  var htmlRows=claves.map(function(a){
     var d=areas[a];
     var pct=Math.round(d.bueno/d.total*100||0);
     var bar='<div style="display:flex;align-items:center;gap:4px;">'
@@ -5146,8 +5165,13 @@ function repPorArea(){
       +'<span style="font-size:10px;color:#6b7280;">'+pct+'%</span></div>';
     return [a, d.total, bar, d.malo, d.rojo, d.reps, fmt$(d.costoRep)];
   });
+  var csvRows=claves.map(function(a){
+    var d=areas[a];
+    var pct=Math.round(d.bueno/d.total*100||0);
+    return [a, d.total, pct+'%', d.malo, d.rojo, d.reps, fmt$(d.costoRep)];
+  });
   return '<h3 style="margin:0 0 12px;font-size:14px;font-weight:600;color:#111827;">Distribución de equipos por área</h3>'
-    +repTable(['Área','Total','Estado OK','En mal estado','Por reemplazar','Reparaciones','Costo reparaciones'],rows,'inventario_por_area');
+    +repTable(cols,htmlRows,'inventario_por_area',csvRows);
 }
 
 /* ── 3. VIDA ÚTIL ── */
@@ -5162,11 +5186,12 @@ function repVidaUtil(){
   }).sort(function(a,b){return b.anios-a.anios;});
   var rojos=rows.filter(function(r){return r.vc==='rojo';}).length;
   var amarillos=rows.filter(function(r){return r.vc==='amarillo';}).length;
-  var tableRows=rows.map(function(r){
+  var cols=['N° Activo','Tipo','Equipo','Área','Plaza','Responsable','F. Alta','Antigüedad','Estado'];
+  var htmlRows=rows.map(function(r){
     return [
       r.e.af||'—',
       r.e.tipo||'—',
-      '<b>'+r.e.marca+'</b> '+r.e.modelo,
+      '<b>'+(r.e.marca||'')+'</b> '+(r.e.modelo||''),
       r.e.area||'—',
       r.e.plaza||'—',
       r.e.responsable||'—',
@@ -5175,13 +5200,26 @@ function repVidaUtil(){
       r.estado
     ];
   });
+  var csvRows=rows.map(function(r){
+    return [
+      r.e.af||'',
+      r.e.tipo||'',
+      (r.e.marca||'')+' '+(r.e.modelo||''),
+      r.e.area||'',
+      r.e.plaza||'',
+      r.e.responsable||'',
+      r.e.fecha||'',
+      r.anios.toFixed(1)+' años',
+      r.estado.replace(/🔴|🟡|🟢/g,'').trim()
+    ];
+  });
   return '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">'
     +repCard('Para Reemplazar',rojos,'>4 años de uso','#dc2626')
     +repCard('Por Vencer',amarillos,'3-4 años de uso','#d97706')
     +repCard('En Tiempo',rows.length-rojos-amarillos,'<3 años de uso','#16a34a')
     +'</div>'
     +'<h3 style="margin:0 0 12px;font-size:14px;font-weight:600;color:#111827;">Equipos por antigüedad (más viejos primero)</h3>'
-    +repTable(['N° Activo','Tipo','Equipo','Área','Plaza','Responsable','F. Alta','Antigüedad','Estado'],tableRows,'vida_util');
+    +repTable(cols,htmlRows,'vida_util',csvRows);
 }
 
 /* ── 4. REPARACIONES ── */
