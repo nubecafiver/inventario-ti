@@ -1480,6 +1480,15 @@ function enterApp(){
   document.getElementById('login-btn').style.opacity='1';
   loadAppData();
 }
+// Persistencia de sesión: si Firebase ya tiene sesión guardada, entra directo
+auth.onAuthStateChanged(function(user){
+  if(user && !curUser){
+    var email=(user.email||'').toLowerCase();
+    var p=USER_DIR[email]||{name:email.split('@')[0],color:'#1a73e8'};
+    curUser={uid:user.uid,email:email,name:p.name,color:p.color};
+    enterApp();
+  }
+});
 function doLogout(){
   auth.signOut().then(function(){
     curUser=null;equipos=[];reparaciones=[];closePanel();
