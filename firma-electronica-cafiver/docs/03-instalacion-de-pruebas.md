@@ -8,7 +8,9 @@ Solo pruebas: sin producción, sin correos reales, sin datos reales. Versión 2.
   (ver [capturas-documenso/](../capturas-documenso/)).
 - PostgreSQL 16 local (`127.0.0.1:54320`), 166 migraciones aplicadas. Correos capturados por un SMTP local (`127.0.0.1:2500`) que no reenvía nada.
 - Sellado con un certificado `.p12` **autofirmado de pruebas**: las firmas no tienen valor legal.
-- No se instaló/validó: sello RFC 3161, correo real, NOM-151, PSC.
+- **Flujo completo probado**: carga de PDF → firmante ficticio → campo de firma → envío (correo al buzón local) → firma con el enlace → documento `COMPLETED` → PDF sellado con firma CAdES válida (`pdfsig`).
+- **Webhooks** hacia un receptor local (`SENT, OPENED, SIGNED, COMPLETED`): ejemplos redactados en [evidencias-pruebas/](../evidencias-pruebas/). Capturas del flujo en [capturas-documenso/flujo/](../capturas-documenso/flujo/).
+- No se instaló/validó: sello RFC 3161, correo real, NOM-151, PSC. El webhook se registró insertando la fila en la base de pruebas (el formulario de la interfaz no se automatizó).
 
 ## Pasos que hubo que adaptar (útiles para repetir)
 1. Node ≥ 24 y npm ≥ 11.17 (el contenedor traía 22 / 10): instalados vía npm en una carpeta aparte.

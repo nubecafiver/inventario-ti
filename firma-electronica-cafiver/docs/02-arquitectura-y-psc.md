@@ -46,8 +46,8 @@ programa separado que habla por HTTP; (3) ningún secreto en el repositorio ni e
 1. Solicitante carga PDF y define firmantes/campos → estado `PENDING`.
 2. Firmantes reciben enlace (+ verificación de identidad definida por política) y firman.
 3. Documenso sella el PDF y emite `DOCUMENT_COMPLETED`.
-4. Gateway recibe el webhook (verificando su firma/secreto), crea una **operación** con identificador interno idempotente.
-5. Gateway obtiene el PDF final, calcula **SHA-256** y lo envía al PSC **conforme a su documentación oficial**.
+4. Gateway recibe el webhook (verificando el secreto compartido), crea una **operación** con identificador interno idempotente.
+5. Gateway obtiene el PDF final **mediante la API de Documenso con un token** (el webhook no lo trae), calcula **SHA-256** y lo envía al PSC **conforme a su documentación oficial**.
 6. Gateway guarda la constancia, fecha, resultado e identificador del PSC; relaciona los tres artefactos.
 7. Auditor consulta y descarga evidencias; la UI muestra el estado de la constancia.
 
@@ -114,3 +114,11 @@ ante la Secretaría de Economía · soporte para CSC (si se desea firma avanzada
 - Responsables de plataforma, seguridad y soporte; matriz de roles (administrador, solicitante, firmante, auditor).
 - Presupuesto: infraestructura, tarifa por constancia del PSC, EE si se requiere 2FA/SSO nativos.
 - Piloto con un tipo de documento antes de ampliar.
+
+## 6. Hallazgos de la prueba real con Documenso 2.21.1
+(ver `03-instalacion-de-pruebas.md` y `evidencias-pruebas/`)
+- El webhook `DOCUMENT_COMPLETED` **no incluye el PDF ni su hash**: trae `id`, `envelopeId`, `status`, `completedAt`, destinatarios y metadatos. El gateway debe **descargar el PDF por API** (token de API de Documenso) y calcular el hash por su cuenta.
+- La autenticación del webhook es un **secreto compartido en el encabezado `X-Documenso-Secret`**, no una firma HMAC: usar TLS, comparación en tiempo constante, rotación y allow-list de red. No hay protección contra reproducción incluida; el gateway debe deduplicar por `envelopeId` + evento.
+- Por defecto Documenso bloquea webhooks hacia direcciones privadas/loopback (SSRF); el receptor interno requiere `NEXT_PRIVATE_WEBHOOK_SSRF_BYPASS_HOSTS` o un host público.
+- Eventos observados en orden: `SENT → OPENED → SIGNED → COMPLETED`.
+- El PDF sellado lleva firma **CAdES detached SHA-256** válida; con certificado autofirmado el validador reporta "emisor no confiable" (esperado). Para producción se requiere certificado/llave de una CA confiable.

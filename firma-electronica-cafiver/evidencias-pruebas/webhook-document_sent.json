@@ -1,0 +1,116 @@
+{
+ "headers": {
+  "host": "127.0.0.1:9999",
+  "connection": "keep-alive",
+  "content-type": "application/json",
+  "x-documenso-secret": "<redactado>",
+  "accept": "*/*",
+  "accept-language": "*",
+  "sec-fetch-mode": "cors",
+  "user-agent": "node",
+  "accept-encoding": "gzip, deflate",
+  "content-length": "2111"
+ },
+ "body": {
+  "event": "DOCUMENT_SENT",
+  "payload": {
+   "id": 1,
+   "envelopeId": "envelope_cfxcociarkowinsh",
+   "externalId": null,
+   "userId": 3,
+   "authOptions": {
+    "globalAccessAuth": [],
+    "globalActionAuth": []
+   },
+   "formValues": null,
+   "visibility": "EVERYONE",
+   "title": "contrato-prueba.pdf",
+   "status": "PENDING",
+   "createdAt": "2026-10-27T03:50:52.497Z",
+   "updatedAt": "2026-10-27T03:55:30.976Z",
+   "completedAt": null,
+   "deletedAt": null,
+   "teamId": 3,
+   "templateId": null,
+   "source": "DOCUMENT",
+   "documentMeta": {
+    "id": "cmvq5edzf00017djypsvkv3up",
+    "subject": "Solicitud de firma (PRUEBAS)",
+    "message": "",
+    "timezone": "Etc/UTC",
+    "dateFormat": "yyyy-MM-dd hh:mm a",
+    "redirectUrl": null,
+    "signingOrder": "PARALLEL",
+    "allowDictateNextSigner": false,
+    "typedSignatureEnabled": true,
+    "uploadSignatureEnabled": true,
+    "drawSignatureEnabled": true,
+    "language": "en",
+    "distributionMethod": "EMAIL",
+    "emailSettings": {
+     "documentDeleted": true,
+     "documentPending": true,
+     "recipientSigned": true,
+     "recipientRemoved": true,
+     "documentCompleted": true,
+     "ownerDocumentCreated": true,
+     "ownerRecipientExpired": true,
+     "ownerDocumentCompleted": true,
+     "recipientSigningRequest": true
+    }
+   },
+   "recipients": [
+    {
+     "id": 1,
+     "envelopeId": "envelope_cfxcociarkowinsh",
+     "documentId": 1,
+     "templateId": null,
+     "email": "firmante@pruebas.invalid",
+     "name": "Carlos Ruiz (prueba)",
+     "token": "<redactado>",
+     "documentDeletedAt": null,
+     "expiresAt": "2027-01-25T03:55:30.973Z",
+     "expirationNotifiedAt": null,
+     "signedAt": null,
+     "authOptions": {
+      "accessAuth": [],
+      "actionAuth": []
+     },
+     "signingOrder": 1,
+     "rejectionReason": null,
+     "role": "SIGNER",
+     "readStatus": "NOT_OPENED",
+     "signingStatus": "NOT_SIGNED",
+     "sendStatus": "NOT_SENT"
+    }
+   ],
+   "Recipient": [
+    {
+     "id": 1,
+     "envelopeId": "envelope_cfxcociarkowinsh",
+     "documentId": 1,
+     "templateId": null,
+     "email": "firmante@pruebas.invalid",
+     "name": "Carlos Ruiz (prueba)",
+     "token": "<redactado>",
+     "documentDeletedAt": null,
+     "expiresAt": "2027-01-25T03:55:30.973Z",
+     "expirationNotifiedAt": null,
+     "signedAt": null,
+     "authOptions": {
+      "accessAuth": [],
+      "actionAuth": []
+     },
+     "signingOrder": 1,
+     "rejectionReason": null,
+     "role": "SIGNER",
+     "readStatus": "NOT_OPENED",
+     "signingStatus": "NOT_SIGNED",
+     "sendStatus": "NOT_SENT"
+    }
+   ]
+  },
+  "createdAt": "2026-10-27T03:55:31.303Z",
+  "webhookEndpoint": "http://127.0.0.1:9999/documenso"
+ }
+}
