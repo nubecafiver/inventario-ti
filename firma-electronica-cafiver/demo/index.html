@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAFIVER Firma — Demostración</title>
+<style>
+/* Tokens derivados del tema de Documenso (packages/ui/styles/theme.css: primary 95 71% 67%, radius .5rem) */
+:root{
+  --bg:#f6f7f5; --panel:#fff; --ink:#14201a; --muted:#5f6b64; --line:#e3e7e2;
+  --brand:#2f5d3a; --brand-ink:#fff; --accent:#a2e771; --accent-d:#5fb21f; --accent-soft:#eefbe3;
+  --warn:#b45309; --warn-bg:#fff4e0; --bad:#b42318; --bad-bg:#fdecea; --ok:#2f7a2f; --ok-bg:#e8f6e4; --info:#1d4f91; --info-bg:#e8f0fb;
+  --radius:8px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f1511;--panel:#171f19;--ink:#e8efe9;--muted:#9aa89f;--line:#26322a;--brand:#a2e771;--brand-ink:#0f1511;--accent-soft:#1c2a1d;--warn-bg:#3a2a10;--bad-bg:#3a1713;--ok-bg:#16301a;--info-bg:#132640;--warn:#f0b35a;--bad:#ff8a7e;--ok:#8fd68a;--info:#8db8f2}
+}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+.demo-bar{background:#7a1f12;color:#fff;text-align:center;font-weight:600;font-size:13px;padding:6px 12px;letter-spacing:.03em;position:sticky;top:0;z-index:50}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 30px)}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:30px;height:calc(100vh - 30px);overflow:auto}
+.logo{display:flex;align-items:center;gap:10px;padding:4px 8px 16px}
+.logo .mark{width:34px;height:34px;border-radius:8px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:800}
+.logo b{display:block;letter-spacing:.08em}.logo small{color:var(--muted);font-size:11px}
+nav a{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:var(--radius);color:var(--ink);text-decoration:none;cursor:pointer}
+nav a:hover{background:var(--accent-soft)} nav a.on{background:var(--brand);color:var(--brand-ink)}
+nav .sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:14px 10px 4px}
+.role{margin-top:auto;padding:10px;border-top:1px solid var(--line);font-size:13px}
+.role select{width:100%;margin-top:6px;padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg)}
+main{padding:24px 28px;max-width:1200px;width:100%}
+h1{font-size:22px;margin:0 0 4px} .sub{color:var(--muted);margin:0 0 20px}
+.grid{display:grid;gap:14px}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.kpi b{font-size:28px;display:block}.kpi span{color:var(--muted);font-size:13px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+tr.click{cursor:pointer}tr.click:hover{background:var(--accent-soft)}
+.tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+.t-pend{background:var(--warn-bg);color:var(--warn)}.t-env{background:var(--info-bg);color:var(--info)}.t-firm{background:var(--ok-bg);color:var(--ok)}.t-fin{background:var(--accent-soft);color:var(--brand)}.t-warn{background:var(--warn-bg);color:var(--warn)}.t-bad{background:var(--bad-bg);color:var(--bad)}.t-gray{background:var(--line);color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:var(--radius);cursor:pointer}
+.btn.p{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.sp{flex:1}
+.notice{border-radius:var(--radius);padding:10px 12px;font-size:13px;margin:12px 0}
+.n-demo{background:var(--bad-bg);color:var(--bad);border:1px dashed var(--bad)}.n-info{background:var(--info-bg);color:var(--info)}.n-warn{background:var(--warn-bg);color:var(--warn)}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:40px;text-align:center;background:var(--panel)}
+.drop.hot{border-color:var(--accent-d);background:var(--accent-soft)}
+input[type=text],input[type=email],input[type=number],select.f{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg)}
+label{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
+.steps{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}.steps span{padding:4px 12px;border-radius:99px;background:var(--line);font-size:13px;color:var(--muted)}.steps .on{background:var(--brand);color:var(--brand-ink)}
+.doc{background:#fff;color:#222;width:100%;max-width:560px;aspect-ratio:8.5/11;margin:auto;position:relative;box-shadow:0 2px 14px rgba(0,0,0,.18);padding:36px 40px;font-family:Georgia,serif;font-size:12.5px;line-height:1.5;overflow:hidden;user-select:none}
+.doc h3{text-align:center;margin:0 0 14px;font-size:15px}.doc p{margin:0 0 9px;text-align:justify}
+.doc .wm{position:absolute;inset:0;display:grid;place-items:center;font:700 54px system-ui;color:rgba(180,35,24,.09);transform:rotate(-28deg);pointer-events:none;text-align:center}
+.field{position:absolute;border:2px dashed var(--accent-d);background:rgba(162,231,113,.25);color:#2a5a0c;font:600 11px system-ui;display:grid;place-items:center;width:150px;height:46px;cursor:move;border-radius:4px}
+.field.signed{border:2px solid #2f7a2f;background:#fff;font:italic 22px "Brush Script MT","Segoe Script",cursive;color:#1d3f8f;cursor:default}
+.field small{position:absolute;bottom:-14px;left:0;font:9px system-ui;color:#b42318;font-style:normal;white-space:nowrap}
+.tl{list-style:none;margin:0;padding:0}.tl li{padding:10px 0 10px 22px;border-left:2px solid var(--line);position:relative;margin-left:6px}
+.tl li::before{content:"";position:absolute;left:-7px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--line)}
+.tl li.done::before{background:var(--accent-d)}.tl li.cur::before{background:var(--warn);box-shadow:0 0 0 4px var(--warn-bg)}
+.tl small{color:var(--muted);display:block}
+.bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;background:var(--accent-d)}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all}
+.chart{display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:10px}.chart div{flex:1;text-align:center;font-size:12px;color:var(--muted)}.chart i{display:block;background:var(--accent-d);border-radius:4px 4px 0 0;margin-bottom:4px}
+.login{max-width:400px;margin:8vh auto}
+.hide{display:none!important}
+@media (max-width:980px){.g4{grid-template-columns:1fr 1fr}.g3,.g2{grid-template-columns:1fr}.app{grid-template-columns:76px 1fr}.logo div,nav a span,nav .sec,.role small,.role label{display:none}nav a{justify-content:center}.role select{font-size:11px}main{padding:16px}}
+@media (max-width:600px){.g4{grid-template-columns:1fr}.app{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;overflow:auto}.role{display:none}}
+</style>
+</head>
+<body>
+<div class="demo-bar">DEMOSTRACIÓN — datos ficticios · sin validez legal · no se emiten firmas ni constancias oficiales · nada sale de este navegador</div>
+<div id="root"></div>
+<script>
+/* ===== Datos ficticios ===== */
+const DOCS=[
+ {id:'D-1041',n:'Contrato de servicios — Proveedor Ejemplo SA de CV',st:'pend',req:'Ana López',fecha:'2026-10-20',firmantes:[['Ana López','Solicitante','firmado','20/10 09:12'],['Carlos Ruiz','Firmante','pendiente','—'],['Marta Vega','Firmante','pendiente','—']]},
+ {id:'D-1040',n:'Acuerdo de confidencialidad — Visitante Demo',st:'env',req:'Luis Prado',fecha:'2026-10-22',firmantes:[['Luis Prado','Solicitante','firmado','22/10 16:40'],['Visitante Demo','Firmante','visto','23/10 08:05']]},
+ {id:'D-1039',n:'Orden de compra 4500012345 (ficticia)',st:'firm',req:'Ana López',fecha:'2026-10-18',firmantes:[['Ana López','Solicitante','firmado','18/10 10:01'],['Carlos Ruiz','Firmante','firmado','18/10 11:30']]},
+ {id:'D-1038',n:'Carta de entrega-recepción de equipo',st:'fin',req:'Luis Prado',fecha:'2026-10-12',firmantes:[['Luis Prado','Solicitante','firmado','12/10 08:55'],['Marta Vega','Firmante','firmado','12/10 12:20']]},
+ {id:'D-1037',n:'Política de uso de equipo de cómputo',st:'fin',req:'Ana López',fecha:'2026-10-05',firmantes:[['Ana López','Solicitante','firmado','05/10 09:00'],['Carlos Ruiz','Firmante','firmado','05/10 09:45']]},
+ {id:'D-1036',n:'Adenda contrato de arrendamiento',st:'bad',req:'Luis Prado',fecha:'2026-10-02',firmantes:[['Luis Prado','Solicitante','firmado','02/10 10:00'],['Marta Vega','Firmante','rechazado','03/10 17:10']]}
+];
+const ST={pend:['Pendiente de mi firma','t-pend'],env:['Enviado','t-env'],firm:['Firmado — en constancia','t-firm'],fin:['Finalizado','t-fin'],bad:['Rechazado','t-bad']};
+const HASH='9f2c1a7e04b6d83f5a10c2e7b9d4468a1f03c5e8d27b64a9e0f1357c8d2b4a60';
+const ROLES={admin:'Administrador',sol:'Solicitante',fir:'Firmante',aud:'Auditor'};
+const NAV=[ // [ruta, icono, etiqueta, roles permitidos]
+ ['panel','▦','Panel','admin sol fir aud'],['nuevo','⬆','Cargar documento','admin sol'],['preparar','✎','Preparar solicitud','admin sol'],
+ ['firmar','✍','Firmar documento','admin sol fir'],['seguimiento','⏱','Seguimiento','admin sol aud'],['firmado','✔','Documento firmado','admin sol fir aud'],
+ ['nom151','🛡','Constancias NOM-151','admin aud'],['historial','☰','Historial y evidencias','admin aud'],['reporte','📊','Reporte y costos','admin aud']];
+const S={rol:'admin',user:null,doc:DOCS[0],file:null,firmantes:[{n:'Carlos Ruiz',e:'cruiz@ejemplo.invalid',r:'Firmante'},{n:'Marta Vega',e:'mvega@ejemplo.invalid',r:'Firmante'}],orden:true,pos:{x:300,y:560},signed:false,nom:'sin',costo:{nom:12,doc:3}};
+const $=(s,r=document)=>r.querySelector(s);
+const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tag=k=>`<span class="tag ${ST[k][1]}">${ST[k][0]}</span>`;
+const DEMO_NOTE='<div class="notice n-demo"><b>DEMOSTRACIÓN.</b> Esta pantalla es una simulación con datos ficticios. No tiene validez legal ni sustituye una firma o constancia oficial.</div>';
+const route=()=>(location.hash.slice(1)||'panel');
+
+/* ===== Vistas ===== */
+const V={};
+V.login=()=>`<div class="login card"><div class="logo"><div class="mark">C</div><div><b>CAFIVER</b><small>Firma electrónica · DEMO</small></div></div>
+<h1>Iniciar sesión</h1><p class="sub">Acceso de demostración — sin contraseñas reales.</p>
+<label>Usuario de demostración</label><select class="f" id="lu"><option value="admin">Administrador demo</option><option value="sol">Solicitante demo</option><option value="fir">Firmante demo</option><option value="aud">Auditor demo</option></select>
+<p></p><button class="btn p" style="width:100%" id="go">Entrar a la demostración</button>
+<div class="notice n-info">No se solicitan ni almacenan credenciales. En producción: SSO corporativo + MFA.</div></div>`;
+
+V.panel=()=>{const c=k=>DOCS.filter(d=>d.st===k).length;
+return `<h1>Panel principal</h1><p class="sub">Resumen de documentos (datos ficticios)</p>
+<div class="grid g4"><div class="card kpi"><b>${c('pend')}</b><span>Pendientes de firma</span></div><div class="card kpi"><b>${c('env')}</b><span>Enviados</span></div><div class="card kpi"><b>${c('firm')}</b><span>Firmados</span></div><div class="card kpi"><b>${c('fin')}</b><span>Finalizados</span></div></div>
+<div class="card" style="margin-top:14px"><div class="row"><b>Documentos recientes</b><span class="sp"></span><input type="text" id="q" placeholder="Buscar…" style="max-width:220px"></div>
+<table><thead><tr><th>Documento</th><th>Estado</th><th>Solicitante</th><th>Fecha</th></tr></thead><tbody id="tb">${rows(DOCS)}</tbody></table></div>`};
+const rows=l=>l.map(d=>`<tr class="click" data-id="${d.id}"><td><b>${esc(d.n)}</b><br><small class="mono">${d.id}</small></td><td>${tag(d.st)}</td><td>${esc(d.req)}</td><td>${d.fecha}</td></tr>`).join('');
+
+V.nuevo=()=>`<h1>Cargar documento</h1><p class="sub">Paso 1 de 4</p>${DEMO_NOTE}
+<div class="drop" id="drop"><p style="font-size:34px;margin:0">📄</p><p><b>Arrastre un PDF aquí</b> o</p><button class="btn" id="pick">Seleccionar archivo</button><input type="file" id="file" accept="application/pdf" class="hide">
+<p class="sub" style="margin:10px 0 0">El archivo se queda en su navegador: <b>no se sube a ningún servidor</b>. Use solo documentos de prueba.</p></div>
+<div id="fileinfo" class="card hide" style="margin-top:14px"></div>
+<div class="row" style="margin-top:14px"><button class="btn" id="usedemo">Usar documento de ejemplo</button><span class="sp"></span><button class="btn p" id="next1" disabled>Continuar →</button></div>`;
+
+V.preparar=()=>`<h1>Preparar solicitud de firma</h1><p class="sub">Paso 2 de 4 · Documento: <b>${esc(S.file||S.doc.n)}</b></p>${DEMO_NOTE}
+<div class="grid g2"><div class="card"><b>Firmantes</b><div id="fl" style="margin-top:8px">${S.firmantes.map((f,i)=>`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span class="tag t-gray">${S.orden?i+1:'•'}</span><div class="sp"><b>${esc(f.n)}</b><br><small class="mono">${esc(f.e)}</small></div><span class="tag t-env">${f.r}</span><button class="btn" data-del="${i}">✕</button></div>`).join('')}</div>
+<div class="grid g2" style="margin-top:12px"><div><label>Nombre</label><input type="text" id="fn"></div><div><label>Correo (use dominios .invalid)</label><input type="email" id="fe"></div></div>
+<div class="row" style="margin-top:8px"><select class="f" id="fr" style="width:auto"><option>Firmante</option><option>Aprobador</option><option>Solo lectura</option></select><button class="btn" id="add">Agregar</button></div></div>
+<div class="card"><b>Opciones</b><p><label><input type="checkbox" id="ord" ${S.orden?'checked':''}> Firma en orden secuencial</label></p>
+<label>Vigencia (días)</label><input type="number" value="15" style="max-width:120px"><p></p><label>Mensaje al firmante</label><input type="text" value="Le solicitamos revisar y firmar el documento (mensaje de demostración).">
+<div class="notice n-warn">Verificación de identidad del firmante: <b>por definir</b> con Legal (OTP, e.firma, INE, etc.). La NOM-151 no la sustituye.</div></div></div>
+<div class="row" style="margin-top:14px"><span class="sp"></span><button class="btn p" id="next2">Colocar firma →</button></div>`;
+
+const page=(sg)=>`<div class="doc" id="doc"><h3>CONTRATO DE EJEMPLO</h3>
+<p>Documento ficticio de demostración. Celebran, por una parte, <b>CAFIVER (DEMO)</b>, y por la otra <b>Proveedor Ejemplo SA de CV</b>, el presente instrumento con fines exclusivamente ilustrativos.</p>
+<p><b>Primera.</b> Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.</p>
+<p><b>Segunda.</b> Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</p>
+<p><b>Tercera.</b> Sunt in culpa qui officia deserunt mollit anim id est laborum. Curabitur pretium tincidunt lacus, nulla gravida orci a odio.</p>
+<p><b>Cuarta.</b> Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris.</p>
+<div class="wm">DEMOSTRACIÓN<br>SIN VALIDEZ LEGAL</div>${sg}</div>`;
+
+V.firmar=()=>{const f=S.signed?`<div class="field signed" style="left:${S.pos.x}px;top:${S.pos.y}px">Carlos Ruiz<small>FIRMA DE DEMOSTRACIÓN</small></div>`:`<div class="field" id="fld" style="left:${S.pos.x}px;top:${S.pos.y}px">✍ Firma — Carlos Ruiz</div>`;
+return `<h1>Vista del documento y colocación de la firma</h1><p class="sub">Paso 3 de 4 · ${S.rol==='fir'?'Vista del firmante':'Arrastre el campo a la posición deseada'}</p>${DEMO_NOTE}
+<div class="grid g2" style="grid-template-columns:1fr 300px"><div class="card" style="background:var(--bg)"><div id="docwrap">${page(f)}</div></div>
+<div class="card"><b>Firmante</b><p>Carlos Ruiz <span class="tag t-env">Firmante</span></p>
+<label><input type="checkbox" id="acc"> Acepto firmar electrónicamente (simulación)</label><p></p>
+<button class="btn p" style="width:100%" id="sign" ${S.signed?'disabled':''}>${S.signed?'Firmado (demo)':'Firmar (simulación)'}</button>
+<div class="notice n-demo">Se genera únicamente un trazo ilustrativo. <b>No</b> se crea firma criptográfica ni constancia.</div>
+<small class="mono">Posición: x=${Math.round(S.pos.x)} y=${Math.round(S.pos.y)}</small></div></div>`};
+
+V.seguimiento=()=>{const d=S.doc;const done=d.firmantes.filter(f=>f[2]==='firmado').length;const pct=Math.round(done/d.firmantes.length*100);
+return `<h1>Seguimiento</h1><p class="sub">${esc(d.n)} · <span class="mono">${d.id}</span></p>
+<div class="row"><select class="f" id="sel" style="max-width:420px">${DOCS.map(x=>`<option value="${x.id}" ${x.id===d.id?'selected':''}>${esc(x.n)}</option>`).join('')}</select>${tag(d.st)}</div>
+<div class="grid g2" style="margin-top:14px"><div class="card"><b>Progreso: ${done} de ${d.firmantes.length} firmas</b><div class="bar" style="margin:10px 0"><i style="width:${pct}%"></i></div>
+<ul class="tl">${d.firmantes.map(f=>`<li class="${f[2]==='firmado'?'done':f[2]==='visto'?'cur':''}"><b>${esc(f[0])}</b> <span class="tag t-gray">${f[1]}</span><small>${f[2].toUpperCase()} · ${f[3]}</small></li>`).join('')}</ul></div>
+<div class="card"><b>Acciones</b><div class="row" style="margin-top:10px"><button class="btn" data-a="Recordatorio simulado enviado (no se envió correo real).">Enviar recordatorio</button><button class="btn" data-a="Solicitud cancelada (simulación).">Cancelar</button><button class="btn" data-a="Enlace de demostración copiado (ficticio).">Copiar enlace</button></div><div id="msg"></div>
+<div class="notice n-info">Estados: Borrador → Pendiente → Completado / Rechazado / Cancelado (equivalentes a los de Documenso).</div></div></div>`};
+
+V.firmado=()=>`<h1>Documento firmado</h1><p class="sub">${esc(S.doc.n)}</p>${DEMO_NOTE}
+<div class="grid g2" style="grid-template-columns:1fr 340px"><div class="card" style="background:var(--bg)">${page(`<div class="field signed" style="left:60px;top:560px">Ana López<small>FIRMA DE DEMOSTRACIÓN</small></div><div class="field signed" style="left:300px;top:560px">Carlos Ruiz<small>FIRMA DE DEMOSTRACIÓN</small></div>`)}</div>
+<div class="card"><b>Artefactos</b><table><tr><td>Original</td><td class="mono">sha256 ${HASH.slice(0,16)}…</td></tr><tr><td>Firmado (demo)</td><td class="mono">sha256 e41b…ficticio</td></tr><tr><td>Constancia</td><td>${S.nom==='sin'?'<span class="tag t-gray">No emitida</span>':'<span class="tag t-warn">Simulada</span>'}</td></tr></table>
+<div class="row" style="margin-top:10px"><button class="btn" data-a="Descarga deshabilitada en la demostración.">Descargar PDF</button><button class="btn" data-a="Certificado de finalización: pendiente de implementar (se reutiliza el de Documenso).">Certificado</button></div><div id="msg"></div>
+<div class="notice n-warn">En producción: sellado criptográfico del PDF (Documenso) + constancia NOM-151 del PSC (módulo aparte).</div></div></div>`;
+
+V.nom151=()=>`<h1>Constancias NOM-151</h1><p class="sub">Módulo del PSC Gateway · integración <b>no implementada</b></p>
+<div class="notice n-demo"><b>DEMOSTRACIÓN.</b> No se contacta a ningún PSC. La "constancia" siguiente es un <b>marcador ficticio</b>; no es una constancia oficial y no tiene valor jurídico.</div>
+<div class="grid g2"><div class="card"><b>Operación</b>
+<table><tr><td>Documento</td><td>${esc(S.doc.n)}</td></tr><tr><td>Hash SHA-256 (ejemplo)</td><td class="mono">${HASH}</td></tr><tr><td>Id. de operación</td><td class="mono">${S.nom==='sin'?'—':'DEMO-0000-FICTICIO'}</td></tr><tr><td>Resultado</td><td>${S.nom==='sin'?'<span class="tag t-gray">Sin solicitar</span>':S.nom==='cola'?'<span class="tag t-env">En cola (simulado)</span>':'<span class="tag t-warn">SIMULACIÓN — no oficial</span>'}</td></tr><tr><td>Fecha de certificación</td><td>${S.nom==='ok'?'(sin fecha oficial)':'—'}</td></tr></table>
+<div class="row" style="margin-top:12px"><button class="btn p" id="nomgo" ${S.nom!=='sin'?'disabled':''}>Simular solicitud al PSC</button><button class="btn" id="nomreset">Reiniciar</button></div>
+<div class="notice n-info">Pendiente: documentación oficial del PSC (API, autenticación, formato de constancia, tarifas).</div></div>
+<div class="card"><b>Cómo funcionará</b><ol><li>Documenso emite <span class="mono">DOCUMENT_COMPLETED</span>.</li><li>El gateway descarga el PDF final y calcula su hash.</li><li>Envía al PSC lo que su documentación oficial indique.</li><li>Guarda constancia, id de operación, fecha y resultado.</li><li>Reintentos con espera exponencial y bitácora.</li></ol>
+<div class="notice n-warn">La constancia NOM-151 acredita conservación e integridad; <b>no sustituye</b> la identificación del firmante ni el mecanismo de firma que corresponda.</div></div></div>`;
+
+const EV=[['2026-10-20 09:10','Documento creado','Ana López','D-1041'],['2026-10-20 09:11','Enviado a 2 firmantes','Ana López','D-1041'],['2026-10-20 09:12','Firma registrada (DEMO)','Ana López','D-1041'],['2026-10-21 08:02','Documento abierto','Carlos Ruiz','D-1041'],['2026-10-22 16:40','Firma registrada (DEMO)','Luis Prado','D-1040'],['2026-10-23 08:05','Documento abierto','Visitante Demo','D-1040'],['2026-10-03 17:10','Documento rechazado','Marta Vega','D-1036']];
+V.historial=()=>`<h1>Historial de eventos y evidencias</h1><p class="sub">Vista de auditoría (solo lectura) · datos ficticios</p>
+<div class="card"><table><thead><tr><th>Fecha</th><th>Evento</th><th>Actor</th><th>Doc.</th><th>IP / dispositivo</th></tr></thead><tbody>${EV.map(e=>`<tr><td class="mono">${e[0]}</td><td>${e[1]}</td><td>${e[2]}</td><td class="mono">${e[3]}</td><td class="mono">203.0.113.x · navegador (ejemplo)</td></tr>`).join('')}</tbody></table></div>
+<div class="grid g2" style="margin-top:14px"><div class="card"><b>Evidencias por documento</b><ul><li>Certificado de firma (Documenso)</li><li>Bitácora de auditoría (IP, user-agent, fechas)</li><li>PDF original y firmado con hash</li><li>Constancia NOM-151 (cuando exista integración)</li></ul></div>
+<div class="notice n-info">Acceso del Auditor: lectura y descarga; sin capacidad de modificar documentos.</div></div>`;
+
+V.reporte=()=>{const m=[['May',18],['Jun',26],['Jul',31],['Ago',24],['Sep',38],['Oct',44]];const tot=m.reduce((a,b)=>a+b[1],0),mx=Math.max(...m.map(x=>x[1]));const nom=Math.round(tot*.8);
+const cost=nom*S.costo.nom+tot*S.costo.doc;
+return `<h1>Reporte de documentos y costo estimado</h1><p class="sub">Datos ficticios · tarifas editables <b>supuestas</b>, no corresponden a ningún proveedor</p>
+<div class="grid g4"><div class="card kpi"><b>${tot}</b><span>Documentos procesados (6 meses)</span></div><div class="card kpi"><b>${nom}</b><span>Con constancia (80 % supuesto)</span></div><div class="card kpi"><b>$${cost.toLocaleString('es-MX')}</b><span>Costo estimado MXN</span></div><div class="card kpi"><b>$${(cost/tot).toFixed(2)}</b><span>Por documento</span></div></div>
+<div class="grid g2" style="margin-top:14px"><div class="card"><b>Documentos por mes</b><div class="chart">${m.map(x=>`<div><i style="height:${x[1]/mx*110}px"></i>${x[0]}<br><b>${x[1]}</b></div>`).join('')}</div></div>
+<div class="card"><b>Supuestos (MXN)</b><div class="grid g2"><div><label>Constancia NOM-151 (por unidad)</label><input type="number" id="c1" value="${S.costo.nom}"></div><div><label>Operación/infra por documento</label><input type="number" id="c2" value="${S.costo.doc}"></div></div>
+<div class="notice n-warn">Valores ilustrativos. El costo real depende del PSC elegido, del volumen y de la infraestructura.</div></div></div>`};
+
+/* ===== Render ===== */
+function render(){
+  const root=$('#root');
+  if(!S.user){root.innerHTML=V.login();$('#go').onclick=()=>{S.rol=$('#lu').value;S.user=ROLES[S.rol]+' (demo)';location.hash='panel';render()};return}
+  const r=route();const nav=NAV.filter(n=>n[3].split(' ').includes(S.rol));
+  const cur=V[r]&&nav.find(n=>n[0]===r)?r:'panel';
+  root.innerHTML=`<div class="app"><aside><div class="logo"><div class="mark">C</div><div><b>CAFIVER</b><small>Firma electrónica · DEMO</small></div></div>
+  <nav>${['Documentos','Firma','Control'].map((g,gi)=>`<div class="sec">${g}</div>`+nav.filter((_,i)=>gi===0?i<3:gi===1?(i>=3&&i<6):i>=6).map(n=>`<a data-r="${n[0]}" class="${n[0]===cur?'on':''}" title="${n[2]}"><b>${n[1]}</b><span>${n[2]}</span></a>`).join('')).join('')}</nav>
+  <div class="role"><label>Rol conceptual</label><select id="rolsel">${Object.entries(ROLES).map(([k,v])=>`<option value="${k}" ${k===S.rol?'selected':''}>${v}</option>`).join('')}</select><small>${esc(S.user)}</small> · <a href="#" id="out" style="font-size:12px">Salir</a></div></aside>
+  <main>${V[cur]()}</main></div>`;
+  bind(cur);
+}
+function bind(r){
+  document.querySelectorAll('nav a').forEach(a=>a.onclick=()=>{location.hash=a.dataset.r});
+  $('#rolsel').onchange=e=>{S.rol=e.target.value;S.user=ROLES[S.rol]+' (demo)';location.hash='panel';render()};
+  $('#out').onclick=e=>{e.preventDefault();S.user=null;render()};
+  document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{$('#msg').innerHTML=`<div class="notice n-info">${b.dataset.a}</div>`});
+  document.querySelectorAll('tr[data-id]').forEach(t=>t.onclick=()=>{S.doc=DOCS.find(d=>d.id===t.dataset.id);location.hash='seguimiento'});
+  if(r==='panel')$('#q').oninput=e=>{const q=e.target.value.toLowerCase();$('#tb').innerHTML=rows(DOCS.filter(d=>d.n.toLowerCase().includes(q)));document.querySelectorAll('tr[data-id]').forEach(t=>t.onclick=()=>{S.doc=DOCS.find(d=>d.id===t.dataset.id);location.hash='seguimiento'})};
+  if(r==='nuevo'){const dz=$('#drop'),fi=$('#file');const set=n=>{S.file=n;$('#fileinfo').classList.remove('hide');$('#fileinfo').innerHTML=`📄 <b>${esc(n)}</b> — cargado localmente (no enviado)`;$('#next1').disabled=false};
+    $('#pick').onclick=()=>fi.click();fi.onchange=()=>fi.files[0]&&set(fi.files[0].name);
+    dz.ondragover=e=>{e.preventDefault();dz.classList.add('hot')};dz.ondragleave=()=>dz.classList.remove('hot');dz.ondrop=e=>{e.preventDefault();dz.classList.remove('hot');const f=e.dataTransfer.files[0];f&&set(f.name)};
+    $('#usedemo').onclick=()=>set('Contrato_de_ejemplo_DEMO.pdf');$('#next1').onclick=()=>location.hash='preparar'}
+  if(r==='preparar'){$('#ord').onchange=e=>{S.orden=e.target.checked;render()};
+    $('#add').onclick=()=>{const n=$('#fn').value.trim(),e=$('#fe').value.trim();if(n&&e){S.firmantes.push({n,e,r:$('#fr').value});render()}};
+    document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.firmantes.splice(+b.dataset.del,1);render()});$('#next2').onclick=()=>{S.signed=false;location.hash='firmar'}}
+  if(r==='firmar'){const f=$('#fld'),d=$('#doc');
+    if(f){f.onpointerdown=e=>{f.setPointerCapture(e.pointerId);const sx=e.clientX-f.offsetLeft,sy=e.clientY-f.offsetTop;
+      f.onpointermove=m=>{const R=d.getBoundingClientRect();S.pos.x=Math.max(0,Math.min(R.width-150,m.clientX-sx));S.pos.y=Math.max(0,Math.min(R.height-46,m.clientY-sy));f.style.left=S.pos.x+'px';f.style.top=S.pos.y+'px'};
+      f.onpointerup=()=>{f.onpointermove=null;render()}}}
+    $('#sign').onclick=()=>{if(!$('#acc').checked){alert('Marque la casilla de aceptación (simulación).');return}S.signed=true;render()}}
+  if(r==='seguimiento')$('#sel').onchange=e=>{S.doc=DOCS.find(d=>d.id===e.target.value);render()};
+  if(r==='nom151'){$('#nomgo').onclick=()=>{S.nom='cola';render();setTimeout(()=>{S.nom='ok';if(route()==='nom151')render()},1200)};$('#nomreset').onclick=()=>{S.nom='sin';render()}}
+  if(r==='reporte'){const u=()=>{S.costo.nom=+$('#c1').value||0;S.costo.doc=+$('#c2').value||0;render()};$('#c1').onchange=u;$('#c2').onchange=u}
+}
+window.addEventListener('hashchange',render);render();
+</script>
+</body>
+</html>
