@@ -1582,8 +1582,13 @@ function loadAppData(){
 
 function recargarDatos(){
   setSyncUI('saving','Actualizando...');
-  Promise.all([
-    db.collection('equipos').get(),
+  // Esperar a que el token de autenticación esté listo antes de leer Firestore
+  var tokenPromise = (auth.currentUser)
+    ? auth.currentUser.getIdToken(false)
+    : Promise.resolve(null);
+  tokenPromise.then(function(){
+    return Promise.all([
+      db.collection('equipos').get(),
     db.collection('transferencias').get(),
     db.collection('reparaciones').get(),
     db.collection('escaneos').get(),
@@ -1634,6 +1639,10 @@ function recargarDatos(){
 
   }).catch(function(err){
     console.error('Error al cargar datos:', err);
+    setSyncUI('error','Sin conexión');
+  });
+  }).catch(function(err){
+    console.error('Error token auth:', err);
     setSyncUI('error','Sin conexión');
   });
 }
