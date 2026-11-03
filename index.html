@@ -1571,86 +1571,104 @@ function doLogout(){
   });
 }
 
-// LOAD DATA — caché localStorage para carga instantánea + get() para refrescar
+// LOAD DATA — caché IndexedDB para carga instantánea + get() para refrescar
 var _primeraVezCarga = true;
-var _CACHE_KEY = 'inventario_ti_cache_v1';
-var _CACHE_TS_KEY = 'inventario_ti_cache_ts_v1';
+var _IDB_NAME = 'inventario_ti_idb';
+var _IDB_STORE = 'cache';
+var _IDB_KEY = 'datos_v1';
+var _idbDb = null;
 
-// Guardar datos en localStorage (llamado al refrescar exitosamente)
-function _guardarCache(){
+// Abrir/crear la base IndexedDB
+function _idbOpen(cb){
+  if(_idbDb){ cb(_idbDb); return; }
   try {
-    var payload = {
-      equipos: equipos,
-      transferencias: transferencias,
-      reparaciones: reparaciones,
-      escaneos: escaneos,
-      celulares: celulares,
-      licencias: licencias,
-      softwareEquiposArr: (function(){
-        var arr=[];
-        Object.keys(softwareEquipos).forEach(function(k){
-          softwareEquipos[k].forEach(function(x){ arr.push(x); });
-        });
-        return arr;
-      })(),
-      catalogo: catalogo,
-      personal: personal
+    var req = indexedDB.open(_IDB_NAME, 1);
+    req.onupgradeneeded = function(e){
+      e.target.result.createObjectStore(_IDB_STORE);
     };
-    localStorage.setItem(_CACHE_KEY, JSON.stringify(payload));
-    localStorage.setItem(_CACHE_TS_KEY, Date.now().toString());
-  } catch(e){ console.warn('No se pudo guardar caché:', e); }
+    req.onsuccess = function(e){
+      _idbDb = e.target.result;
+      cb(_idbDb);
+    };
+    req.onerror = function(){ cb(null); };
+  } catch(e){ cb(null); }
 }
 
-// Cargar datos desde localStorage
-function _cargarCache(){
-  try {
-    var raw = localStorage.getItem(_CACHE_KEY);
-    if(!raw) return false;
-    var p = JSON.parse(raw);
-    equipos        = p.equipos        || [];
-    transferencias = p.transferencias || [];
-    reparaciones   = p.reparaciones   || [];
-    escaneos       = p.escaneos       || [];
-    celulares      = p.celulares      || [];
-    licencias      = p.licencias      || [];
-    softwareEquipos = {};
-    (p.softwareEquiposArr||[]).forEach(function(x){
-      if(!softwareEquipos[x.equipoId]) softwareEquipos[x.equipoId]=[];
-      softwareEquipos[x.equipoId].push(x);
-    });
-    catalogo  = p.catalogo  || [];
-    personal  = p.personal  || [];
-    _personalCacheBuilt = false;
-    return equipos.length > 0;
-  } catch(e){ return false; }
+// Guardar datos en IndexedDB
+function _guardarCache(){
+  _idbOpen(function(db){
+    if(!db) return;
+    try {
+      var arr=[];
+      Object.keys(softwareEquipos).forEach(function(k){
+        softwareEquipos[k].forEach(function(x){ arr.push(x); });
+      });
+      var payload = {
+        ts: Date.now(),
+        equipos: equipos,
+        transferencias: transferencias,
+        reparaciones: reparaciones,
+        escaneos: escaneos,
+        celulares: celulares,
+        licencias: licencias,
+        softwareEquiposArr: arr,
+        catalogo: catalogo,
+        personal: personal
+      };
+      var tx = db.transaction(_IDB_STORE,'readwrite');
+      tx.objectStore(_IDB_STORE).put(payload, _IDB_KEY);
+    } catch(e){ console.warn('No se pudo guardar caché IDB:', e); }
+  });
 }
 
-function _edadCache(){
-  try {
-    var ts = parseInt(localStorage.getItem(_CACHE_TS_KEY)||'0');
-    if(!ts) return Infinity;
-    return (Date.now() - ts) / 60000; // minutos
-  } catch(e){ return Infinity; }
+// Cargar datos desde IndexedDB (async, llama cb(ok, minutos))
+function _cargarCache(cb){
+  _idbOpen(function(db){
+    if(!db){ cb(false,0); return; }
+    try {
+      var tx = db.transaction(_IDB_STORE,'readonly');
+      var req = tx.objectStore(_IDB_STORE).get(_IDB_KEY);
+      req.onsuccess = function(e){
+        var p = e.target.result;
+        if(!p || !p.equipos || p.equipos.length===0){ cb(false,0); return; }
+        equipos        = p.equipos        || [];
+        transferencias = p.transferencias || [];
+        reparaciones   = p.reparaciones   || [];
+        escaneos       = p.escaneos       || [];
+        celulares      = p.celulares      || [];
+        licencias      = p.licencias      || [];
+        softwareEquipos = {};
+        (p.softwareEquiposArr||[]).forEach(function(x){
+          if(!softwareEquipos[x.equipoId]) softwareEquipos[x.equipoId]=[];
+          softwareEquipos[x.equipoId].push(x);
+        });
+        catalogo  = p.catalogo  || [];
+        personal  = p.personal  || [];
+        _personalCacheBuilt = false;
+        var mins = p.ts ? Math.round((Date.now()-p.ts)/60000) : 0;
+        cb(true, mins);
+      };
+      req.onerror = function(){ cb(false,0); };
+    } catch(e){ cb(false,0); }
+  });
 }
 
 function loadAppData(){
   setSyncUI('saving','Cargando...');
-  var tieneDatos = _cargarCache();
-  if(tieneDatos){
-    // Mostrar app instantáneamente con datos del caché
-    var mins = Math.round(_edadCache());
-    var label = mins < 2 ? 'hace un momento' : 'hace '+mins+' min';
-    setSyncUI('ok','Caché ('+label+')');
-    _actualizarReloj();
-    _primeraVezCarga = false;
-    switchView('dashboard');
-    checkQRHash();
-    // Refrescar en background después de 1.5s (no bloquea la UI)
-    setTimeout(function(){ _refrescarFirestore(true); }, 1500);
-  } else {
-    // Primera vez o caché vacío: cargar normalmente
-    _refrescarFirestore(false);
-  }
+  _cargarCache(function(tieneDatos, mins){
+    if(tieneDatos){
+      var label = mins < 2 ? 'hace un momento' : 'hace '+mins+' min';
+      setSyncUI('ok','Caché ('+label+')');
+      _actualizarReloj();
+      _primeraVezCarga = false;
+      switchView('dashboard');
+      checkQRHash();
+      // Refrescar en background después de 1.5s
+      setTimeout(function(){ _refrescarFirestore(true); }, 1500);
+    } else {
+      _refrescarFirestore(false);
+    }
+  });
 }
 
 function recargarDatos(){
