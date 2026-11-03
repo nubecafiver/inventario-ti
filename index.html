@@ -1675,47 +1675,94 @@ function recargarDatos(){
   _refrescarFirestore(false);
 }
 
+// REST API de Firestore — sin WebChannel, sin streaming, HTTP puro
+var _FS_PROJECT = 'inventariocomputo-eb34c';
+var _FS_BASE = 'https://firestore.googleapis.com/v1/projects/'+_FS_PROJECT+'/databases/(default)/documents/';
+
+function _fsRestGet(coleccion, token){
+  // Pagina automáticamente hasta traer todos los documentos
+  function paginar(pageToken, acumulado){
+    var url = _FS_BASE + coleccion + '?pageSize=300' + (pageToken ? '&pageToken='+pageToken : '');
+    return fetch(url, {
+      headers: { 'Authorization': 'Bearer '+token }
+    }).then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status+' en '+coleccion);
+      return r.json();
+    }).then(function(json){
+      var docs = json.documents || [];
+      acumulado = acumulado.concat(docs);
+      if(json.nextPageToken){
+        return paginar(json.nextPageToken, acumulado);
+      }
+      return acumulado;
+    });
+  }
+  return paginar(null, []);
+}
+
+// Convierte un valor Firestore REST a JS
+function _fsVal(v){
+  if(!v) return null;
+  if(v.stringValue  !== undefined) return v.stringValue;
+  if(v.integerValue !== undefined) return parseInt(v.integerValue);
+  if(v.doubleValue  !== undefined) return parseFloat(v.doubleValue);
+  if(v.booleanValue !== undefined) return v.booleanValue;
+  if(v.nullValue    !== undefined) return null;
+  if(v.timestampValue !== undefined) return v.timestampValue;
+  if(v.arrayValue   !== undefined) return (v.arrayValue.values||[]).map(_fsVal);
+  if(v.mapValue     !== undefined) return _fsDoc(v.mapValue.fields||{});
+  return null;
+}
+
+// Convierte un documento Firestore REST a objeto JS plano
+function _fsDoc(fields){
+  var obj = {};
+  Object.keys(fields||{}).forEach(function(k){ obj[k] = _fsVal(fields[k]); });
+  return obj;
+}
+
 function _refrescarFirestore(silencioso){
   if(!silencioso) setSyncUI('saving','Actualizando...');
   else {
     var btn=document.getElementById('btn-actualizar');
     if(btn){ btn.disabled=true; btn.style.opacity='0.6'; }
   }
+
   var tokenPromise = (auth.currentUser)
-    ? auth.currentUser.getIdToken(false)
+    ? auth.currentUser.getIdToken(true)   // true = forzar refresh del token
     : Promise.resolve(null);
-  tokenPromise.then(function(){
+
+  tokenPromise.then(function(token){
+    if(!token){ setSyncUI('error','Sin sesión'); return; }
     return Promise.all([
-      db.collection('equipos').get(),
-      db.collection('transferencias').get(),
-      db.collection('reparaciones').get(),
-      db.collection('escaneos').get(),
-      db.collection('celulares').get(),
-      db.collection('licencias').get(),
-      db.collection('software_equipos').get(),
-      db.collection('catalogo').get(),
-      db.collection('personal').get()
+      _fsRestGet('equipos',         token),
+      _fsRestGet('transferencias',  token),
+      _fsRestGet('reparaciones',    token),
+      _fsRestGet('escaneos',        token),
+      _fsRestGet('celulares',       token),
+      _fsRestGet('licencias',       token),
+      _fsRestGet('software_equipos',token),
+      _fsRestGet('catalogo',        token),
+      _fsRestGet('personal',        token)
     ]).then(function(results){
-      equipos        = results[0].docs.map(function(d){return d.data();});
-      transferencias = results[1].docs.map(function(d){return d.data();});
-      reparaciones   = results[2].docs.map(function(d){return d.data();});
-      escaneos       = results[3].docs.map(function(d){return d.data();});
-      celulares      = results[4].docs.map(function(d){return d.data();});
-      licencias      = results[5].docs.map(function(d){return d.data();});
+      equipos        = results[0].map(function(d){ return _fsDoc(d.fields); });
+      transferencias = results[1].map(function(d){ return _fsDoc(d.fields); });
+      reparaciones   = results[2].map(function(d){ return _fsDoc(d.fields); });
+      escaneos       = results[3].map(function(d){ return _fsDoc(d.fields); });
+      celulares      = results[4].map(function(d){ return _fsDoc(d.fields); });
+      licencias      = results[5].map(function(d){ return _fsDoc(d.fields); });
       softwareEquipos = {};
-      results[6].docs.forEach(function(d){
-        var data=d.data();
+      results[6].forEach(function(d){
+        var data = _fsDoc(d.fields);
         if(!softwareEquipos[data.equipoId]) softwareEquipos[data.equipoId]=[];
         softwareEquipos[data.equipoId].push(data);
       });
-      catalogo  = results[7].docs.map(function(d){return d.data();});
-      personal  = results[8].docs.map(function(d){return d.data();});
+      catalogo = results[7].map(function(d){ return _fsDoc(d.fields); });
+      personal = results[8].map(function(d){ return _fsDoc(d.fields); });
       _personalCacheBuilt = false;
-      console.log('Datos frescos — equipos:',equipos.length,'personal:',personal.length);
+      console.log('Datos REST — equipos:',equipos.length,'personal:',personal.length);
 
-      // Guardar en caché para la próxima carga
       _guardarCache();
-
       setSyncUI('ok','En linea');
       _actualizarReloj();
 
@@ -1724,7 +1771,6 @@ function _refrescarFirestore(silencioso){
         switchView('dashboard');
         checkQRHash();
       } else {
-        // Refrescar la vista activa
         if(_modoCampo) actualizarStatsCampo();
         else if(curView==='dashboard') renderDashboard();
         if(curView==='inventario')   renderInventario();
@@ -1738,7 +1784,7 @@ function _refrescarFirestore(silencioso){
         if(openEquipoId)             dpTab(dpCurTab);
       }
     }).catch(function(err){
-      console.error('Error al cargar datos:', err);
+      console.error('Error REST Firestore:', err);
       setSyncUI('error','Sin conexión');
       if(silencioso){
         var btn=document.getElementById('btn-actualizar');
@@ -1746,8 +1792,8 @@ function _refrescarFirestore(silencioso){
       }
     });
   }).catch(function(err){
-    console.error('Error token auth:', err);
-    setSyncUI('error','Sin conexión');
+    console.error('Error token:', err);
+    setSyncUI('error','Sin sesión');
   });
 }
 
