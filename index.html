@@ -337,6 +337,7 @@ tr.row-amarillo:hover td{background:#fff3cd!important;}
 .scan-item .scan-alert.warn{background:#fce8e6;color:#c62828;}
 .alerta-fuera{position:fixed;top:70px;right:20px;background:#ea4335;color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:300;box-shadow:0 4px 16px rgba(234,67,53,.4);display:flex;align-items:center;gap:8px;animation:slideIn .3s ease;}
 @keyframes slideIn{from{transform:translateX(120%);}to{transform:translateX(0);}}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
 
 
 /* ESCÁNER QR */
@@ -713,7 +714,11 @@ table.mts tr:hover td{background:#f9fafb;}
           <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;" title="En linea"></span>
         </div>
       </div>
+      <div id="sync-ultima" style="font-size:9px;color:#475569;margin-top:2px;padding-left:2px;"></div>
       <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
+        <button class="btn btn-sm" id="btn-actualizar" onclick="recargarDatos()" style="flex:1;background:rgba(99,102,241,.15);color:#a5b4fc;border-color:rgba(99,102,241,.3);font-size:10px;" title="Recargar todos los datos"><i class="ti ti-refresh" aria-hidden="true"></i> Actualizar</button>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">
         <button class="btn btn-sm" onclick="openScanner()" style="flex:1;background:rgba(255,255,255,.06);color:#94a3b8;border-color:rgba(255,255,255,.1);font-size:10px;"><i class="ti ti-qrcode" aria-hidden="true"></i> Escanear</button>
         <button class="btn btn-sm" onclick="openChPass()" style="background:rgba(255,255,255,.06);color:#94a3b8;border-color:rgba(255,255,255,.1);font-size:10px;" title="Cambiar contraseña"><i class="ti ti-lock" aria-hidden="true"></i></button>
         <button class="btn btn-sm" onclick="doLogout()" style="background:rgba(255,255,255,.06);color:#94a3b8;border-color:rgba(255,255,255,.1);font-size:10px;" title="Salir"><i class="ti ti-logout" aria-hidden="true"></i></button>
@@ -1459,7 +1464,30 @@ var invPag=0; // página actual (tabla, 50 por página)
 function uid(){return 'EQ'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase();}
 function ini(n){return (n||'?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);}
 function nowStr(){return new Date().toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'});}
-function setSyncUI(s,m){var p=document.getElementById('topbar-sync'),t=document.getElementById('topbar-sync-txt');if(p)p.className='sync-pill '+s;if(t)t.textContent=m;}
+function setSyncUI(s,m){
+  var p=document.getElementById('topbar-sync'),t=document.getElementById('topbar-sync-txt');
+  if(p)p.className='sync-pill '+s;
+  if(t)t.textContent=m;
+  var btn=document.getElementById('btn-actualizar');
+  if(btn){
+    if(s==='saving'){
+      btn.disabled=true;
+      btn.style.opacity='0.6';
+      btn.innerHTML='<i class="ti ti-refresh" style="display:inline-block;animation:spin 1s linear infinite;" aria-hidden="true"></i> Cargando...';
+    } else {
+      btn.disabled=false;
+      btn.style.opacity='1';
+      btn.innerHTML='<i class="ti ti-refresh" aria-hidden="true"></i> Actualizar';
+    }
+  }
+}
+function _actualizarReloj(){
+  var el=document.getElementById('sync-ultima');
+  if(el){
+    var ahora=new Date();
+    el.textContent='Actualizado: '+ahora.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  }
+}
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3000);}
 var _confirmCb=null;
 function confirmAction(title,msg,cb){
@@ -1543,36 +1571,71 @@ function doLogout(){
   });
 }
 
-// LOAD DATA
+// LOAD DATA — usa get() en lugar de onSnapshot para evitar WebChannel/streaming
+var _autoRefreshTimer = null;
+var _primeraVezCarga = true;
+
 function loadAppData(){
   setSyncUI('saving','Cargando...');
-  var _primeraVez=true;
-  db.collection('equipos').onSnapshot(function(s){
-    equipos=s.docs.map(function(d){return d.data();});
-    if(_primeraVez){_primeraVez=false;switchView('dashboard');}
-    if(_modoCampo) actualizarStatsCampo();
-    else if(curView==='dashboard')renderDashboard();
-    if(curView==='inventario')renderInventario();
-    if(curView==='qr')renderQR();
-    if(curView==='obsoletos')renderObsoletos();
-    if(curView==='etiquetas')renderEtiquetas();
+  recargarDatos();
+}
+
+function recargarDatos(){
+  setSyncUI('saving','Actualizando...');
+  Promise.all([
+    db.collection('equipos').get(),
+    db.collection('transferencias').get(),
+    db.collection('reparaciones').get(),
+    db.collection('escaneos').get(),
+    db.collection('celulares').get(),
+    db.collection('licencias').get(),
+    db.collection('software_equipos').get(),
+    db.collection('catalogo').get(),
+    db.collection('personal').get()
+  ]).then(function(results){
+    equipos        = results[0].docs.map(function(d){return d.data();});
+    transferencias = results[1].docs.map(function(d){return d.data();});
+    reparaciones   = results[2].docs.map(function(d){return d.data();});
+    escaneos       = results[3].docs.map(function(d){return d.data();});
+    celulares      = results[4].docs.map(function(d){return d.data();});
+    licencias      = results[5].docs.map(function(d){return d.data();});
+    softwareEquipos = {};
+    results[6].docs.forEach(function(d){
+      var data=d.data();
+      if(!softwareEquipos[data.equipoId]) softwareEquipos[data.equipoId]=[];
+      softwareEquipos[data.equipoId].push(data);
+    });
+    catalogo  = results[7].docs.map(function(d){return d.data();});
+    personal  = results[8].docs.map(function(d){return d.data();});
+    _personalCacheBuilt = false;
+    console.log('Datos cargados — equipos:',equipos.length,'personal:',personal.length);
+
     setSyncUI('ok','En linea');
-  },function(){setSyncUI('error','Error');});
-  // Real-time transferencias
-  db.collection('transferencias').onSnapshot(function(s){
-    transferencias=s.docs.map(function(d){return d.data();});
-    if(openEquipoId) dpTab(dpCurTab);
-  }, function(err){ console.warn('transferencias:', err.message); });
-  db.collection('reparaciones').onSnapshot(function(s){
-    reparaciones=s.docs.map(function(d){return d.data();});
-    if(curView==='reparaciones')renderReparaciones();
+    _actualizarReloj();
+
+    if(_primeraVezCarga){
+      _primeraVezCarga=false;
+      switchView('dashboard');
+      checkQRHash();
+    } else {
+      // Refrescar la vista activa
+      if(_modoCampo) actualizarStatsCampo();
+      else if(curView==='dashboard') renderDashboard();
+      if(curView==='inventario')   renderInventario();
+      if(curView==='qr')           renderQR();
+      if(curView==='obsoletos')    renderObsoletos();
+      if(curView==='etiquetas')    renderEtiquetas();
+      if(curView==='reparaciones') renderReparaciones();
+      if(curView==='celulares')    renderCelulares();
+      if(curView==='licencias')    renderLicencias();
+      if(curView==='simulador')    renderSimulador();
+      if(openEquipoId)             dpTab(dpCurTab);
+    }
+
+  }).catch(function(err){
+    console.error('Error al cargar datos:', err);
+    setSyncUI('error','Sin conexión');
   });
-  loadEscaneos();
-  loadCelulares();
-  loadLicencias();
-  loadCatalogo();
-  loadPersonal();
-  checkQRHash();
 }
 
 function checkQRHash(){
@@ -1686,13 +1749,14 @@ function findPersonal(nombreResp){
 
 
 // ═══ LICENCIAS ═══
-function loadLicencias(){
-  db.collection('licencias').onSnapshot(function(s){
+// loadLicencias — reemplazado por recargarDatos() centralizado
+function loadLicencias(){ /* no-op */ }
+// legacy stub para compatibilidad (ya no hace onSnapshot)
+function _loadLicenciasLegacy_unused(){
+  db.collection('licencias').get().then(function(s){
     licencias = s.docs.map(function(d){return d.data();});
-    if(curView==='licencias') renderLicencias();
-  }, function(e){console.warn('licencias:',e.message);});
-  // Software por equipo (subcolección o colección aparte)
-  db.collection('software_equipos').onSnapshot(function(s){
+  });
+  db.collection('software_equipos').get().then(function(s){
     softwareEquipos = {};
     s.docs.forEach(function(d){
       var data = d.data();
@@ -2156,14 +2220,8 @@ function renderLicencias(){
     +'</tbody></table></div></div>';
 }
 
-function loadPersonal(){
-  db.collection('personal').onSnapshot(function(s){
-    personal = s.docs.map(function(d){return d.data();});
-    _personalCacheBuilt = false;
-    console.log('Personal cargado:', personal.length, 'empleados');
-    if(curView==='personal') renderPersonal();
-  },function(e){console.error('ERROR personal:',e.code, e.message);toast('Error cargando personal: '+e.message);});
-}
+// loadPersonal — reemplazado por recargarDatos() centralizado
+function loadPersonal(){ /* no-op */ }
 
 function getAvatarStyle(nombre){
   var colors=[['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],
@@ -2304,12 +2362,8 @@ function renderPersonal(){
 
 
 // ═══ CATÁLOGO Y SIMULADOR ═══
-function loadCatalogo(){
-  db.collection('catalogo').onSnapshot(function(s){
-    catalogo=s.docs.map(function(d){return d.data();});
-    if(curView==='simulador') renderSimulador();
-  },function(e){console.warn('catalogo:',e.message);});
-}
+// loadCatalogo — reemplazado por recargarDatos() centralizado
+function loadCatalogo(){ /* no-op */ }
 
 function renderSimulador(){
   var w=document.getElementById('view-simulador');if(!w)return;
@@ -3689,13 +3743,8 @@ function etiqHTML(e){
 // ═══════════════════════════════════
 var escaneos = [];
 
-// Cargar escaneos en loadAppData
-function loadEscaneos(){
-  db.collection('escaneos').onSnapshot(function(s){
-    escaneos = s.docs.map(function(d){return d.data();});
-    if(openEquipoId) dpTab(dpCurTab);
-  }, function(err){ console.warn('escaneos:', err.message); });
-}
+// loadEscaneos — reemplazado por recargarDatos() centralizado
+function loadEscaneos(){ recargarDatos(); }
 
 // Registrar escaneo con geolocalización
 function registrarEscaneo(equipoId){
@@ -4021,14 +4070,8 @@ function exportCSV(){
   toast('CSV descargado: '+data.length+' equipos');
 }
 
-function loadCelulares(){
-  db.collection('celulares').onSnapshot(function(s){
-    celulares=s.docs.map(function(d){return d.data();});
-    if(curView==='celulares') renderCelulares();
-    // Refrescar tab resguardo si el modal está abierto
-    if(openCelId){var actTab=document.querySelector('#overlay-cel-detail .dp-tab.on');if(actTab&&actTab.id==='cel-tab-resguardo')celTab('resguardo');}
-  },function(e){console.warn('cel:',e.message);});
-}
+// loadCelulares — reemplazado por recargarDatos() centralizado
+function loadCelulares(){ /* no-op: gestionado en recargarDatos */ }
 
 // ── FORM CELULAR ────────────────────────────────────────────
 function openFormCelular(id){
