@@ -1571,76 +1571,162 @@ function doLogout(){
   });
 }
 
-// LOAD DATA — usa get() en lugar de onSnapshot para evitar WebChannel/streaming
-var _autoRefreshTimer = null;
+// LOAD DATA — caché localStorage para carga instantánea + get() para refrescar
 var _primeraVezCarga = true;
+var _CACHE_KEY = 'inventario_ti_cache_v1';
+var _CACHE_TS_KEY = 'inventario_ti_cache_ts_v1';
+
+// Guardar datos en localStorage (llamado al refrescar exitosamente)
+function _guardarCache(){
+  try {
+    var payload = {
+      equipos: equipos,
+      transferencias: transferencias,
+      reparaciones: reparaciones,
+      escaneos: escaneos,
+      celulares: celulares,
+      licencias: licencias,
+      softwareEquiposArr: (function(){
+        var arr=[];
+        Object.keys(softwareEquipos).forEach(function(k){
+          softwareEquipos[k].forEach(function(x){ arr.push(x); });
+        });
+        return arr;
+      })(),
+      catalogo: catalogo,
+      personal: personal
+    };
+    localStorage.setItem(_CACHE_KEY, JSON.stringify(payload));
+    localStorage.setItem(_CACHE_TS_KEY, Date.now().toString());
+  } catch(e){ console.warn('No se pudo guardar caché:', e); }
+}
+
+// Cargar datos desde localStorage
+function _cargarCache(){
+  try {
+    var raw = localStorage.getItem(_CACHE_KEY);
+    if(!raw) return false;
+    var p = JSON.parse(raw);
+    equipos        = p.equipos        || [];
+    transferencias = p.transferencias || [];
+    reparaciones   = p.reparaciones   || [];
+    escaneos       = p.escaneos       || [];
+    celulares      = p.celulares      || [];
+    licencias      = p.licencias      || [];
+    softwareEquipos = {};
+    (p.softwareEquiposArr||[]).forEach(function(x){
+      if(!softwareEquipos[x.equipoId]) softwareEquipos[x.equipoId]=[];
+      softwareEquipos[x.equipoId].push(x);
+    });
+    catalogo  = p.catalogo  || [];
+    personal  = p.personal  || [];
+    _personalCacheBuilt = false;
+    return equipos.length > 0;
+  } catch(e){ return false; }
+}
+
+function _edadCache(){
+  try {
+    var ts = parseInt(localStorage.getItem(_CACHE_TS_KEY)||'0');
+    if(!ts) return Infinity;
+    return (Date.now() - ts) / 60000; // minutos
+  } catch(e){ return Infinity; }
+}
 
 function loadAppData(){
   setSyncUI('saving','Cargando...');
-  recargarDatos();
+  var tieneDatos = _cargarCache();
+  if(tieneDatos){
+    // Mostrar app instantáneamente con datos del caché
+    var mins = Math.round(_edadCache());
+    var label = mins < 2 ? 'hace un momento' : 'hace '+mins+' min';
+    setSyncUI('ok','Caché ('+label+')');
+    _actualizarReloj();
+    _primeraVezCarga = false;
+    switchView('dashboard');
+    checkQRHash();
+    // Refrescar en background después de 1.5s (no bloquea la UI)
+    setTimeout(function(){ _refrescarFirestore(true); }, 1500);
+  } else {
+    // Primera vez o caché vacío: cargar normalmente
+    _refrescarFirestore(false);
+  }
 }
 
 function recargarDatos(){
-  setSyncUI('saving','Actualizando...');
-  // Esperar a que el token de autenticación esté listo antes de leer Firestore
+  _refrescarFirestore(false);
+}
+
+function _refrescarFirestore(silencioso){
+  if(!silencioso) setSyncUI('saving','Actualizando...');
+  else {
+    var btn=document.getElementById('btn-actualizar');
+    if(btn){ btn.disabled=true; btn.style.opacity='0.6'; }
+  }
   var tokenPromise = (auth.currentUser)
     ? auth.currentUser.getIdToken(false)
     : Promise.resolve(null);
   tokenPromise.then(function(){
     return Promise.all([
       db.collection('equipos').get(),
-    db.collection('transferencias').get(),
-    db.collection('reparaciones').get(),
-    db.collection('escaneos').get(),
-    db.collection('celulares').get(),
-    db.collection('licencias').get(),
-    db.collection('software_equipos').get(),
-    db.collection('catalogo').get(),
-    db.collection('personal').get()
-  ]).then(function(results){
-    equipos        = results[0].docs.map(function(d){return d.data();});
-    transferencias = results[1].docs.map(function(d){return d.data();});
-    reparaciones   = results[2].docs.map(function(d){return d.data();});
-    escaneos       = results[3].docs.map(function(d){return d.data();});
-    celulares      = results[4].docs.map(function(d){return d.data();});
-    licencias      = results[5].docs.map(function(d){return d.data();});
-    softwareEquipos = {};
-    results[6].docs.forEach(function(d){
-      var data=d.data();
-      if(!softwareEquipos[data.equipoId]) softwareEquipos[data.equipoId]=[];
-      softwareEquipos[data.equipoId].push(data);
+      db.collection('transferencias').get(),
+      db.collection('reparaciones').get(),
+      db.collection('escaneos').get(),
+      db.collection('celulares').get(),
+      db.collection('licencias').get(),
+      db.collection('software_equipos').get(),
+      db.collection('catalogo').get(),
+      db.collection('personal').get()
+    ]).then(function(results){
+      equipos        = results[0].docs.map(function(d){return d.data();});
+      transferencias = results[1].docs.map(function(d){return d.data();});
+      reparaciones   = results[2].docs.map(function(d){return d.data();});
+      escaneos       = results[3].docs.map(function(d){return d.data();});
+      celulares      = results[4].docs.map(function(d){return d.data();});
+      licencias      = results[5].docs.map(function(d){return d.data();});
+      softwareEquipos = {};
+      results[6].docs.forEach(function(d){
+        var data=d.data();
+        if(!softwareEquipos[data.equipoId]) softwareEquipos[data.equipoId]=[];
+        softwareEquipos[data.equipoId].push(data);
+      });
+      catalogo  = results[7].docs.map(function(d){return d.data();});
+      personal  = results[8].docs.map(function(d){return d.data();});
+      _personalCacheBuilt = false;
+      console.log('Datos frescos — equipos:',equipos.length,'personal:',personal.length);
+
+      // Guardar en caché para la próxima carga
+      _guardarCache();
+
+      setSyncUI('ok','En linea');
+      _actualizarReloj();
+
+      if(_primeraVezCarga){
+        _primeraVezCarga = false;
+        switchView('dashboard');
+        checkQRHash();
+      } else {
+        // Refrescar la vista activa
+        if(_modoCampo) actualizarStatsCampo();
+        else if(curView==='dashboard') renderDashboard();
+        if(curView==='inventario')   renderInventario();
+        if(curView==='qr')           renderQR();
+        if(curView==='obsoletos')    renderObsoletos();
+        if(curView==='etiquetas')    renderEtiquetas();
+        if(curView==='reparaciones') renderReparaciones();
+        if(curView==='celulares')    renderCelulares();
+        if(curView==='licencias')    renderLicencias();
+        if(curView==='simulador')    renderSimulador();
+        if(openEquipoId)             dpTab(dpCurTab);
+      }
+    }).catch(function(err){
+      console.error('Error al cargar datos:', err);
+      setSyncUI('error','Sin conexión');
+      if(silencioso){
+        var btn=document.getElementById('btn-actualizar');
+        if(btn){ btn.disabled=false; btn.style.opacity='1'; }
+      }
     });
-    catalogo  = results[7].docs.map(function(d){return d.data();});
-    personal  = results[8].docs.map(function(d){return d.data();});
-    _personalCacheBuilt = false;
-    console.log('Datos cargados — equipos:',equipos.length,'personal:',personal.length);
-
-    setSyncUI('ok','En linea');
-    _actualizarReloj();
-
-    if(_primeraVezCarga){
-      _primeraVezCarga=false;
-      switchView('dashboard');
-      checkQRHash();
-    } else {
-      // Refrescar la vista activa
-      if(_modoCampo) actualizarStatsCampo();
-      else if(curView==='dashboard') renderDashboard();
-      if(curView==='inventario')   renderInventario();
-      if(curView==='qr')           renderQR();
-      if(curView==='obsoletos')    renderObsoletos();
-      if(curView==='etiquetas')    renderEtiquetas();
-      if(curView==='reparaciones') renderReparaciones();
-      if(curView==='celulares')    renderCelulares();
-      if(curView==='licencias')    renderLicencias();
-      if(curView==='simulador')    renderSimulador();
-      if(openEquipoId)             dpTab(dpCurTab);
-    }
-
-  }).catch(function(err){
-    console.error('Error al cargar datos:', err);
-    setSyncUI('error','Sin conexión');
-  });
   }).catch(function(err){
     console.error('Error token auth:', err);
     setSyncUI('error','Sin conexión');
