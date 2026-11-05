@@ -1,0 +1,9 @@
+CAFIVER FIRMA DIGITAL - PRUEBAS
+
+1. Descomprime esta carpeta (clic derecho > Extraer todo).
+2. Haz doble clic en INICIAR-PRUEBAS.bat
+3. Espera. La primera vez tarda 2 o 3 minutos. Se abrira el navegador.
+
+Solo para PDFs de prueba. Sin validez legal. La firma saldra como "no confiable" (certificado de pruebas).
+Necesita internet. Si Windows pregunta por seguridad, elige "Mas informacion" > "Ejecutar de todos modos".
+Si dice que Python no se encuentra y se abre la Microsoft Store, instala Python desde python.org marcando "Add Python to PATH".
