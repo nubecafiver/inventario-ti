@@ -4,7 +4,15 @@ Python (FastAPI) + pyHanko (MIT). **Solo pruebas, sin validez legal, sin constan
 
 Funciones: firmar PDF y sellarlo RFC 3161, verificar PDFs, recibir webhooks de Documenso (secreto compartido), registrar constancias **simuladas**, auditoría.
 
-## Ejecutar
+## Arranque rápido (pruebas)
+```
+python -m venv v
+v/bin/pip install pyHanko requests fastapi uvicorn python-multipart     # Windows: v\Scripts\pip
+v/bin/python iniciar_pruebas.py            # Windows: v\Scripts\python
+```
+Crea solo un certificado autofirmado de pruebas y abre en `http://localhost:8000`.
+
+## Ejecutar a mano
 ```
 python -m venv v && v/bin/pip install pyHanko requests fastapi uvicorn python-multipart
 P12_PATH=cert.p12 P12_PASSPHRASE=*** WEBHOOK_SECRET=*** TRUSTED_ROOTS=./roots DATA_DIR=./data \
