@@ -97,10 +97,6 @@ function paso(archivo, rol, modulo, titulo, texto, ruta) { PASOS.push({ archivo,
   paso('g02-procesos', 'Gerente', 'Procesos y procedimientos', 'Lista con indicadores', 'Procesos con estado, versión y próxima revisión. Las tarjetas filtran la tabla. Solo tú aprobás y publicás.', 'Menú › Procesos y procedimientos');
   await G.modal('.ti-row:has-text("PRO-002")', 'g03-proceso-detalle');
   paso('g03-proceso-detalle', 'Gerente', 'Procesos y procedimientos', 'Detalle y aprobación', 'Ficha, actividades, versiones e historial. Los botones de abajo son las acciones permitidas para tu rol en ese estado.', 'Procesos › clic en un proceso');
-  await G.ir('ti-tickets'); await G.foto('g04-tickets');
-  paso('g04-tickets', 'Gerente', 'Mesa de ayuda', 'Todos los tickets', 'Prioridad, estado, responsable y semáforo de SLA con texto. Tarjetas de gestión y exportar CSV.', 'Menú › Mesa de ayuda');
-  await G.modal('.ti-row:has-text("TCK-0001")', 'g05-ticket-detalle');
-  paso('g05-ticket-detalle', 'Gerente', 'Mesa de ayuda', 'Detalle con SLA vencido', 'Resumen, conversación (con notas internas) e historial. Asignar, cambiar prioridad o cancelar.', 'Mesa de ayuda › clic en un ticket');
   await G.ir('ti-cambios'); await G.foto('g06-cambios');
   paso('g06-cambios', 'Gerente', 'Gestión de cambios', 'Cambios y riesgo', 'Cambios con riesgo, tipo, estado y ventana. Aprobar es solo tuyo (y del Director).', 'Menú › Gestión de cambios');
   await G.modal('.ti-row:has-text("CHG-0001")', 'g07-cambio-detalle');
@@ -115,8 +111,6 @@ function paso(archivo, rol, modulo, titulo, texto, ruta) { PASOS.push({ archivo,
   paso('g11-respaldo-detalle', 'Gerente', 'Respaldos', 'Detalle y registro', 'Última ejecución, última prueba de restauración y botones para registrar nuevas.', 'Respaldos › clic en un trabajo');
   await G.ir('ti-admin'); await G.foto('g12-usuarios');
   paso('g12-usuarios', 'Gerente', 'Administración', 'Usuarios y roles', 'Asigna Gerente, Consultor u otros roles. Siempre debe quedar al menos un Gerente o Administrador.', 'Menú › Administración › Usuarios y roles');
-  await G.page.click('[data-t=tickets]'); await G.page.waitForTimeout(400); await G.foto('g13-config-tickets', true);
-  paso('g13-config-tickets', 'Gerente', 'Administración', 'Configuración de la mesa de ayuda', 'Categorías, SLA por categoría y prioridad, horario de servicio. Nada viene predefinido: lo defines tú.', 'Administración › Mesa de ayuda');
   await G.page.click('[data-t=auditoria]'); await G.page.waitForTimeout(500); await G.foto('g14-auditoria');
   paso('g14-auditoria', 'Gerente', 'Administración', 'Auditoría', 'Quién hizo qué y cuándo. Solo lectura: nadie puede editarla ni borrarla.', 'Administración › Auditoría');
   await G.page.close();
@@ -125,8 +119,6 @@ function paso(archivo, rol, modulo, titulo, texto, ruta) { PASOS.push({ archivo,
   const C = await sesion(CONS, 'Consultor');
   await C.ir('ti-inicio'); await C.page.waitForTimeout(400); await C.foto('c01-inicio', true);
   paso('c01-inicio', 'Consultor', 'Inicio', 'El resumen del consultor', 'Solo lo suyo: su atención de procesos y accesos. Sin inventario, auditoría ni indicadores globales.', 'Menú › Inicio');
-  await C.ir('ti-tickets'); await C.foto('c02-tickets');
-  paso('c02-tickets', 'Consultor', 'Mesa de ayuda', 'Tus tickets', 'Los que tiene asignados, los que creó y los nuevos sin responsable, que puede tomar.', 'Menú › Mesa de ayuda');
   await C.ir('ti-cambios'); await C.foto('c03-cambios');
   paso('c03-cambios', 'Consultor', 'Gestión de cambios', 'Tus cambios', 'Los que solicitó o debe implementar. No puede aprobar.', 'Menú › Gestión de cambios');
   await C.ir('ti-respaldos'); await C.foto('c04-respaldos');

@@ -15,7 +15,6 @@ Todo es **DATOS DE EJEMPLO** (marcados DEMO) de un Firebase simulado en memoria;
 |---|---|---|
 | Inicio | Resumen con indicadores de todos los módulos | Todos (cada rol ve lo suyo) |
 | Procesos y procedimientos | Documentos con versiones y aprobación | Gerente, Consultor, Director, Administrador, Técnico (solo publicados) |
-| Mesa de ayuda | Tickets, prioridad y SLA | Todos (el Consultor, solo lo suyo) |
 | Gestión de cambios | Riesgo, reversa, aprobación y ventana | Gerente, Consultor, Administrador, Director |
 | Proveedores y contratos | Vigencias y montos | Gerente, Consultor, Administrador, Director |
 | Respaldos | Control de respaldos y pruebas de restauración | Gerente, Consultor, Administrador, Director |
@@ -24,3 +23,5 @@ Todo es **DATOS DE EJEMPLO** (marcados DEMO) de un Firebase simulado en memoria;
 | Administración | Usuarios, roles, auditoría y configuración | Gerente, Administrador |
 
 Cada tarjeta de Inicio abre el módulo ya filtrado. Detalle de cada módulo y sus fórmulas: `docs/PLATAFORMA.md`.
+
+> La **Mesa de ayuda** de esta plataforma está oculta: los tickets se atienden en TI Connect (ver `docs/PLATAFORMA.md`). Por eso el recorrido ya no la incluye.
