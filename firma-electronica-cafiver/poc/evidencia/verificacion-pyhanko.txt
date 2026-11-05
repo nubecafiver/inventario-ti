@@ -1,0 +1,13 @@
+A) CAFIVER como raíz propia (solo prueba)
+Campo: FirmaCAFIVER
+Integridad: True | Firma válida: True | Cobertura: ENTIRE_FILE
+Certificado confiable (según raíces dadas): True
+Sello de tiempo presente: True
+  Sello íntegro: True | válido: True | confiable: True | fecha: 2026-11-05 00:18:43+00:00
+
+B) Sin raíz propia (vista de un tercero)
+Campo: FirmaCAFIVER
+Integridad: True | Firma válida: True | Cobertura: ENTIRE_FILE
+Certificado confiable (según raíces dadas): False
+Sello de tiempo presente: True
+  Sello íntegro: True | válido: True | confiable: True | fecha: 2026-11-05 00:18:43+00:00
