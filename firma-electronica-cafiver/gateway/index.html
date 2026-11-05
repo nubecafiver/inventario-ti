@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAFIVER Firma Digital — Pruebas</title>
+<style>
+:root{--bg:#f6f7f5;--panel:#fff;--ink:#14201a;--muted:#5f6b64;--line:#e3e7e2;--accent:#a2e771;--ok:#256b2a;--okbg:#e6f5e1;--bad:#b42318;--badbg:#fdecea;--warn:#9a4a05;--warnbg:#fff1e0;--code:#eef1ec}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1511;--panel:#172019;--ink:#e8efe9;--muted:#9aa89f;--line:#26322a;--ok:#8fd68a;--okbg:#16301a;--bad:#ff8a7e;--badbg:#3a1713;--warn:#f0b35a;--warnbg:#3a2a10;--code:#1d2820}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
+.bar{background:#7a1f12;color:#fff;text-align:center;font-weight:600;font-size:13px;padding:6px 12px}
+header{background:var(--panel);border-bottom:1px solid var(--line);display:flex;gap:18px;align-items:center;padding:10px 24px;flex-wrap:wrap}
+header b{font-size:19px}nav{display:flex;gap:4px;flex-wrap:wrap}nav a{padding:7px 12px;border-radius:6px;color:var(--muted);cursor:pointer;font-size:14px}nav a.on{background:#eefbe3;color:#14201a;font-weight:600}
+main{max-width:1000px;margin:0 auto;padding:24px}h1{font-size:22px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:14px;min-width:0}
+.btn{background:var(--accent);color:#14201a;border:0;border-radius:6px;padding:9px 16px;font-weight:600;cursor:pointer}.btn.s{background:var(--panel);border:1px solid var(--line);color:var(--ink);font-weight:500}.btn:disabled{opacity:.5}
+.note{border-radius:8px;padding:10px 12px;font-size:13px;margin:12px 0}.n-d{background:var(--badbg);color:var(--bad);border:1px dashed var(--bad)}.n-w{background:var(--warnbg);color:var(--warn)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:top}th{color:var(--muted);font-size:12px;text-transform:uppercase}
+.tag{padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}.t-ok{background:var(--okbg);color:var(--ok)}.t-bad{background:var(--badbg);color:var(--bad)}.t-w{background:var(--warnbg);color:var(--warn)}
+code,.m{font:12.5px ui-monospace,Menlo,monospace;background:var(--code);padding:1px 6px;border-radius:4px;word-break:break-all}
+.hide{display:none}.tblw{overflow-x:auto}
+</style></head><body>
+<div class="bar">PRUEBAS — certificado autofirmado · FreeTSA no es un PSC · sin validez legal · no se emiten constancias oficiales</div>
+<header><b>CAFIVER Firma Digital</b><nav id="nav"></nav></header>
+<main id="m"></main>
+<script>
+const $=s=>document.querySelector(s),esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fd=f=>new Date(f*1000).toLocaleString('es-MX');
+const TABS=[['firmar','Firmar y sellar'],['verificar','Verificador'],['docs','Documentos y NOM-151'],['eventos','Eventos de Documenso'],['audit','Auditoría']];
+const tag=(ok,t,f)=>`<span class="tag ${ok?'t-ok':'t-bad'}">${ok?t:f}</span>`;
+async function api(u,o){const r=await fetch(u,o);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.detail||r.status);return j}
+const V={
+firmar:()=>`<h1>Firmar y sellar un PDF</h1><p class="sub">Firma con el certificado de pruebas del servidor y pide sello de tiempo RFC 3161 a FreeTSA (solo se envía el hash de la firma).</p>
+<div class="card"><input type="file" id="f" accept="application/pdf"> <button class="btn" id="go">Firmar y sellar</button><div id="out"></div>
+<div class="note n-w">La llave privada vive solo en el servidor y no se expone al navegador. Use únicamente documentos de prueba.</div></div>`,
+verificar:()=>`<h1>Verificador de documentos</h1><p class="sub">Sube un PDF firmado y revisa integridad, firma, certificado y sello de tiempo.</p>
+<div class="card"><input type="file" id="f" accept="application/pdf"> <button class="btn" id="go">Verificar</button><div id="out"></div></div>`,
+docs:()=>`<h1>Documentos y constancias NOM-151</h1><p class="sub">Las constancias de esta pantalla son <b>SIMULACIONES</b>: no hay PSC conectado.</p><div class="card tblw" id="t"></div><div class="card tblw" id="c"></div>`,
+eventos:()=>`<h1>Eventos recibidos de Documenso</h1><p class="sub">Webhook <code>/webhook/documenso</code> protegido con secreto compartido.</p><div class="card tblw" id="t"></div>`,
+audit:()=>`<h1>Auditoría</h1><p class="sub">Registro de acciones del gateway.</p><div class="card tblw" id="t"></div>`};
+const B={
+firmar(){$('#go').onclick=async()=>{const f=$('#f').files[0];if(!f)return;const o=$('#out');o.innerHTML='Firmando…';$('#go').disabled=true;try{const x=new FormData();x.append('file',f);const r=await api('/api/firmar',{method:'POST',body:x});
+o.innerHTML=`<div class="note t-ok" style="background:var(--okbg);color:var(--ok)">Documento firmado y sellado.</div><p>SHA-256: <span class="m">${r.sha256}</span></p><p>TSA: <code>${esc(r.tsa)}</code></p><p><a class="btn" style="text-decoration:none;display:inline-block" href="${r.descarga}">Descargar PDF firmado</a></p>`}catch(e){o.innerHTML=`<div class="note n-d">${esc(e.message)}</div>`}$('#go').disabled=false}},
+verificar(){$('#go').onclick=async()=>{const f=$('#f').files[0];if(!f)return;const o=$('#out');o.innerHTML='Verificando…';try{const x=new FormData();x.append('file',f);const r=await api('/api/verificar',{method:'POST',body:x});
+o.innerHTML=(r.firmas.length?r.firmas.map(s=>s.error?`<div class="note n-d">Error al validar ${esc(s.campo)}: ${esc(s.error)}</div>`:`<table><tr><th>Campo</th><td>${esc(s.campo)}</td></tr>
+<tr><th>Integridad</th><td>${tag(s.integro,'Íntegro','Modificado')} cobertura: ${esc(s.cobertura)}</td></tr><tr><th>Firma criptográfica</th><td>${tag(s.firma_valida,'Válida','Inválida')}</td></tr>
+<tr><th>Firmante</th><td>${esc(s.firmante)}${s.autofirmado?' <span class="tag t-w">autofirmado</span>':''}</td></tr><tr><th>Certificado confiable</th><td>${tag(s.certificado_confiable,'Confiable (raíces configuradas)','No confiable')}</td></tr>
+<tr><th>Sello de tiempo</th><td>${s.sello_tiempo?`${tag(s.sello_tiempo.valido,'Válido','Inválido')} ${esc(s.sello_tiempo.fecha)} · confiable: ${s.sello_tiempo.confiable?'sí':'no'}`:'<span class="tag t-w">Sin sello</span>'}</td></tr>
+<tr><th>Revocación</th><td>${esc(s.revocacion)}</td></tr></table>`).join(''):'<div class="note n-w">El PDF no contiene firmas.</div>')+`<p>SHA-256: <span class="m">${r.sha256}</span></p><div class="note n-w">${esc(r.aviso)}</div>`}catch(e){o.innerHTML=`<div class="note n-d">${esc(e.message)}</div>`}}},
+async docs(){const d=await api('/api/documentos'),c=await api('/api/constancias');
+$('#t').innerHTML='<b>Documentos</b><table><tr><th>ID</th><th>Archivo</th><th>SHA-256</th><th>Fecha</th><th></th></tr>'+(d.map(x=>`<tr><td><code>${x.id}</code></td><td>${esc(x.nombre)}</td><td class="m">${x.sha256.slice(0,20)}…</td><td>${fd(x.ts)}</td><td><a href="/api/descargar/${x.id}">PDF</a> · <a href="#" data-n="${x.id}">Simular NOM-151</a></td></tr>`).join('')||'<tr><td colspan=5>Sin documentos. Firma uno primero.</td></tr>')+'</table>';
+$('#c').innerHTML='<b>Constancias</b> <span class="tag t-w">SIMULACIÓN</span><table><tr><th>ID</th><th>Documento</th><th>Estado</th><th>Nota</th></tr>'+(c.map(x=>`<tr><td><code>${x.id}</code></td><td><code>${x.doc_id}</code></td><td><span class="tag t-w">${x.estado}</span></td><td>${esc(x.nota)}</td></tr>`).join('')||'<tr><td colspan=4>Sin registros.</td></tr>')+'</table>';
+document.querySelectorAll('[data-n]').forEach(a=>a.onclick=async e=>{e.preventDefault();await api('/api/nom151/simular/'+a.dataset.n,{method:'POST'});show('docs')})},
+async eventos(){const e=await api('/api/eventos');$('#t').innerHTML='<table><tr><th>Fecha</th><th>Evento</th><th>Envelope</th><th>Detalle</th></tr>'+(e.map(x=>`<tr><td>${fd(x.ts)}</td><td><code>${esc(x.tipo)}</code></td><td class="m">${esc(x.envelope)}</td><td class="m">${esc(x.detalle)}</td></tr>`).join('')||'<tr><td colspan=4>Aún no llegan eventos.</td></tr>')+'</table>'},
+async audit(){const a=await api('/api/auditoria');$('#t').innerHTML='<table><tr><th>Fecha</th><th>Acción</th><th>Detalle</th></tr>'+a.map(x=>`<tr><td>${fd(x.ts)}</td><td>${esc(x.accion)}</td><td class="m">${esc(x.detalle)}</td></tr>`).join('')+'</table>'}};
+function show(k){$('#nav').innerHTML=TABS.map(t=>`<a data-k="${t[0]}" class="${t[0]===k?'on':''}">${t[1]}</a>`).join('');document.querySelectorAll('nav a').forEach(a=>a.onclick=()=>show(a.dataset.k));$('#m').innerHTML=V[k]();B[k]()}
+show('firmar');
+</script></body></html>
