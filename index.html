@@ -5181,9 +5181,11 @@ async function descargarPDFEtiquetas(){
 
   toast('Generando PDF... espera un momento');
 
-  // Etiqueta: 45×45mm, 4 columnas × 5 filas = 20 por página
-  var etiqW=45, etiqH=45, cols=4, rowsPerPage=5;
-  var marginX=5, marginY=8, gapX=2, gapY=2;
+  // Etiqueta: 48×50mm — 4 cols en hoja carta portrait (216mm)
+  // 10mm margen lados: 10 + 4×48 + 10 = 212mm < 216mm ✓
+  // 10mm margen top/bot: 10 + 5×50 + 10 = 270mm < 279mm ✓
+  var etiqW=48, etiqH=50, cols=4, rowsPerPage=5;
+  var marginX=10, marginY=10, gapX=0, gapY=2;
   var jsPDF = window.jspdf.jsPDF;
   var doc = new jsPDF({unit:'mm', format:'letter', orientation:'portrait'});
   var total = data.length;
@@ -5213,19 +5215,19 @@ async function descargarPDFEtiquetas(){
     doc.rect(x, y, etiqW, etiqH);
 
     // ── Fila superior: logo izquierda + ID derecha ──
-    var logoSz = 10;
+    var logoSz = 11;
     doc.addImage(LOGO_B64,'JPEG', x+1.5, y+1.5, logoSz, logoSz);
 
     // ID / No. Activo — esquina superior derecha
     doc.setFont('helvetica','bold');
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setTextColor(0,0,0);
-    doc.text(String(e.af||e.id), x+etiqW-2, y+7, {align:'right'});
+    doc.text(String(e.af||e.id), x+etiqW-2, y+8, {align:'right'});
 
     // ── QR grande centrado ──
-    var qrSz = 28;
+    var qrSz = 32;
     var qrX = x + (etiqW-qrSz)/2;
-    var qrY = y + 13;
+    var qrY = y + 14;
     if(qrDataURLs[i]){
       doc.addImage(qrDataURLs[i],'PNG', qrX, qrY, qrSz, qrSz);
     }
@@ -5234,13 +5236,13 @@ async function descargarPDFEtiquetas(){
     doc.setFont('helvetica','normal');
     doc.setFontSize(5.5);
     doc.setTextColor(30,30,30);
-    var modelo = String(e.modelo||e.marca||'').substring(0,22);
-    doc.text(modelo, x+etiqW/2, y+43, {align:'center'});
+    var modelo = String(e.modelo||e.marca||'').substring(0,24);
+    doc.text(modelo, x+etiqW/2, y+47, {align:'center'});
 
     if(e.serie){
       doc.setFontSize(4.5);
       doc.setTextColor(90,90,90);
-      doc.text('S/N: '+String(e.serie).substring(0,22), x+etiqW/2, y+46.5, {align:'center'});
+      doc.text('S/N: '+String(e.serie).substring(0,24), x+etiqW/2, y+49.5, {align:'center'});
     }
   }
 
