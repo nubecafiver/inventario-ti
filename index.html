@@ -5181,11 +5181,11 @@ async function descargarPDFEtiquetas(){
 
   toast('Generando PDF... espera un momento');
 
-  // Etiqueta: 50×75mm portrait — 4 cols en carta
-  // 4 + 4×50 + 4 = 208mm < 216mm ✓   (8mm holgura)
-  // 4 + 3×75 + 4 = 233mm < 279mm ✓   (3 filas = 12 por pág)
-  var etiqW=50, etiqH=75, cols=4, rowsPerPage=3;
-  var marginX=4, marginY=4, gapX=0, gapY=2;
+  // Etiqueta: 70×45mm landscape — 3 cols en carta portrait
+  // 3 + 3×70 + 3 = 216mm = carta exacto → usar marginX=3
+  // 3 + 5×45 + 3 = 231mm < 279mm ✓  (5 filas = 15 por pág)
+  var etiqW=70, etiqH=45, cols=3, rowsPerPage=5;
+  var marginX=3, marginY=5, gapX=0, gapY=2;
   var jsPDF = window.jspdf.jsPDF;
   var doc = new jsPDF({unit:'mm', format:'letter', orientation:'portrait'});
   var total = data.length;
@@ -5214,37 +5214,37 @@ async function descargarPDFEtiquetas(){
     doc.setLineWidth(0.3);
     doc.rect(x, y, etiqW, etiqH);
 
-    // ── Logo centrado arriba ──
-    var logoSz = 14;
-    doc.addImage(LOGO_B64,'JPEG', x+(etiqW-logoSz)/2, y+2, logoSz, logoSz);
-
-    // ── QR grande centrado ──
-    var qrSz = 38;
-    var qrX = x + (etiqW-qrSz)/2;
-    var qrY = y + 18;
+    // Layout landscape: QR derecha, info izquierda
+    var qrSz = 39;  // casi toda la altura: 45mm - 3mm margen top/bot = 39mm
+    var qrX = x + etiqW - qrSz - 1;
+    var qrY = y + 3;
     if(qrDataURLs[i]){
       doc.addImage(qrDataURLs[i],'PNG', qrX, qrY, qrSz, qrSz);
     }
 
-    // ── ID / No. Activo grande centrado ──
+    // Logo esquina superior izquierda
+    var logoSz = 11;
+    doc.addImage(LOGO_B64,'JPEG', x+2, y+2, logoSz, logoSz);
+
+    // ID / No. Activo — izquierda, debajo del logo
     doc.setFont('helvetica','bold');
-    doc.setFontSize(14);
+    doc.setFontSize(16);
     doc.setTextColor(0,0,0);
-    doc.text(String(e.af||e.id), x+etiqW/2, y+62, {align:'center'});
+    doc.text(String(e.af||e.id), x+2, y+22);
 
-    // ── Modelo ──
+    // Modelo
     doc.setFont('helvetica','bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(30,30,30);
-    var modelo = String(e.modelo||e.marca||'').substring(0,20);
-    doc.text(modelo, x+etiqW/2, y+67, {align:'center'});
+    var modelo = String(e.modelo||e.marca||'').substring(0,16);
+    doc.text(modelo, x+2, y+30);
 
-    // ── S/N ──
+    // S/N
     if(e.serie){
       doc.setFont('helvetica','normal');
-      doc.setFontSize(8);
+      doc.setFontSize(7);
       doc.setTextColor(60,60,60);
-      doc.text('S/N: '+String(e.serie).substring(0,20), x+etiqW/2, y+72, {align:'center'});
+      doc.text('S/N: '+String(e.serie).substring(0,16), x+2, y+37);
     }
   }
 
