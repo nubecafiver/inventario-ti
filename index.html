@@ -5181,11 +5181,11 @@ async function descargarPDFEtiquetas(){
 
   toast('Generando PDF... espera un momento');
 
-  // Etiqueta: 70×45mm landscape — 3 cols en carta portrait
-  // 3 + 3×70 + 3 = 216mm = carta exacto → usar marginX=3
-  // 3 + 5×45 + 3 = 231mm < 279mm ✓  (5 filas = 15 por pág)
-  var etiqW=70, etiqH=45, cols=3, rowsPerPage=5;
-  var marginX=3, marginY=5, gapX=0, gapY=2;
+  // Etiqueta: 50×25mm landscape — 4 cols en carta portrait
+  // 8 + 4×50 + 8 = 216mm ✓
+  // 8 + 9×25 + 8 = 241mm < 279mm ✓  (9 filas = 36 por pág)
+  var etiqW=50, etiqH=25, cols=4, rowsPerPage=9;
+  var marginX=8, marginY=8, gapX=0, gapY=2;
   var jsPDF = window.jspdf.jsPDF;
   var doc = new jsPDF({unit:'mm', format:'letter', orientation:'portrait'});
   var total = data.length;
@@ -5214,37 +5214,36 @@ async function descargarPDFEtiquetas(){
     doc.setLineWidth(0.3);
     doc.rect(x, y, etiqW, etiqH);
 
-    // Layout landscape: QR derecha, info izquierda
-    var qrSz = 39;  // casi toda la altura: 45mm - 3mm margen top/bot = 39mm
+    // Layout landscape 50x25mm: QR derecha, info izquierda
+    var qrSz = 21;  // 25mm - 2mm top - 2mm bot = 21mm
     var qrX = x + etiqW - qrSz - 1;
-    var qrY = y + 3;
+    var qrY = y + 2;
     if(qrDataURLs[i]){
       doc.addImage(qrDataURLs[i],'PNG', qrX, qrY, qrSz, qrSz);
     }
 
     // Logo esquina superior izquierda
-    var logoSz = 11;
-    doc.addImage(LOGO_B64,'JPEG', x+2, y+2, logoSz, logoSz);
+    var logoSz = 7;
+    doc.addImage(LOGO_B64,'JPEG', x+1.5, y+1.5, logoSz, logoSz);
 
-    // ID / No. Activo — izquierda, debajo del logo
+    // ID / No. Activo
     doc.setFont('helvetica','bold');
-    doc.setFontSize(16);
+    doc.setFontSize(10);
     doc.setTextColor(0,0,0);
-    doc.text(String(e.af||e.id), x+2, y+22);
+    doc.text(String(e.af||e.id), x+1.5, y+13);
 
     // Modelo
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(8);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(5.5);
     doc.setTextColor(30,30,30);
-    var modelo = String(e.modelo||e.marca||'').substring(0,16);
-    doc.text(modelo, x+2, y+30);
+    var modelo = String(e.modelo||e.marca||'').substring(0,18);
+    doc.text(modelo, x+1.5, y+18);
 
     // S/N
     if(e.serie){
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(7);
-      doc.setTextColor(60,60,60);
-      doc.text('S/N: '+String(e.serie).substring(0,16), x+2, y+37);
+      doc.setFontSize(5);
+      doc.setTextColor(80,80,80);
+      doc.text('S/N: '+String(e.serie).substring(0,18), x+1.5, y+22.5);
     }
   }
 
