@@ -3093,14 +3093,18 @@ function deleteResguardo(equipoId, idx){
 
 function renderDashboard(){
   var w=document.getElementById('view-dashboard');if(!w)return;
-  var total=equipos.length;
+  // Separar en 3 grupos
+  var activos   = equipos.filter(function(e){ return e.estado!=='Obsoleto'&&e.estado!=='Baja'; });
+  var obsoletos = equipos.filter(function(e){ return e.estado==='Obsoleto'; });
+  var bajas     = equipos.filter(function(e){ return e.estado==='Baja'; });
+  var total=activos.length;
   var byTipo={};
-  var byEstado={Bueno:0,Regular:0,Malo:0,Baja:0};
+  var byEstado={Bueno:0,Regular:0,Malo:0};
   var byArea={};
   var byPlaza={};
   var totalInv=0;
   var rojo=0,amarillo=0,verde=0;
-  equipos.forEach(function(e){
+  activos.forEach(function(e){
     byTipo[e.tipo]=(byTipo[e.tipo]||0)+1;
     byEstado[e.estado]=(byEstado[e.estado]||0)+1;
     byArea[e.area]=(byArea[e.area]||0)+1;
@@ -3110,7 +3114,7 @@ function renderDashboard(){
     if(cls==='rojo')rojo++;else if(cls==='amarillo')amarillo++;else verde++;
   });
   var pctBueno=total?Math.round((byEstado.Bueno||0)/total*100):0;
-  var recent=equipos.slice(-5).reverse();
+  var recent=activos.slice(-5).reverse();
   var areasSorted=Object.keys(byArea).sort(function(a,b){return byArea[b]-byArea[a];});
   var plazasSorted=Object.keys(byPlaza).sort(function(a,b){return byPlaza[b]-byPlaza[a];});
   var maxArea=areasSorted.length?byArea[areasSorted[0]]:1;
@@ -3119,9 +3123,9 @@ function renderDashboard(){
   var tipoColors={Desktop:'#2a78d6',Laptop:'#1baf7a',Servidor:'#7c3aed',Impresora:'#eda100',Celular:'#ec4899',Otro:'#6b7280'};
   var tipoIcons={Desktop:'ti-device-desktop',Laptop:'ti-device-laptop',Servidor:'ti-server',Impresora:'ti-printer',Celular:'ti-device-mobile',Otro:'ti-device-unknown'};
 
-  // Sin responsable identificado
+  // Sin responsable identificado (solo activos)
   var sinResponsable=0,conResponsable=0;
-  equipos.forEach(function(e){
+  activos.forEach(function(e){
     if(!e.responsable||!e.responsable.trim()){sinResponsable++;}
     else{ var m=findPersonal(e.responsable); if(m)conResponsable++; else sinResponsable++; }
   });
@@ -3153,7 +3157,7 @@ function renderDashboard(){
   var areaBarras=areasSorted.slice(0,8).map(function(a){
     var pct=Math.round(byArea[a]/maxArea*100);
     var rojoA=0;
-    equipos.filter(function(e){return e.area===a;}).forEach(function(e){if(vidaClass(calcAnios(e.fecha))==='rojo')rojoA++;});
+    activos.filter(function(e){return e.area===a;}).forEach(function(e){if(vidaClass(calcAnios(e.fecha))==='rojo')rojoA++;});
     var pctRojo=byArea[a]?Math.round(rojoA/byArea[a]*100):0;
     var aEsc=a.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return '<div onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\''+aEsc+'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
@@ -3259,9 +3263,10 @@ function renderDashboard(){
 
     // KPI ROW
     +'<div class="g4s">'
-    +'<div class="scs" onclick="switchView(\'inventario\')">'
+    // Fila 1: Activos, Buen estado, Para cambio, Valor
+    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\')">'
     +'<div class="scs-top"><div class="scs-icon" style="background:#eff6ff;"><i class="ti ti-devices" style="color:#1d4ed8;font-size:18px;"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">Activos</span></div>'
-    +'<div class="scs-lbl">Total equipos</div><div class="scs-val">'+total+'</div>'
+    +'<div class="scs-lbl">Equipos activos</div><div class="scs-val">'+total+'</div>'
     +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">'+(byTipo.Laptop||0)+' laptops · '+(byTipo.Desktop||0)+' desktops</div>'
     +'</div>'
     +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Bueno\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
@@ -3278,6 +3283,29 @@ function renderDashboard(){
     +'<div class="scs-top"><div class="scs-icon" style="background:#f5f3ff;"><i class="ti ti-currency-dollar" style="color:#7c3aed;font-size:18px;"></i></div><span class="scs-badge" style="background:#ede9fe;color:#6d28d9;">MXN</span></div>'
     +'<div class="scs-lbl">Valor inventario</div><div class="scs-val" style="color:#7c3aed;font-size:18px;">'+fmt$(totalInv)+'</div>'
     +'<div style="font-size:10px;color:#2563eb;margin-top:4px;">Ver simulador →</div>'
+    +'</div>'
+    +'</div>'
+    // Fila 2: Obsoletos, Baja, Sin responsable, AV
+    +'<div class="g4s" style="margin-top:8px;">'
+    +'<div class="scs" onclick="switchView(\'obsoletos\');">'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#f9fafb;"><i class="ti ti-archive" style="color:#6b7280;font-size:18px;"></i></div><span class="scs-badge" style="background:#f1f5f9;color:#64748b;">Obsoletos</span></div>'
+    +'<div class="scs-lbl">Equipos obsoletos</div><div class="scs-val" style="color:#6b7280;">'+obsoletos.length+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">Ver en sección Obsoletos →</div>'
+    +'</div>'
+    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Baja\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#fef2f2;"><i class="ti ti-trash" style="color:#dc2626;font-size:18px;"></i></div><span class="scs-badge" style="background:#fee2e2;color:#991b1b;">Baja</span></div>'
+    +'<div class="scs-lbl">Dados de baja</div><div class="scs-val" style="color:#dc2626;">'+bajas.length+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">Click para ver en inventario →</div>'
+    +'</div>'
+    +'<div class="scs">'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#fef9c3;"><i class="ti ti-user-question" style="color:#ca8a04;font-size:18px;"></i></div><span class="scs-badge" style="background:#fef9c3;color:#854d0e;">Atención</span></div>'
+    +'<div class="scs-lbl">Sin responsable</div><div class="scs-val" style="color:#ca8a04;">'+sinResponsable+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">'+pctSinResp+'% del parque activo</div>'
+    +'</div>'
+    +'<div class="scs" onclick="switchView(\'antivirus\');">'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#eff6ff;"><i class="ti ti-shield-check" style="color:#2563eb;font-size:18px;"></i></div><span class="scs-badge" style="background:#dbeafe;color:#1d4ed8;">AV</span></div>'
+    +'<div class="scs-lbl">Con antivirus</div><div class="scs-val" style="color:#2563eb;">179</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">3 sin registro · Ver consola →</div>'
     +'</div>'
     +'</div>'
 
