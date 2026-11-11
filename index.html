@@ -3872,14 +3872,23 @@ function renderInventario(){
     +'</div></div>'
     +'<div style="overflow-x:auto;"><table>'
     +'<thead><tr>'
-    +['af','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado',''].map(function(c,i){
-      var lbl=['N° Activo','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Acciones'][i];
+    +['af','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado','',''].map(function(c,i){
+      var lbl=['N° Activo','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','AV','Acciones'][i];
       if(!c)return '<th>'+lbl+'</th>';
       return '<th onclick="sortBy(\''+c+'\')" >'+lbl+(sortCol===c?(sortAsc?' ▲':' ▼'):' ⇅')+'</th>';
     }).join('')
     +'</tr></thead><tbody>'
     +(data.length?data.slice(invPag*INV_PG,(invPag+1)*INV_PG).map(function(e){
       var rc=rowClass(e.fecha);
+      var av=getAVRecord(e);
+      var avCell;
+      if(!av){
+        avCell='<span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600;background:#f1f5f9;color:#94a3b8;" title="Sin registro en Bitdefender">— Sin AV</span>';
+      } else if(av.problemas!=='Sin problemas'){
+        avCell='<span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600;background:#fee2e2;color:#b91c1c;" title="'+av.problemas+' · '+av.ultima_sync+'">⚠️ Problema</span>';
+      } else {
+        avCell='<span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600;background:#dcfce7;color:#15803d;" title="v'+av.version_av+' · '+av.ultima_sync+'">🛡️ OK</span>';
+      }
       return '<tr class="'+rc+'" style="cursor:pointer;" ondblclick="openPanel(\''+e.id+'\')">'
         +'<td style="font-family:monospace;font-size:11px;font-weight:600;color:#374151;">'+(e.af?e.af:'—')+'</td>'
         +'<td>'+tipoPill(e.tipo)+'</td>'
@@ -3893,13 +3902,14 @@ function renderInventario(){
         +'<td style="font-family:monospace;font-size:11px;">'+(e.ip||'—')+'</td>'
         +'<td style="font-size:11px;">'+(e.so||'—')+'</td>'
         +'<td>'+estadoPill(e.estado)+'</td>'
+        +'<td>'+avCell+'</td>'
         +'<td>'+vidaPill(e.fecha)+'</td>'
         +'<td><div style="display:flex;gap:3px;">'
         +'<button class="icon-btn" data-act="ver" data-bid="'+e.id+'" onclick="event.stopPropagation();openPanel(this.dataset.bid)" title="Ver">&#128065;</button>'
         +'<button class="icon-btn" data-act="edit" data-bid="'+e.id+'" onclick="event.stopPropagation();editEquipo(this.dataset.bid)" title="Editar">&#9999;&#65039;</button>'
         +'<button class="icon-btn" data-act="del" data-bid="'+e.id+'" onclick="event.stopPropagation();deleteEquipo(this.dataset.bid)" title="Eliminar" style="color:#ea4335;">&#128465;</button>'+'</div></td>'
         +'</tr>';
-    }).join(''):'<tr><td colspan="13" class="empty-state">No hay equipos que coincidan</td></tr>')
+    }).join(''):'<tr><td colspan="15" class="empty-state">No hay equipos que coincidan</td></tr>')
     +'</tbody></table></div>'
     +(data.length>INV_PG?'<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;border-top:1px solid #f3f4f6;">'
       +'<button onclick="invPag=Math.max(0,invPag-1);renderInventario();" style="padding:4px 12px;border-radius:6px;border:1px solid #e5e7eb;background:'+(invPag===0?'#f9fafb':'#fff')+';cursor:pointer;font-size:12px;" '+(invPag===0?'disabled':'')+'>◀ Anterior</button>'
