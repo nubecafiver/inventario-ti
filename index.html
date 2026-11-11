@@ -1463,9 +1463,30 @@ const AV_DATA = [{"nombre": "ACYP", "ip": "192.1.19.37", "estado": "Administrado
 // === ANTIVIRUS helpers ===
 function getAVRecord(equipo){
   if(!equipo) return null;
+  // 1) Por IP
+  var ip = (equipo.ip||'').trim();
+  if(ip){
+    var byIP = AV_DATA.find(function(r){ return r.ip === ip; });
+    if(byIP) return byIP;
+  }
+  // 2) Por nombre (normalizado)
   var nombre = (equipo.nombre || equipo.hostname || equipo.id || '').toUpperCase().trim();
-  if(!nombre) return null;
-  return AV_DATA.find(function(r){ return r.nombre.toUpperCase() === nombre; }) || null;
+  if(nombre){
+    var byNombre = AV_DATA.find(function(r){ return r.nombre.toUpperCase() === nombre; });
+    if(byNombre) return byNombre;
+  }
+  // 3) Por MAC (eth o wifi)
+  function normMAC(m){ return (m||'').toUpperCase().replace(/[^0-9A-F]/g,''); }
+  var macE = normMAC(equipo.mac_eth);
+  var macW = normMAC(equipo.mac_wifi);
+  if(macE || macW){
+    var byMAC = AV_DATA.find(function(r){
+      var avMAC = normMAC(r.mac);
+      return avMAC && ((macE && avMAC===macE)||(macW && avMAC===macW));
+    });
+    if(byMAC) return byMAC;
+  }
+  return null;
 }
 
 function avBadge(equipo){
@@ -5947,11 +5968,21 @@ function renderAntivirus(){
   var sinPolitica = AV_DATA.filter(function(r){ return !r.politica||r.politica==='Ninguno'; }).length;
 
   // Cruce con inventario
+  function normMAC(m){ return (m||'').toUpperCase().replace(/[^0-9A-F]/g,''); }
   var enInventario = 0, sinInventario = [];
   AV_DATA.forEach(function(av){
-    var nombre = av.nombre.toUpperCase();
     var found = equipos.find(function(e){
-      return (e.nombre||e.hostname||e.id||'').toUpperCase() === nombre;
+      // 1) IP
+      if(av.ip && av.ip!=='—' && e.ip && e.ip===av.ip) return true;
+      // 2) Nombre
+      if((e.nombre||e.hostname||e.id||'').toUpperCase()===av.nombre.toUpperCase()) return true;
+      // 3) MAC
+      var avMAC = normMAC(av.mac);
+      if(avMAC){
+        if(normMAC(e.mac_eth)===avMAC) return true;
+        if(normMAC(e.mac_wifi)===avMAC) return true;
+      }
+      return false;
     });
     if(found) enInventario++;
     else sinInventario.push(av.nombre);
@@ -6008,7 +6039,11 @@ function renderAntivirus(){
   var VER_OK = '8.26.11.679';
   data.forEach(function(r, i){
     var enTI = equipos.find(function(e){
-      return (e.nombre||e.hostname||e.id||'').toUpperCase() === r.nombre.toUpperCase();
+      if(r.ip && r.ip!=='—' && e.ip && e.ip===r.ip) return true;
+      if((e.nombre||e.hostname||e.id||'').toUpperCase()===r.nombre.toUpperCase()) return true;
+      var avMAC = normMAC(r.mac);
+      if(avMAC && (normMAC(e.mac_eth)===avMAC || normMAC(e.mac_wifi)===avMAC)) return true;
+      return false;
     });
     var tiChip = enTI
       ? '<span style="background:#dcfce7;color:#15803d;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;">✓ Registrado</span>'
