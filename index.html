@@ -3132,6 +3132,17 @@ function renderDashboard(){
   var pctSinResp=total?Math.round(sinResponsable/total*100):0;
   var pctConResp=total?Math.round(conResponsable/total*100):0;
 
+  // Top responsables: quién tiene cuántos equipos
+  var byResp={};
+  activos.forEach(function(e){
+    var r=(e.responsable||'').trim();
+    if(!r) return;
+    byResp[r]=(byResp[r]||0)+1;
+  });
+  var topResp=Object.keys(byResp).map(function(r){ return {nombre:r,cnt:byResp[r]}; })
+    .sort(function(a,b){return b.cnt-a.cnt;}).slice(0,10);
+  var maxResp=topResp.length?topResp[0].cnt:1;
+
   // Cards tipo equipo
   var tipoCards=tiposSorted.map(function(t){
     var color=tipoColors[t]||'#6b7280';
@@ -3344,6 +3355,31 @@ function renderDashboard(){
     +'</div>'
     +'<span style="font-size:9px;font-weight:500;color:#16a34a;background:#f0fdf4;padding:2px 8px;border-radius:20px;flex-shrink:0;align-self:flex-start;cursor:pointer;">Ver personal →</span>'
     +'</div>'
+    +'</div>'
+
+    // TOP RESPONSABLES — quién tiene equipos
+    +'<div class="pnl" style="margin-bottom:12px;">'
+    +'<div class="pnl-hd"><h3><i class="ti ti-users" style="font-size:13px;color:#6b7280;"></i> Asignación de equipos — top responsables</h3><a onclick="switchView(\'personal\')">Ver personal →</a></div>'
+    +(topResp.length===0?'<div style="padding:14px 16px;font-size:12px;color:#9ca3af;">Sin datos de responsables</div>'
+    :'<div style="padding:8px 0;">'
+    +topResp.map(function(r,i){
+      var pct=Math.round(r.cnt/maxResp*100);
+      var cols=[['#dbeafe','#1d4ed8'],['#dcfce7','#15803d'],['#fef3c7','#d97706'],['#fce7f3','#be185d'],['#ede9fe','#6d28d9']];
+      var col=cols[i%5];
+      var ini=r.nombre.split(' ').map(function(x){return x[0]||'';}).join('').toUpperCase().slice(0,2);
+      var rEsc=r.nombre.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return '<div onclick="invFilter.q=\''+rEsc+'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
+        +'style="display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:0.5px solid #f9fafb;cursor:pointer;transition:background .12s;" '
+        +'onmouseover="this.style.background=\'#f9fafb\'" onmouseout="this.style.background=\'\'">'
+        +'<div style="width:28px;height:28px;border-radius:50%;background:'+col[0]+';color:'+col[1]+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0;">'+ini+'</div>'
+        +'<span style="font-size:11px;color:#374151;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+r.nombre+'</span>'
+        +'<div style="width:120px;height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden;flex-shrink:0;">'
+        +'<div style="height:100%;background:'+col[1]+';border-radius:3px;width:'+pct+'%;opacity:0.7;"></div></div>'
+        +'<span style="font-size:12px;font-weight:600;color:'+col[1]+';min-width:24px;text-align:right;">'+r.cnt+'</span>'
+        +'<span style="font-size:9px;color:#9ca3af;">equipo'+(r.cnt!==1?'s':'')+'</span>'
+        +'</div>';
+    }).join('')
+    +'</div>')
     +'</div>'
 
     // ÁREA + PLAZA + ACTIVIDAD
