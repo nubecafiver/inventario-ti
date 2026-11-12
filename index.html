@@ -3278,7 +3278,7 @@ function renderDashboard(){
     +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\')">'
     +'<div class="scs-top"><div class="scs-icon" style="background:#eff6ff;"><i class="ti ti-devices" style="color:#1d4ed8;font-size:18px;"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">Activos</span></div>'
     +'<div class="scs-lbl">Equipos activos</div><div class="scs-val">'+total+'</div>'
-    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">'+(byTipo.Laptop||0)+' laptops · '+(byTipo.Desktop||0)+' desktops</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;"><span style="color:#16a34a;font-weight:600;">'+conResponsable+' asignados</span> · <span style="color:#ca8a04;font-weight:600;">'+sinResponsable+' sin responsable</span></div>'
     +'</div>'
     +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Bueno\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
     +'<div class="scs-top"><div class="scs-icon" style="background:#f0fdf4;"><i class="ti ti-circle-check" style="color:#16a34a;font-size:18px;"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">'+pctBueno+'%</span></div>'
