@@ -87,6 +87,7 @@ tr:hover td{background:#f7f9ff;}
 .pill-no-asignado{background:#fff7ed;color:#c2410c;}
 .pill-desecho{background:#fce8e6;color:#9b1c1c;}
 .pill-no-encontrado{background:#f5f3ff;color:#6d28d9;}
+.pill-descapitalizado{background:#fef3c7;color:#92400e;border:1px solid #fcd34d;}
 .fi-sm{font-size:12px;padding:6px 10px;border:1.5px solid #e0e2e6;border-radius:8px;outline:none;font-family:'Inter',sans-serif;background:#fff;transition:border-color .15s;}
 .fi-sm:focus{border-color:#1a73e8;}
 .icon-btn{padding:5px 8px;border:1px solid #e0e2e6;border-radius:7px;cursor:pointer;background:#fff;font-size:12px;transition:all .15s;}
@@ -1553,6 +1554,7 @@ function cleanObj(o){return JSON.parse(JSON.stringify(o,function(k,v){return v==
 function tipoPill(t){var m={Desktop:'pill-desktop',Laptop:'pill-laptop',Servidor:'pill-servidor',Impresora:'pill-impresora',Celular:'pill-celular',Otro:'pill-otro'};return '<span class="pill '+(m[t]||'pill-otro')+'">'+t+'</span>';}
 function estadoPill(e){var m={Bueno:'pill-bueno',Regular:'pill-regular',Malo:'pill-malo',Baja:'pill-baja'};return '<span class="pill '+(m[e]||'pill-otro')+'">'+e+'</span>';}
 function estatusPill(s){var m={Asignado:'pill-asignado','No Asignado':'pill-no-asignado',Desecho:'pill-desecho','No encontrado':'pill-no-encontrado'};return s?'<span class="pill '+(m[s]||'pill-otro')+'">'+s+'</span>':'<span style="color:#d1d5db;font-size:10px;">—</span>';}
+function descapitalizadoBadge(e){return e.descapitalizado?'<span class="pill pill-descapitalizado" title="Descapitalizado en SAP el '+(e.fecha_descapitalizado||'')+'">⚠ Descapitalizado'+(e.fecha_descapitalizado?' '+e.fecha_descapitalizado:'')+'</span>':'';}
 function row(k,v){return '<div class="dp-row"><div class="dp-key">'+k+'</div><div class="dp-val">'+(v||'—')+'</div></div>';}
 
 // LOGIN
@@ -3482,7 +3484,7 @@ function openPanel(id){
   } else if(dpPerEl){
     dpPerEl.innerHTML='';
   }
-  document.getElementById('dp-sub').innerHTML=tipoPill(e.tipo)+'&nbsp;'+estadoPill(e.estado)+'&nbsp;'+(e.estatus?estatusPill(e.estatus)+'&nbsp;':'')+'<span style="font-size:11px;color:#9aa0a6;font-family:monospace;">'+e.id+'</span>';
+  document.getElementById('dp-sub').innerHTML=tipoPill(e.tipo)+'&nbsp;'+estadoPill(e.estado)+'&nbsp;'+(e.estatus?estatusPill(e.estatus)+'&nbsp;':'')+(e.descapitalizado?descapitalizadoBadge(e)+'&nbsp;':'')+'<span style="font-size:11px;color:#9aa0a6;font-family:monospace;">'+e.id+'</span>';
   // Foto del equipo - buscar imagen automática por marca+modelo
   var dpFotoEl=document.getElementById('dp-foto-wrap');
   if(dpFotoEl){
@@ -3543,7 +3545,7 @@ function dpTab(tab){
         +row('Color',e.color_cel)
         :'')
       +'<div class="dp-sec-t">Estado físico</div>'
-      +row('Estado',estadoPill(e.estado))+(e.estatus?row('Estatus',estatusPill(e.estatus)):'')+row('Observaciones',e.obs)
+      +row('Estado',estadoPill(e.estado))+(e.estatus?row('Estatus',estatusPill(e.estatus)):'')+(e.descapitalizado?row('Descapitalizado',descapitalizadoBadge(e)):'')+row('Observaciones',e.obs)
       +(e.updBy?'<div style="font-size:11px;color:#9aa0a6;margin-top:14px;padding-top:10px;border-top:1px solid #f0f2f5;">Última modificación: <b>'+e.updBy+'</b> — '+e.updTs+'</div>':'')
       +'<div style="margin-top:14px;display:flex;gap:6px;">'
       +'<button class="btn btn-blue btn-sm" onclick="openFormRepFor(\''+e.id+'\')">🔧 Registrar reparación</button>'
@@ -3946,8 +3948,8 @@ function renderInventario(){
     +'</div></div>'
     +'<div style="overflow-x:auto;"><table>'
     +'<thead><tr>'
-    +['af','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado','estatus','',''].map(function(c,i){
-      var lbl=['N° Activo','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Estatus','AV','Acciones'][i];
+    +['af','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado','estatus','descapitalizado','',''].map(function(c,i){
+      var lbl=['N° Activo','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Estatus','Descap.','AV','Acciones'][i];
       if(!c)return '<th>'+lbl+'</th>';
       return '<th onclick="sortBy(\''+c+'\')" >'+lbl+(sortCol===c?(sortAsc?' ▲':' ▼'):' ⇅')+'</th>';
     }).join('')
@@ -3977,6 +3979,7 @@ function renderInventario(){
         +'<td style="font-size:11px;">'+(e.so||'—')+'</td>'
         +'<td>'+estadoPill(e.estado)+'</td>'
         +'<td>'+estatusPill(e.estatus)+'</td>'
+        +'<td>'+(e.descapitalizado?'<span class="pill pill-descapitalizado" title="'+( e.fecha_descapitalizado||'')+'">⚠ '+( e.fecha_descapitalizado||'Descap.')+'</span>':'<span style="color:#d1d5db;font-size:10px;">—</span>')+'</td>'
         +'<td>'+avCell+'</td>'
         +'<td>'+vidaPill(e.fecha)+'</td>'
         +'<td><div style="display:flex;gap:3px;">'
@@ -3984,7 +3987,7 @@ function renderInventario(){
         +'<button class="icon-btn" data-act="edit" data-bid="'+e.id+'" onclick="event.stopPropagation();editEquipo(this.dataset.bid)" title="Editar">&#9999;&#65039;</button>'
         +'<button class="icon-btn" data-act="del" data-bid="'+e.id+'" onclick="event.stopPropagation();deleteEquipo(this.dataset.bid)" title="Eliminar" style="color:#ea4335;">&#128465;</button>'+'</div></td>'
         +'</tr>';
-    }).join(''):'<tr><td colspan="16" class="empty-state">No hay equipos que coincidan</td></tr>')
+    }).join(''):'<tr><td colspan="17" class="empty-state">No hay equipos que coincidan</td></tr>')
     +'</tbody></table></div>'
     +(data.length>INV_PG?'<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;border-top:1px solid #f3f4f6;">'
       +'<button onclick="invPag=Math.max(0,invPag-1);renderInventario();" style="padding:4px 12px;border-radius:6px;border:1px solid #e5e7eb;background:'+(invPag===0?'#f9fafb':'#fff')+';cursor:pointer;font-size:12px;" '+(invPag===0?'disabled':'')+'>◀ Anterior</button>'
@@ -4071,6 +4074,7 @@ function renderInventarioCards(data){
       +estadoPill(e.estado)
       +'<span style="font-size:10px;font-weight:600;color:'+vcol+';background:'+vbg+';padding:2px 7px;border-radius:20px;">'+anios.toFixed(1)+'a</span>'
       +'</div>'
+      +(e.descapitalizado?'<div style="margin-top:5px;">'+descapitalizadoBadge(e)+'</div>':'')
       // Botones
       +'<div class="inv-card-btns" style="display:flex;gap:4px;margin-top:9px;padding-top:9px;border-top:0.5px solid #f3f4f6;">'
       +'<button class="btn btn-sm" data-act="ver" data-id="'+eid+'" style="flex:1;font-size:11px;justify-content:center;">&#128065; Ver</button>'
