@@ -3150,6 +3150,18 @@ function renderDashboard(){
     .sort(function(a,b){return b.cnt-a.cnt;}).slice(0,10);
   var maxResp=topResp.length?topResp[0].cnt:1;
 
+  // Estatus (campo estatus en Firestore)
+  var byEstatus={Asignado:0,'No Asignado':0,Desecho:0,'No encontrado':0};
+  var totalConEstatus=0;
+  equipos.forEach(function(e){
+    if(e.estatus&&byEstatus[e.estatus]!==undefined){byEstatus[e.estatus]++;totalConEstatus++;}
+  });
+  var totalEquipos=equipos.length;
+
+  // Descapitalizados
+  var descapTotal=equipos.filter(function(e){return e.descapitalizado;}).length;
+  var descapActivos=activos.filter(function(e){return e.descapitalizado;}).length;
+
   // Cards tipo equipo
   var tipoCards=tiposSorted.map(function(t){
     var color=tipoColors[t]||'#6b7280';
@@ -3209,7 +3221,8 @@ function renderDashboard(){
     {icon:'ti-circle-check',bg:'#f0fdf4',ic:'#16a34a',txt:'<b>'+(byEstado.Bueno||0)+'</b> equipos en <span style="color:#16a34a;font-weight:500;">buen estado</span> — '+pctBueno+'%',meta:'Estado físico del inventario'},
     {icon:'ti-alert-triangle',bg:'#fff1f2',ic:'#dc2626',txt:'<b>'+rojo+'</b> equipos con <span style="color:#dc2626;font-weight:500;">+4 años</span> de vida útil',meta:'Candidatos urgentes a reemplazo'},
     {icon:'ti-clock',bg:'#fffbeb',ic:'#d97706',txt:'<b>'+amarillo+'</b> equipos <span style="color:#d97706;font-weight:500;">próximos a vencer</span> vida útil',meta:'Planificar reemplazo el próximo año'},
-    {icon:'ti-users',bg:'#f5f3ff',ic:'#7c3aed',txt:'<b>'+sinResponsable+'</b> equipos <span style="color:#dc2626;font-weight:500;">sin responsable</span> identificado',meta:'Requieren asignación de personal'}
+    {icon:'ti-users',bg:'#f5f3ff',ic:'#7c3aed',txt:'<b>'+sinResponsable+'</b> equipos <span style="color:#dc2626;font-weight:500;">sin responsable</span> identificado',meta:'Requieren asignación de personal'},
+    {icon:'ti-alert-hexagon',bg:'#fef3c7',ic:'#92400e',txt:'<b>'+descapTotal+'</b> equipos <span style="color:#92400e;font-weight:500;">descapitalizados en SAP</span> al 18.05.2026',meta:'Baja definitiva en sistema SAP — verificar con contabilidad'}
   ];
   var actHTML=actItems.map(function(a){
     return '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:0.5px solid #f3f4f6;">'
@@ -3324,6 +3337,62 @@ function renderDashboard(){
     +'<div class="scs-top"><div class="scs-icon" style="background:#eff6ff;"><i class="ti ti-shield-check" style="color:#2563eb;font-size:18px;"></i></div><span class="scs-badge" style="background:#dbeafe;color:#1d4ed8;">AV</span></div>'
     +'<div class="scs-lbl">Con antivirus</div><div class="scs-val" style="color:#2563eb;">179</div>'
     +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">3 sin registro · Ver consola →</div>'
+    +'</div>'
+    +'</div>'
+
+    // ESTATUS + DESCAPITALIZADOS
+    +'<div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:12px;align-items:stretch;">'
+    // Panel estatus
+    +'<div class="pnl">'
+    +'<div class="pnl-hd"><h3><i class="ti ti-tag" style="font-size:13px;color:#6b7280;"></i> Estatus de equipos</h3>'
+    +(totalConEstatus?'<span style="font-size:10px;color:#9ca3af;">'+totalConEstatus+' de '+totalEquipos+' con estatus registrado</span>':'')
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:0;padding:10px 16px;flex-wrap:wrap;gap:8px;">'
+    // Asignado
+    +'<div onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.estatus=\'Asignado\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
+    +'style="display:flex;align-items:center;gap:10px;background:#f0fdf4;border:0.5px solid #bbf7d0;border-radius:8px;padding:10px 14px;cursor:pointer;flex:1;min-width:140px;transition:border-color .15s;" '
+    +'onmouseover="this.style.borderColor=\'#4ade80\'" onmouseout="this.style.borderColor=\'#bbf7d0\'">'
+    +'<div style="width:32px;height:32px;border-radius:7px;background:#dcfce7;display:flex;align-items:center;justify-content:center;">'
+    +'<i class="ti ti-user-check" style="color:#16a34a;font-size:16px;"></i></div>'
+    +'<div><div style="font-size:11px;color:#6b7280;">Asignado</div>'
+    +'<div style="font-size:22px;font-weight:600;color:#16a34a;line-height:1.1;">'+byEstatus.Asignado+'</div></div>'
+    +'</div>'
+    // No Asignado
+    +'<div onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.estatus=\'No Asignado\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
+    +'style="display:flex;align-items:center;gap:10px;background:#fffbeb;border:0.5px solid #fde68a;border-radius:8px;padding:10px 14px;cursor:pointer;flex:1;min-width:140px;transition:border-color .15s;" '
+    +'onmouseover="this.style.borderColor=\'#fbbf24\'" onmouseout="this.style.borderColor=\'#fde68a\'">'
+    +'<div style="width:32px;height:32px;border-radius:7px;background:#fef9c3;display:flex;align-items:center;justify-content:center;">'
+    +'<i class="ti ti-user-question" style="color:#ca8a04;font-size:16px;"></i></div>'
+    +'<div><div style="font-size:11px;color:#6b7280;">No asignado</div>'
+    +'<div style="font-size:22px;font-weight:600;color:#ca8a04;line-height:1.1;">'+byEstatus['No Asignado']+'</div></div>'
+    +'</div>'
+    // Desecho
+    +'<div onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.estatus=\'Desecho\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
+    +'style="display:flex;align-items:center;gap:10px;background:#fef2f2;border:0.5px solid #fecaca;border-radius:8px;padding:10px 14px;cursor:pointer;flex:1;min-width:140px;transition:border-color .15s;" '
+    +'onmouseover="this.style.borderColor=\'#f87171\'" onmouseout="this.style.borderColor=\'#fecaca\'">'
+    +'<div style="width:32px;height:32px;border-radius:7px;background:#fee2e2;display:flex;align-items:center;justify-content:center;">'
+    +'<i class="ti ti-trash" style="color:#dc2626;font-size:16px;"></i></div>'
+    +'<div><div style="font-size:11px;color:#6b7280;">Desecho</div>'
+    +'<div style="font-size:22px;font-weight:600;color:#dc2626;line-height:1.1;">'+byEstatus.Desecho+'</div></div>'
+    +'</div>'
+    // No encontrado
+    +'<div onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.estatus=\'No encontrado\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
+    +'style="display:flex;align-items:center;gap:10px;background:#f9fafb;border:0.5px solid #e5e7eb;border-radius:8px;padding:10px 14px;cursor:pointer;flex:1;min-width:140px;transition:border-color .15s;" '
+    +'onmouseover="this.style.borderColor=\'#9ca3af\'" onmouseout="this.style.borderColor=\'#e5e7eb\'">'
+    +'<div style="width:32px;height:32px;border-radius:7px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">'
+    +'<i class="ti ti-map-search" style="color:#6b7280;font-size:16px;"></i></div>'
+    +'<div><div style="font-size:11px;color:#6b7280;">No encontrado</div>'
+    +'<div style="font-size:22px;font-weight:600;color:#6b7280;line-height:1.1;">'+byEstatus['No encontrado']+'</div></div>'
+    +'</div>'
+    +'</div>'
+    +'</div>'
+    // KPI Descapitalizados
+    +'<div class="scs" style="min-width:160px;cursor:default;" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.estatus=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
+    +'<div class="scs-top"><div class="scs-icon" style="background:#fef3c7;"><i class="ti ti-alert-hexagon" style="color:#92400e;font-size:18px;"></i></div>'
+    +'<span class="scs-badge" style="background:#fef3c7;color:#92400e;">SAP</span></div>'
+    +'<div class="scs-lbl">Descapitalizados</div>'
+    +'<div class="scs-val" style="color:#92400e;">'+descapTotal+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">'+(descapActivos?' '+descapActivos+' en activos ·':'')+'Fecha: 18.05.2026</div>'
     +'</div>'
     +'</div>'
 
