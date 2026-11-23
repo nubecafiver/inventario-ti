@@ -83,6 +83,10 @@ tr:hover td{background:#f7f9ff;}
 .pill-regular{background:#fff8e1;color:#f57f17;}
 .pill-malo{background:#fce8e6;color:#c62828;}
 .pill-baja{background:#f0f2f5;color:#9aa0a6;}
+.pill-asignado{background:#dcfce7;color:#15803d;}
+.pill-no-asignado{background:#fff7ed;color:#c2410c;}
+.pill-desecho{background:#fce8e6;color:#9b1c1c;}
+.pill-no-encontrado{background:#f5f3ff;color:#6d28d9;}
 .fi-sm{font-size:12px;padding:6px 10px;border:1.5px solid #e0e2e6;border-radius:8px;outline:none;font-family:'Inter',sans-serif;background:#fff;transition:border-color .15s;}
 .fi-sm:focus{border-color:#1a73e8;}
 .icon-btn{padding:5px 8px;border:1px solid #e0e2e6;border-radius:7px;cursor:pointer;background:#fff;font-size:12px;transition:all .15s;}
@@ -1503,7 +1507,7 @@ var LOGO_B64='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gKgSUNDX1BST0Z
 var BASE_URL='https://nubecafiver.github.io/inventario-ti/#';
 var curUser=null,curView='dashboard',openEquipoId=null,editingId=null,dpCurTab='info';
 var sortCol='',sortAsc=true;
-var invFilter={q:'',tipo:'',estado:'',plaza:'',area:'',responsable:'',empleadoId:''};
+var invFilter={q:'',tipo:'',estado:'',estatus:'',plaza:'',area:'',responsable:'',empleadoId:''};
 var invPag=0; // página actual (tabla, 50 por página)
 
 function uid(){return 'EQ'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase();}
@@ -1548,6 +1552,7 @@ function fmt$(n){return n?'$'+Number(n).toLocaleString('es-MX',{minimumFractionD
 function cleanObj(o){return JSON.parse(JSON.stringify(o,function(k,v){return v===undefined?null:v;}));}
 function tipoPill(t){var m={Desktop:'pill-desktop',Laptop:'pill-laptop',Servidor:'pill-servidor',Impresora:'pill-impresora',Celular:'pill-celular',Otro:'pill-otro'};return '<span class="pill '+(m[t]||'pill-otro')+'">'+t+'</span>';}
 function estadoPill(e){var m={Bueno:'pill-bueno',Regular:'pill-regular',Malo:'pill-malo',Baja:'pill-baja'};return '<span class="pill '+(m[e]||'pill-otro')+'">'+e+'</span>';}
+function estatusPill(s){var m={Asignado:'pill-asignado','No Asignado':'pill-no-asignado',Desecho:'pill-desecho','No encontrado':'pill-no-encontrado'};return s?'<span class="pill '+(m[s]||'pill-otro')+'">'+s+'</span>':'<span style="color:#d1d5db;font-size:10px;">—</span>';}
 function row(k,v){return '<div class="dp-row"><div class="dp-key">'+k+'</div><div class="dp-val">'+(v||'—')+'</div></div>';}
 
 // LOGIN
@@ -2443,7 +2448,7 @@ function verEqBtn(pid, cnt){
 }
 
 function verEquiposEmpleado(pid){
-  invPag=0;invFilter.q='';invFilter.tipo='';invFilter.estado='';
+  invPag=0;invFilter.q='';invFilter.tipo='';invFilter.estado='';invFilter.estatus='';
   invFilter.area='';invFilter.plaza='';invFilter.responsable='';
   invFilter.empleadoId = pid;
   switchView('inventario');
@@ -3149,7 +3154,7 @@ function renderDashboard(){
     var icon=tipoIcons[t]||'ti-device-unknown';
     var pct=total?Math.round(byTipo[t]/total*100):0;
     var tEsc=t.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return '<div onclick="invFilter.q=\'\';invFilter.tipo=\''+tEsc+'\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
+    return '<div onclick="invFilter.q=\'\';invFilter.tipo=\''+tEsc+'\';invFilter.estado=\'\';invFilter.estatus=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
       +'style="background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:14px;cursor:pointer;transition:border-color .15s;" '
       +'onmouseover="this.style.borderColor=\''+color+'\'" onmouseout="this.style.borderColor=\'#e5e7eb\'">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
@@ -3171,7 +3176,7 @@ function renderDashboard(){
     activos.filter(function(e){return e.area===a;}).forEach(function(e){if(vidaClass(calcAnios(e.fecha))==='rojo')rojoA++;});
     var pctRojo=byArea[a]?Math.round(rojoA/byArea[a]*100):0;
     var aEsc=a.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return '<div onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\''+aEsc+'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
+    return '<div onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.estatus=\'\';invFilter.area=\''+aEsc+'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
       +'style="display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:0.5px solid #f9fafb;cursor:pointer;transition:background .12s;" '
       +'onmouseover="this.style.background=\'#f9fafb\'" onmouseout="this.style.background=\'\'">'
       +'<span style="font-size:11px;color:#374151;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+a+'</span>'
@@ -3186,7 +3191,7 @@ function renderDashboard(){
   var plazaBarras=plazasSorted.slice(0,6).map(function(p){
     var pct=Math.round(byPlaza[p]/maxPlaza*100);
     var pEsc=p.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return '<div onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\''+pEsc+'\';switchView(\'inventario\');" '
+    return '<div onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.estatus=\'\';invFilter.area=\'\';invFilter.plaza=\''+pEsc+'\';switchView(\'inventario\');" '
       +'style="display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:0.5px solid #f9fafb;cursor:pointer;transition:background .12s;" '
       +'onmouseover="this.style.background=\'#f9fafb\'" onmouseout="this.style.background=\'\'">'
       +'<span style="font-size:11px;color:#374151;flex:1;">'+p+'</span>'
@@ -3275,12 +3280,12 @@ function renderDashboard(){
     // KPI ROW
     +'<div class="g4s">'
     // Fila 1: Activos, Buen estado, Para cambio, Valor
-    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\')">'
+    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.estatus=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\')">'
     +'<div class="scs-top"><div class="scs-icon" style="background:#eff6ff;"><i class="ti ti-devices" style="color:#1d4ed8;font-size:18px;"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">Activos</span></div>'
     +'<div class="scs-lbl">Equipos activos</div><div class="scs-val">'+total+'</div>'
     +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;"><span style="color:#16a34a;font-weight:600;">'+conResponsable+' asignados</span> · <span style="color:#ca8a04;font-weight:600;">'+sinResponsable+' sin responsable</span></div>'
     +'</div>'
-    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Bueno\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
+    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Bueno\';invFilter.estatus=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
     +'<div class="scs-top"><div class="scs-icon" style="background:#f0fdf4;"><i class="ti ti-circle-check" style="color:#16a34a;font-size:18px;"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">'+pctBueno+'%</span></div>'
     +'<div class="scs-lbl">Buen estado</div><div class="scs-val" style="color:#16a34a;">'+(byEstado.Bueno||0)+'</div>'
     +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">Regular: '+(byEstado.Regular||0)+' · Malo: '+(byEstado.Malo||0)+'</div>'
@@ -3303,7 +3308,7 @@ function renderDashboard(){
     +'<div class="scs-lbl">Equipos obsoletos</div><div class="scs-val" style="color:#6b7280;">'+obsoletos.length+'</div>'
     +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">Ver en sección Obsoletos →</div>'
     +'</div>'
-    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Baja\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
+    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Baja\';invFilter.estatus=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
     +'<div class="scs-top"><div class="scs-icon" style="background:#fef2f2;"><i class="ti ti-trash" style="color:#dc2626;font-size:18px;"></i></div><span class="scs-badge" style="background:#fee2e2;color:#991b1b;">Baja</span></div>'
     +'<div class="scs-lbl">Dados de baja</div><div class="scs-val" style="color:#dc2626;">'+bajas.length+'</div>'
     +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">Click para ver en inventario →</div>'
@@ -3368,7 +3373,7 @@ function renderDashboard(){
       var col=cols[i%5];
       var ini=r.nombre.split(' ').map(function(x){return x[0]||'';}).join('').toUpperCase().slice(0,2);
       var rEsc=r.nombre.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return '<div onclick="invFilter.q=\''+rEsc+'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
+      return '<div onclick="invFilter.q=\''+rEsc+'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.estatus=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');" '
         +'style="display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:0.5px solid #f9fafb;cursor:pointer;transition:background .12s;" '
         +'onmouseover="this.style.background=\'#f9fafb\'" onmouseout="this.style.background=\'\'">'
         +'<div style="width:28px;height:28px;border-radius:50%;background:'+col[0]+';color:'+col[1]+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0;">'+ini+'</div>'
@@ -3477,7 +3482,7 @@ function openPanel(id){
   } else if(dpPerEl){
     dpPerEl.innerHTML='';
   }
-  document.getElementById('dp-sub').innerHTML=tipoPill(e.tipo)+'&nbsp;'+estadoPill(e.estado)+'&nbsp;<span style="font-size:11px;color:#9aa0a6;font-family:monospace;">'+e.id+'</span>';
+  document.getElementById('dp-sub').innerHTML=tipoPill(e.tipo)+'&nbsp;'+estadoPill(e.estado)+'&nbsp;'+(e.estatus?estatusPill(e.estatus)+'&nbsp;':'')+'<span style="font-size:11px;color:#9aa0a6;font-family:monospace;">'+e.id+'</span>';
   // Foto del equipo - buscar imagen automática por marca+modelo
   var dpFotoEl=document.getElementById('dp-foto-wrap');
   if(dpFotoEl){
@@ -3538,7 +3543,7 @@ function dpTab(tab){
         +row('Color',e.color_cel)
         :'')
       +'<div class="dp-sec-t">Estado físico</div>'
-      +row('Estado',estadoPill(e.estado))+row('Observaciones',e.obs)
+      +row('Estado',estadoPill(e.estado))+(e.estatus?row('Estatus',estatusPill(e.estatus)):'')+row('Observaciones',e.obs)
       +(e.updBy?'<div style="font-size:11px;color:#9aa0a6;margin-top:14px;padding-top:10px;border-top:1px solid #f0f2f5;">Última modificación: <b>'+e.updBy+'</b> — '+e.updTs+'</div>':'')
       +'<div style="margin-top:14px;display:flex;gap:6px;">'
       +'<button class="btn btn-blue btn-sm" onclick="openFormRepFor(\''+e.id+'\')">🔧 Registrar reparación</button>'
@@ -3875,6 +3880,7 @@ function renderInventario(){
     if(q&&!(e.nombre+e.modelo+e.marca+e.plaza+e.area+e.serie+e.ip+e.so+e.usuario+(e.responsable||'')+(e.af||'')).toLowerCase().includes(q))return false;
     if(invFilter.tipo&&e.tipo!==invFilter.tipo)return false;
     if(invFilter.estado&&e.estado!==invFilter.estado)return false;
+    if(invFilter.estatus&&(e.estatus||'')!==invFilter.estatus)return false;
     if(invFilter.plaza&&e.plaza!==invFilter.plaza)return false;
     if(invFilter.area&&e.area!==invFilter.area)return false;
     if(invFilter.empleadoId){
@@ -3932,12 +3938,16 @@ function renderInventario(){
     +'<option value="">Todos los estados</option>'
     +['Bueno','Regular','Malo','Baja'].map(function(t){return '<option value="'+t+'"'+(invFilter.estado===t?' selected':'')+'>'+t+'</option>';}).join('')
     +'</select>'
+    +'<select class="fi-sm" onchange="invPag=0;invFilter.estatus=this.value;renderInventario()">'
+    +'<option value="">Todos los estatus</option>'
+    +['Asignado','No Asignado','Desecho','No encontrado'].map(function(t){return '<option value="'+t+'"'+(invFilter.estatus===t?' selected':'')+'>'+t+'</option>';}).join('')
+    +'</select>'
     +'<button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Nuevo</button>'
     +'</div></div>'
     +'<div style="overflow-x:auto;"><table>'
     +'<thead><tr>'
-    +['af','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado','',''].map(function(c,i){
-      var lbl=['N° Activo','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','AV','Acciones'][i];
+    +['af','tipo','area','plaza','marca','nombre','responsable','cpu','ram','ip','so','estado','estatus','',''].map(function(c,i){
+      var lbl=['N° Activo','Tipo','Área','Plaza','Marca/Modelo','Nombre equipo','Responsable','Procesador','RAM','IP','S.O.','Estado','Estatus','AV','Acciones'][i];
       if(!c)return '<th>'+lbl+'</th>';
       return '<th onclick="sortBy(\''+c+'\')" >'+lbl+(sortCol===c?(sortAsc?' ▲':' ▼'):' ⇅')+'</th>';
     }).join('')
@@ -3966,6 +3976,7 @@ function renderInventario(){
         +'<td style="font-family:monospace;font-size:11px;">'+(e.ip||'—')+'</td>'
         +'<td style="font-size:11px;">'+(e.so||'—')+'</td>'
         +'<td>'+estadoPill(e.estado)+'</td>'
+        +'<td>'+estatusPill(e.estatus)+'</td>'
         +'<td>'+avCell+'</td>'
         +'<td>'+vidaPill(e.fecha)+'</td>'
         +'<td><div style="display:flex;gap:3px;">'
@@ -3973,7 +3984,7 @@ function renderInventario(){
         +'<button class="icon-btn" data-act="edit" data-bid="'+e.id+'" onclick="event.stopPropagation();editEquipo(this.dataset.bid)" title="Editar">&#9999;&#65039;</button>'
         +'<button class="icon-btn" data-act="del" data-bid="'+e.id+'" onclick="event.stopPropagation();deleteEquipo(this.dataset.bid)" title="Eliminar" style="color:#ea4335;">&#128465;</button>'+'</div></td>'
         +'</tr>';
-    }).join(''):'<tr><td colspan="15" class="empty-state">No hay equipos que coincidan</td></tr>')
+    }).join(''):'<tr><td colspan="16" class="empty-state">No hay equipos que coincidan</td></tr>')
     +'</tbody></table></div>'
     +(data.length>INV_PG?'<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;border-top:1px solid #f3f4f6;">'
       +'<button onclick="invPag=Math.max(0,invPag-1);renderInventario();" style="padding:4px 12px;border-radius:6px;border:1px solid #e5e7eb;background:'+(invPag===0?'#f9fafb':'#fff')+';cursor:pointer;font-size:12px;" '+(invPag===0?'disabled':'')+'>◀ Anterior</button>'
@@ -3996,12 +4007,13 @@ function renderInventario(){
     var filAreas='<select class="fi-sm" onchange="invFilter.area=this.value;renderInventario()"><option value="">Todas las areas</option>'+areas.map(function(a){return '<option value="'+a+'"'+(invFilter.area===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
     var filTipos='<select class="fi-sm" onchange="invFilter.tipo=this.value;renderInventario()"><option value="">Todos los tipos</option>'+tipos.map(function(t){return '<option value="'+t+'"'+(invFilter.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>';
     var filEstados='<select class="fi-sm" onchange="invFilter.estado=this.value;renderInventario()"><option value="">Todos los estados</option>'+['Bueno','Regular','Malo','Baja','Obsoleto'].map(function(s){return '<option value="'+s+'"'+(invFilter.estado===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
+    var filEstatus='<select class="fi-sm" onchange="invFilter.estatus=this.value;renderInventario()"><option value="">Todos los estatus</option>'+['Asignado','No Asignado','Desecho','No encontrado'].map(function(s){return '<option value="'+s+'"'+(invFilter.estatus===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
     w.innerHTML='<div style="padding:0;">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid #f3f4f6;flex-wrap:wrap;gap:8px;">'
       +'<span style="font-size:13px;font-weight:500;color:#111827;">'+data.length+' equipo'+(data.length!==1?'s':'')+'</span>'
       +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
       +'<input class="fi-sm" type="text" placeholder="🔍 Buscar..." value="'+invFilter.q+'" id="inv-search-cards" oninput="clearTimeout(window._invSTC);window._invSTC=setTimeout(function(){invFilter.q=document.getElementById(\'inv-search-cards\').value;renderInventario();},350);" onkeydown="if(event.keyCode===13){clearTimeout(window._invSTC);invFilter.q=this.value;renderInventario();}" style="width:150px;">'
-      +filAreas+filTipos+filEstados+toggleBtn
+      +filAreas+filTipos+filEstados+filEstatus+toggleBtn
       +'<button class="btn btn-blue btn-sm" onclick="openFormEquipo()">+ Nuevo</button>'
       +'</div></div>'
       +renderInventarioCards(data)
