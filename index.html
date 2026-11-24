@@ -5654,7 +5654,14 @@ function repBarH(val, max, color){
 /* ── 1. RESUMEN EJECUTIVO ── */
 function repResumen(){
   var total=equipos.length;
-  // — por estado exacto
+  // — por estatus (campo Firestore)
+  var byEstatus={Asignado:0,'No Asignado':0,Desecho:0,'No encontrado':0};
+  var totalConEstatus=0;
+  equipos.forEach(function(e){
+    if(e.estatus&&byEstatus[e.estatus]!==undefined){byEstatus[e.estatus]++;totalConEstatus++;}
+  });
+  var cDescap=equipos.filter(function(e){return e.descapitalizado===true;}).length;
+  // — por estado físico
   var cBueno    = equipos.filter(function(e){return e.estado==='Bueno';}).length;
   var cRegular  = equipos.filter(function(e){return e.estado==='Regular';}).length;
   var cMalo     = equipos.filter(function(e){return e.estado==='Malo';}).length;
@@ -5726,11 +5733,30 @@ function repResumen(){
       +repBarH(r.v,total,r.c)+'</div>';
   }).join('');
 
+  // — cards estatus clickables para filtrar inventario_gen por estatus
+  function cardEstatus(title, value, sub, color){
+    return '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;min-width:130px;flex:1;cursor:default;">'
+      +'<div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;">'+title+'</div>'
+      +'<div style="font-size:28px;font-weight:700;color:'+color+';margin:6px 0 2px;">'+value+'</div>'
+      +'<div style="font-size:11px;color:#9ca3af;">'+sub+'</div>'
+      +'</div>';
+  }
+
   return ''
-    // ── fila 1: estado
-    +'<div style="margin-bottom:6px;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.5px;">Estado de equipos — clic para ver listado</div>'
+    // ── fila 0: estatus inventario (principal)
+    +'<div style="margin-bottom:6px;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.5px;">Estatus de inventario</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px;">'
+    +cardEstatus('Asignado',       byEstatus['Asignado'],       'equipos asignados',       '#16a34a')
+    +cardEstatus('No Asignado',    byEstatus['No Asignado'],    'sin asignar',              '#d97706')
+    +cardEstatus('Desecho',        byEstatus['Desecho'],        'para dar de baja',         '#dc2626')
+    +cardEstatus('No encontrado',  byEstatus['No encontrado'],  'no localizados',           '#6b7280')
+    +cardEstatus('Descapitalizados', cDescap,                   'baja SAP 18.05.2026',      '#b45309')
+    +'</div>'
+    +'<div style="margin-bottom:18px;font-size:10px;color:#9ca3af;">'+totalConEstatus+' de '+total+' equipos con estatus registrado</div>'
+    // ── fila 1: estado físico
+    +'<div style="margin-bottom:6px;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.5px;">Estado físico — clic para ver listado</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;">'
-    +repCard('Total',total,'equipos','#111827')
+    +repCard('Total',total,'equipos en inventario','#111827')
     +cardClickable('Bueno',    cBueno,    cBueno+'  equipos en buen estado',    '#16a34a','estado','Bueno')
     +cardClickable('Regular',  cRegular,  cRegular+' equipos en estado regular','#d97706','estado','Regular')
     +cardClickable('Malo',     cMalo,     cMalo+'   equipos en mal estado',     '#dc2626','estado','Malo')
@@ -5738,10 +5764,10 @@ function repResumen(){
     +cardClickable('Obsoleto', cObsoleto, cObsoleto+' equipos obsoletos',       '#9ca3af','estado','Obsoleto')
     +'</div>'
     // ── fila 2: asignación
-    +'<div style="margin-bottom:6px;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.5px;">Asignación</div>'
+    +'<div style="margin-bottom:6px;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.5px;">Asignación de responsable</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;">'
-    +cardClickable('Con asignación', cConResp, Math.round(cConResp/total*100||0)+'% del inventario', '#1d4ed8','asignacion','con')
-    +cardClickable('Sin asignación', cSinResp, 'pendientes por asignar', '#ea580c','asignacion','sin')
+    +cardClickable('Con responsable', cConResp, Math.round(cConResp/total*100||0)+'% del inventario', '#1d4ed8','asignacion','con')
+    +cardClickable('Sin responsable', cSinResp, 'pendientes por asignar', '#ea580c','asignacion','sin')
     +cardClickable('Por reemplazar', cPorVencer, 'vida útil > 4 años', '#dc2626','estado','Baja')
     +repCard('Lic. por vencer', licVencer, 'en próximos 90 días', '#d97706')
     +'</div>'
@@ -5751,7 +5777,7 @@ function repResumen(){
     +'<h3 style="margin:0 0 12px;font-size:12px;font-weight:600;color:#111827;">Por Tipo <span style="font-size:10px;font-weight:400;color:#9ca3af;">(clic = filtrar)</span></h3>'
     +tipoChart+'</div>'
     +'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;">'
-    +'<h3 style="margin:0 0 12px;font-size:12px;font-weight:600;color:#111827;">Por Estado <span style="font-size:10px;font-weight:400;color:#9ca3af;">(clic = filtrar)</span></h3>'
+    +'<h3 style="margin:0 0 12px;font-size:12px;font-weight:600;color:#111827;">Por Estado Físico <span style="font-size:10px;font-weight:400;color:#9ca3af;">(clic = filtrar)</span></h3>'
     +estChart+'</div>'
     +'<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;">'
     +'<h3 style="margin:0 0 12px;font-size:12px;font-weight:600;color:#111827;">Por Plaza <span style="font-size:10px;font-weight:400;color:#9ca3af;">(clic = filtrar)</span></h3>'
