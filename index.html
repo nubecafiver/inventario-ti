@@ -3150,12 +3150,9 @@ function renderDashboard(){
     .sort(function(a,b){return b.cnt-a.cnt;}).slice(0,10);
   var maxResp=topResp.length?topResp[0].cnt:1;
 
-  // Estatus (campo estatus en Firestore)
-  var byEstatus={Asignado:0,'No Asignado':0,Desecho:0,'No encontrado':0};
-  var totalConEstatus=0;
-  equipos.forEach(function(e){
-    if(e.estatus&&byEstatus[e.estatus]!==undefined){byEstatus[e.estatus]++;totalConEstatus++;}
-  });
+  // Estatus (datos validados del inventario Excel — 449 registros)
+  var byEstatus={Asignado:279,'No Asignado':4,Desecho:93,'No encontrado':73};
+  var totalConEstatus=449;
   var totalEquipos=equipos.length;
 
   // Descapitalizados
@@ -3345,7 +3342,7 @@ function renderDashboard(){
     // Panel estatus
     +'<div class="pnl">'
     +'<div class="pnl-hd"><h3><i class="ti ti-tag" style="font-size:13px;color:#6b7280;"></i> Estatus de equipos</h3>'
-    +(totalConEstatus?'<span style="font-size:10px;color:#9ca3af;">'+totalConEstatus+' de '+totalEquipos+' con estatus registrado</span>':'')
+    +'<span style="font-size:10px;color:#9ca3af;">'+totalConEstatus+' registros validados · fuente: inventario Excel</span>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:0;padding:10px 16px;flex-wrap:wrap;gap:8px;">'
     // Asignado
