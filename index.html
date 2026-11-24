@@ -3150,9 +3150,12 @@ function renderDashboard(){
     .sort(function(a,b){return b.cnt-a.cnt;}).slice(0,10);
   var maxResp=topResp.length?topResp[0].cnt:1;
 
-  // Estatus (datos validados del inventario Excel — 449 registros)
-  var byEstatus={Asignado:279,'No Asignado':4,Desecho:93,'No encontrado':73};
-  var totalConEstatus=449;
+  // Estatus (campo estatus en Firestore)
+  var byEstatus={Asignado:0,'No Asignado':0,Desecho:0,'No encontrado':0};
+  var totalConEstatus=0;
+  equipos.forEach(function(e){
+    if(e.estatus&&byEstatus[e.estatus]!==undefined){byEstatus[e.estatus]++;totalConEstatus++;}
+  });
   var totalEquipos=equipos.length;
 
   // Descapitalizados
@@ -3289,60 +3292,12 @@ function renderDashboard(){
     +'<button onclick="openFormEquipo()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:6px;background:#1d4ed8;font-size:11px;font-weight:500;color:#fff;cursor:pointer;"><i class="ti ti-plus"></i> Nuevo equipo</button>'
     +'</div></div>'
 
-    // KPI ROW
-    +'<div class="g4s">'
-    // Fila 1: Activos, Buen estado, Para cambio, Valor
-    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'\';invFilter.estatus=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\')">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#eff6ff;"><i class="ti ti-devices" style="color:#1d4ed8;font-size:18px;"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">Activos</span></div>'
-    +'<div class="scs-lbl">Equipos activos</div><div class="scs-val">'+total+'</div>'
-    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;"><span style="color:#16a34a;font-weight:600;">'+conResponsable+' asignados</span> · <span style="color:#ca8a04;font-weight:600;">'+sinResponsable+' sin responsable</span></div>'
-    +'</div>'
-    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Bueno\';invFilter.estatus=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#f0fdf4;"><i class="ti ti-circle-check" style="color:#16a34a;font-size:18px;"></i></div><span class="scs-badge" style="background:#dcfce7;color:#15803d;">'+pctBueno+'%</span></div>'
-    +'<div class="scs-lbl">Buen estado</div><div class="scs-val" style="color:#16a34a;">'+(byEstado.Bueno||0)+'</div>'
-    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">Regular: '+(byEstado.Regular||0)+' · Malo: '+(byEstado.Malo||0)+'</div>'
-    +'</div>'
-    +'<div class="scs" onclick="switchView(\'inventario\');">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#fff7ed;"><i class="ti ti-alert-triangle" style="color:#ea580c;font-size:18px;"></i></div><span class="scs-badge" style="background:#ffedd5;color:#c2410c;">Urgente</span></div>'
-    +'<div class="scs-lbl">Para cambio</div><div class="scs-val" style="color:#ea580c;">'+rojo+'</div>'
-    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">Próximos: '+amarillo+' · En tiempo: '+verde+'</div>'
-    +'</div>'
-    +'<div class="scs" onclick="switchView(\'simulador\');">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#f5f3ff;"><i class="ti ti-currency-dollar" style="color:#7c3aed;font-size:18px;"></i></div><span class="scs-badge" style="background:#ede9fe;color:#6d28d9;">MXN</span></div>'
-    +'<div class="scs-lbl">Valor inventario</div><div class="scs-val" style="color:#7c3aed;font-size:18px;">'+fmt$(totalInv)+'</div>'
-    +'<div style="font-size:10px;color:#2563eb;margin-top:4px;">Ver simulador →</div>'
-    +'</div>'
-    +'</div>'
-    // Fila 2: Obsoletos, Baja, Sin responsable, AV
-    +'<div class="g4s" style="margin-top:8px;">'
-    +'<div class="scs" onclick="switchView(\'obsoletos\');">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#f9fafb;"><i class="ti ti-archive" style="color:#6b7280;font-size:18px;"></i></div><span class="scs-badge" style="background:#f1f5f9;color:#64748b;">Obsoletos</span></div>'
-    +'<div class="scs-lbl">Equipos obsoletos</div><div class="scs-val" style="color:#6b7280;">'+obsoletos.length+'</div>'
-    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">Ver en sección Obsoletos →</div>'
-    +'</div>'
-    +'<div class="scs" onclick="invFilter.q=\'\';invFilter.tipo=\'\';invFilter.estado=\'Baja\';invFilter.estatus=\'\';invFilter.area=\'\';invFilter.plaza=\'\';switchView(\'inventario\');">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#fef2f2;"><i class="ti ti-trash" style="color:#dc2626;font-size:18px;"></i></div><span class="scs-badge" style="background:#fee2e2;color:#991b1b;">Baja</span></div>'
-    +'<div class="scs-lbl">Dados de baja</div><div class="scs-val" style="color:#dc2626;">'+bajas.length+'</div>'
-    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">Click para ver en inventario →</div>'
-    +'</div>'
-    +'<div class="scs">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#fef9c3;"><i class="ti ti-user-question" style="color:#ca8a04;font-size:18px;"></i></div><span class="scs-badge" style="background:#fef9c3;color:#854d0e;">Atención</span></div>'
-    +'<div class="scs-lbl">Sin responsable</div><div class="scs-val" style="color:#ca8a04;">'+sinResponsable+'</div>'
-    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">'+pctSinResp+'% del parque activo</div>'
-    +'</div>'
-    +'<div class="scs" onclick="switchView(\'antivirus\');">'
-    +'<div class="scs-top"><div class="scs-icon" style="background:#eff6ff;"><i class="ti ti-shield-check" style="color:#2563eb;font-size:18px;"></i></div><span class="scs-badge" style="background:#dbeafe;color:#1d4ed8;">AV</span></div>'
-    +'<div class="scs-lbl">Con antivirus</div><div class="scs-val" style="color:#2563eb;">179</div>'
-    +'<div style="font-size:10px;color:#9ca3af;margin-top:4px;">3 sin registro · Ver consola →</div>'
-    +'</div>'
-    +'</div>'
-
-    // ESTATUS + DESCAPITALIZADOS
+    // ESTATUS + DESCAPITALIZADOS (primera sección visible)
     +'<div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:12px;align-items:stretch;">'
     // Panel estatus
     +'<div class="pnl">'
     +'<div class="pnl-hd"><h3><i class="ti ti-tag" style="font-size:13px;color:#6b7280;"></i> Estatus de equipos</h3>'
-    +'<span style="font-size:10px;color:#9ca3af;">'+totalConEstatus+' registros validados · fuente: inventario Excel</span>'
+    +'<span style="font-size:10px;color:#9ca3af;">'+totalConEstatus+' de '+totalEquipos+' con estatus registrado</span>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:0;padding:10px 16px;flex-wrap:wrap;gap:8px;">'
     // Asignado
